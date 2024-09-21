@@ -36,7 +36,7 @@ void http::clean_buffer(std::vector<char>& buffer)
 static std::size_t check_ext(const std::string& extension, std::string& content_type)
 {
     std::vector<std::pair<std::string, std::string>> valid_exts = { {".html", "text/html"}, {".css", "text/css"}, 
-        {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"},
+        {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"}, {".ico", "image/ico"},
         {".gif", "image/gif"}, {".pdf", "application/pdf"}, {".txt", "text/plain"} };
     
     for(auto& ext : valid_exts)
@@ -56,6 +56,7 @@ std::size_t http::extract_content_type(const std::string& resource, std::string&
     std::string extension;
     if((start = resource.find(".")) == std::string::npos)
     {
+        logger::debug("ERROR", "no file extension found", "Forbidden", __FILE__, __LINE__);
         return FORBIDDEN;
     }
     extension = resource.substr(start, resource.length() - start);
@@ -71,10 +72,10 @@ std::size_t http::extract_resource(const std::vector<char>& buffer, std::string&
     {
         return BAD_REQUEST;
     }
-    resource = request.substr(start + 1, end - start);
+    resource = request.substr(start + 1, end - start - 1);
     if(resource == "/")
     {
-        resource = "index.html";
+        resource = "/index.html";
     }
     return OK;
 }
@@ -90,6 +91,7 @@ std::size_t http::validate_method(const std::vector<char>& buffer)
     std::string method = str.substr(0, pos);
     if(method.find("GET") == std::string::npos && method.find("get") == std::string::npos)
     {
+        logger::debug("ERROR", "Get request not detected", "", __FILE__, __LINE__);
         return FORBIDDEN;
     }
     return OK;
@@ -103,6 +105,7 @@ std::size_t http::validate_buffer(const std::vector<char>& buffer)
     {
         if(request.find(str) != std::string::npos)
         {
+            logger::debug("ERROR", "Bad char found", "", __FILE__, __LINE__);
             return FORBIDDEN;
         }
     }

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include "logger.h"
 
 #define ERROR 86
 #define SUCCESS 23

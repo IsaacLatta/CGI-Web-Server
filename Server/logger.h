@@ -20,7 +20,7 @@ std::string get_header(const std::vector<char>& buffer);
 std::string get_user_agent(const std::vector<char>& buffer);
 void debug(std::string type, std::string s1, std::string s2, std::string file, std::size_t line);
 
-void log(const std::shared_ptr<Session>& session, std::string type);
+void log(std::string type, const std::shared_ptr<Session>& session = nullptr);
 
 }
 

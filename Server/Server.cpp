@@ -33,7 +33,7 @@ void Server::run()
         this->accept_handler(error, session);
     });
     
-    logger::log(nullptr, "INFO proxy running");
+    logger::log("INFO web server running");
     this->_io_context.run();
 }
 
@@ -58,7 +58,7 @@ bool Server::is_error(const asio::error_code& error)
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         asio::error::access_denied || asio::error::address_in_use)
     {
-        logger::log(nullptr, "FATAL " + error.message());
+        logger::log("FATAL " + error.message());
         return true;;
     }
 
@@ -66,9 +66,9 @@ bool Server::is_error(const asio::error_code& error)
       error.value() == asio::error::connection_refused || asio::error::timed_out || asio::error::no_buffer_space ||
       error.value() == asio::error::host_unreachable)
     {
-        logger::log(nullptr, "ERROR " + error.message());
+        logger::log("ERROR " + error.message());
         this->_retries++;
-        sleep(DEFAULT_BACKOFF_MS*_retries);
+        sleep(DEFAULT_BACKOFF_MS * _retries);
     }
 
     return false;

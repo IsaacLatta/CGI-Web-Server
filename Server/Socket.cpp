@@ -34,9 +34,17 @@ void HTTPSocket::do_read(char* buffer, std::size_t buffer_size, const std::funct
     });
 }
 
-HTTPSocket::~HTTPSocket()
+void HTTPSocket::close()
 {
     this->_socket.close();
+}
+
+HTTPSocket::~HTTPSocket()
+{
+    if(this->_socket.is_open())
+    {
+        this->_socket.close();
+    }
 }
 
 asio::ip::tcp::socket& HTTPSSocket::get_raw_socket()
@@ -76,7 +84,15 @@ void HTTPSSocket::do_write(char* buffer, std::size_t buffer_size, const std::fun
     });
 }
 
-HTTPSSocket::~HTTPSSocket()
+void HTTPSSocket::close()
 {
     this->_socket.next_layer().close();
+}
+
+HTTPSSocket::~HTTPSSocket()
+{
+    if(this->_socket.next_layer().is_open())
+    {
+        this->_socket.next_layer().close();
+    }
 }

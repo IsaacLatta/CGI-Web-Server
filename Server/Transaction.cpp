@@ -34,9 +34,6 @@ void Transaction::process(const std::vector<char>& buffer)
     req_header = logger::get_header(buffer);
     user_agent = logger::get_user_agent(buffer);
     open_resource();
-    logger::debug("INFO", "Resource", this->resource, __FILE__, __LINE__);
-    logger::debug("INFO", "Content-Type", this->content_type, __FILE__, __LINE__);
-    logger::debug("INFO", "Building response", "...", __FILE__, __LINE__);
     build_response();
 }
 
@@ -47,7 +44,6 @@ bool Transaction::error(const std::optional<asio::error_code> error)
 
     if(error && *error)
     {
-        logger::debug("ERROR", error->message(), "", __FILE__, __LINE__);
         return true;
     }
     return false;
@@ -55,6 +51,7 @@ bool Transaction::error(const std::optional<asio::error_code> error)
 
 void Transaction::open_resource()
 {
+    logger::debug("INFO", "opening", resource, __FILE__, __LINE__);
     this->fd = open(this->resource.data(), O_RDONLY);
     if(this->fd < 0)
     {

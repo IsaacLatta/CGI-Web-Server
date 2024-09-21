@@ -1,6 +1,14 @@
 #include "logger.h"
 #include "Session.h"
 
+std::string get_response(const std::string& response_header)
+{
+    std::size_t pos = response_header.find("\r\n");
+    if(pos == std::string::npos)
+        return "";
+    return response_header.substr(0, pos);
+}
+
 int duration_ms(std::chrono::time_point<std::chrono::system_clock>& start_time, std::chrono::time_point<std::chrono::system_clock>& end_time)
 {
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
@@ -116,7 +124,7 @@ std::string logger::get_header(const std::vector<char>& buffer)
     return header_buffer.substr(0,end);
 }
 
-void logger::log(const std::shared_ptr<Session>& session, std::string type)
+void logger::log(std::string type, const std::shared_ptr<Session>& session)
 {
     std::fstream log_file;
     std::string log_msg;
@@ -138,8 +146,7 @@ void logger::log(const std::shared_ptr<Session>& session, std::string type)
         Transaction* trans = session->get_transaction();
         log_msg = "[" + time +"] " +  type + " [client " + session->get_socket()->get_IP() + "] " + 
         "\"" + trans->req_header + "\" \"" + trans->user_agent + 
-        "\" [Latency: " + std::to_string(duration_ms(session->start_time, session->end_time)) + 
-        "ms, Size: " + formatBytes(session->bytes_transferred) + "]\n" ;
+        "\" [" + get_response(trans->resp_header) + "]\n";
     }
     
     log_file << log_msg;

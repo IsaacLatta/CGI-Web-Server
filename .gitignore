@@ -1,0 +1,5 @@
+*.crt
+*.log
+*.pem
+*.vscode
+*/TEST

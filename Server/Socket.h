@@ -14,6 +14,7 @@ class Socket
     virtual void do_write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) = 0;
     virtual std::string get_IP() = 0;
     virtual asio::ip::tcp::socket& get_raw_socket() = 0;
+    virtual void close() = 0;
     virtual ~Socket() = default;
 };
 
@@ -24,6 +25,7 @@ class HTTPSocket: public Socket
     void do_handshake(const std::function<void(const asio::error_code&)>& callback) override;
     void do_read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
     void do_write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
+    void close() override;
     std::string get_IP() override;
     asio::ip::tcp::socket& get_raw_socket() override;
     ~HTTPSocket() override;
@@ -38,6 +40,7 @@ class HTTPSSocket : public Socket
     void do_handshake(const std::function<void(const asio::error_code&)>& callback) override;
     void do_read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
     void do_write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
+    void close();
     std::string get_IP() override;
     asio::ip::tcp::socket& get_raw_socket() override;
     ~HTTPSSocket() override;

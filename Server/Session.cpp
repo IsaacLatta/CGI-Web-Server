@@ -14,6 +14,7 @@ void Session::start_send()
         logger::debug("ERROR", "start_send", std::to_string(_transaction->status), __FILE__, __LINE__);
         return;
     }
+    this->bytes_transferred = 0;
     this->send_resource(0);
 }
 
@@ -31,15 +32,20 @@ void Session::send_resource(std::size_t bytes_read)
 
         self->bytes_transferred += bytes;
         bytes_read += bytes;
+
         self->_sock->do_write(self->_buffer.data() + bytes_read - bytes, bytes,
         [self, bytes_read](const asio::error_code& error, std::size_t bytes_written) mutable
         {
-            if(bytes_read >= self->_transaction->content_len)
+            if(self->bytes_transferred >= self->_transaction->content_len || error == asio::error::eof)
             {
+                logger::debug("INFO", "SEND COMPLETE", std::to_string(self->bytes_transferred) + " bytes", __FILE__, __LINE__);
+                logger::log("INFO", self);
+                self->get_socket()->close();
                 return;
             }
             if(self->_buffer.size() - bytes_read < 10000)
             {
+                memset(self->_buffer.data(), '\0', self->_buffer.size());
                 bytes_read = 0; // reset pointer
             }
             if(self->_transaction->error(error))
@@ -58,7 +64,7 @@ void Session::handle_request(const asio::error_code& error)
     if(self->_transaction->error(error))
     {
         logger::debug("ERROR", "async_read_some", error.message() , __FILE__, __LINE__);
-        logger::log(self, "ERROR" + error.message());
+        logger::log("ERROR" + error.message());
         return;
     }
 
@@ -68,7 +74,7 @@ void Session::handle_request(const asio::error_code& error)
     {
         if(self->_transaction->error(error))
         {
-            logger::debug("ERROR", "async_write", error.message() , __FILE__, __LINE__);
+            logger::debug("ERROR", "writing header", std::to_string(self->get_transaction()->status) , __FILE__, __LINE__);
             return;
         }
         logger::debug("REQUEST HEADER", "", std::string(self->_buffer.begin(), self->_buffer.end()), __FILE__, __LINE__);
@@ -82,7 +88,7 @@ void Session::start()
     auto self = shared_from_this();
 
     self->_buffer.resize(BUFFER_SIZE);
-    self->start_time = std::chrono::system_clock::now();
+    
     self->_sock->do_handshake (
     [self](const asio::error_code& error)
     {
@@ -95,7 +101,6 @@ void Session::start()
         self->_sock->do_read(self->_buffer.data(), self->_buffer.size(), 
         [self](const asio::error_code& error, std::size_t bytes)
         {
-            self->bytes_transferred += bytes;
             self->handle_request(error);
         });
     });
