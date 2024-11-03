@@ -106,7 +106,7 @@ std::string get_user_agent(const std::vector<char>& buffer)
     std::string buffer_str(buffer.begin(), buffer.end());
     if((ua_start = buffer_str.find("User-Agent")) == std::string::npos)
         return "";
-    if((ua_end = buffer_str.find("\r\n", ua_start)) ==std::string::npos)
+    if((ua_end = buffer_str.find("\r\n", ua_start)) == std::string::npos)
         return "";
 
     std::string user_agent =  buffer_str.substr(ua_start, ua_end - ua_start);
@@ -156,7 +156,7 @@ void http::clean_buffer(std::vector<char>& buffer)
     }
 }
 
-static std::size_t check_ext(const std::string& extension, std::string& content_type)
+static http::code check_ext(const std::string& extension, std::string& content_type)
 {
     std::vector<std::pair<std::string, std::string>> valid_exts = { {".html", "text/html"}, {".css", "text/css"}, 
         {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"}, {".ico", "image/ico"},
@@ -167,58 +167,58 @@ static std::size_t check_ext(const std::string& extension, std::string& content_
         if(extension == ext.first)
         {
             content_type = ext.second;
-            return OK;
+            return http::code::OK;
         }
     }
-    return FORBIDDEN;
+    return http::code::Forbidden;
 }
 
-std::size_t http::extract_content_type(const std::string& resource, std::string& content_type)
+http::code http::extract_content_type(const std::string& resource, std::string& content_type)
 {
     std::size_t start;
     std::string extension;
     if((start = resource.find(".")) == std::string::npos)
     {
-        return FORBIDDEN;
+        return http::code::Forbidden;
     }
     extension = resource.substr(start, resource.length() - start);
 
     return check_ext(extension, content_type);
 }
 
-std::size_t http::extract_resource(const std::vector<char>& buffer, std::string& resource)
+http::code http::extract_resource(const std::vector<char>& buffer, std::string& resource)
 {
     std::size_t start, end;
     std::string request(buffer.begin(), buffer.end());
     if((start = request.find(" ")) == std::string::npos || (end = request.find(" ", start + 1)) == std::string::npos)
     {
-        return BAD_REQUEST;
+        return http::code::Bad_Request;
     }
     resource = request.substr(start + 1, end - start - 1);
     if(resource == "/")
     {
         resource = "/index.html";
     }
-    return OK;
+    return http::code::OK;
 }
 
-std::size_t http::validate_method(const std::vector<char>& buffer)
+http::code http::validate_method(const std::vector<char>& buffer)
 {
     std::size_t pos;
     std::string str(buffer.begin(), buffer.end());
     if((pos = str.find("HTTP/")) == std::string::npos)
     {
-        return BAD_REQUEST;
+        return http::code::Bad_Request;
     }
     std::string method = str.substr(0, pos);
     if(method.find("GET") == std::string::npos && method.find("get") == std::string::npos)
     {
-        return FORBIDDEN;
+        return http::code::Not_Implemented;
     }
-    return OK;
+    return http::code::OK;
 }
 
-std::size_t http::validate_buffer(const std::vector<char>& buffer)
+http::code http::validate_buffer(const std::vector<char>& buffer)
 {
     std::vector<const char*> bad_strs = { "../", "./", "..\\", "'", "`", "<", ">", "|", "&" };
     std::string request = url_decode(std::string(buffer.begin(), buffer.end()));
@@ -226,7 +226,7 @@ std::size_t http::validate_buffer(const std::vector<char>& buffer)
     {
         if(request.find(str) != std::string::npos)
         {
-            return FORBIDDEN;
+            return http::code::Forbidden;
         }
     }
     return validate_method(buffer);

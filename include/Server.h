@@ -24,7 +24,7 @@ class Server
     std::size_t _retries;
     bool _ssl;
 
-    void load_certificate(const std::string& cert_path, const std::string& key_path);
+    void loadCertificate(const std::string& cert_path, const std::string& key_path);
     void acceptCaller(std::shared_ptr<Session> session);
     void acceptHandler(const asio::error_code& error, const std::shared_ptr<Session>& session);
     bool isError(const asio::error_code& error);

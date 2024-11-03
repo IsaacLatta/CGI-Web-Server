@@ -11,11 +11,11 @@ Server::Server(int local_port, const std::string& cert_path, const std::string& 
 
     if(_ssl && !cert_path.empty() && !key_path.empty())
     {
-        load_certificate(cert_path, key_path);
+        loadCertificate(cert_path, key_path);
     }
 }
 
-void Server::load_certificate(const std::string& cert_path, const std::string& key_path)
+void Server::loadCertificate(const std::string& cert_path, const std::string& key_path)
 {
     this->_ssl_context.set_options(asio::ssl::context::default_workarounds | // workaround common bugs
                                   asio::ssl::context::no_sslv2 | // disable sslv2
@@ -54,12 +54,11 @@ bool Server::isError(const asio::error_code& error)
         return false;
     }
 
-    //LOG_ERROR("async accept", "backing off ...", error.value(), error.message());
-    LOG_ERROR("async_accept", "(error=%d : %s)", error.value(), error.message());
+    ERROR("server async_accept", error.value(), error.message(), "");
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         asio::error::access_denied || asio::error::address_in_use)
     {
-        LOG_ERROR("server", "max retries reached(error=%d: %s) shutting down ...", error.value(), error.message());
+        EXIT_FATAL("server", error.value(), error.message(), "");
         return true;
     }
 
@@ -69,7 +68,7 @@ bool Server::isError(const asio::error_code& error)
     {
         this->_retries++;
         std::size_t backoff_time = DEFAULT_BACKOFF_MS * _retries; 
-        LOG_ERROR("server", "(error=%d :%s) backing off for %d ms", error.value(), error.message(), backoff_time);
+        ERROR("server", error.value(), error.message(), "backing off for: %d ms", backoff_time);
         sleep(backoff_time);
     }
 

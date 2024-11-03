@@ -13,20 +13,31 @@
 #include <string>
 #include <utility>
 
-#define ERROR 86
-#define SUCCESS 23
-#define OK 200
-#define BAD_REQUEST 400
-#define FORBIDDEN 403
-#define NOT_FOUND 404
-#define INTERNAL_SERVER_ERROR 500
 
 namespace http
 {
-    std::size_t validate_method(const std::vector<char>& buffer);
-    std::size_t validate_buffer(const std::vector<char>& buffer);
-    std::size_t extract_resource(const std::vector<char>& buffer, std::string& resource);
-    std::size_t extract_content_type(const std::string& resource, std::string& content_type);
+    enum class code {
+        OK = 200,
+        Created = 201,
+        Accepted = 202,
+        No_Content = 204,
+        Moved_Permanently = 301,
+        Found = 302,
+        Not_Modified = 304,
+        Bad_Request = 400,
+        Unauthorized = 401,
+        Forbidden = 403,
+        Not_Found = 404,
+        Internal_Server_Error = 500,
+        Not_Implemented = 501,
+        Bad_Gateway = 502,
+        Service_Unavailable = 503 
+    };
+
+    code validate_method(const std::vector<char>& buffer);
+    code validate_buffer(const std::vector<char>& buffer);
+    code extract_resource(const std::vector<char>& buffer, std::string& resource);
+    code extract_content_type(const std::string& resource, std::string& content_type);
     void clean_buffer(std::vector<char>& buffer);
 };
 
