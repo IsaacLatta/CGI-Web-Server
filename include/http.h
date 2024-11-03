@@ -1,10 +1,17 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+
+#include <string>
 #include <vector>
+#include <iostream>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <memory>
+#include <cmath>
 #include <string>
 #include <utility>
-#include "logger.h"
 
 #define ERROR 86
 #define SUCCESS 23

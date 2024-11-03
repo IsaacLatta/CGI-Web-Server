@@ -33,7 +33,7 @@ void Server::run()
         this->acceptHandler(error, session);
     });
     
-    logger::log("INFO web server running");
+    DEBUG("server", "running");
     this->_io_context.run();
 }
 
@@ -54,21 +54,23 @@ bool Server::isError(const asio::error_code& error)
         return false;
     }
 
-    logger::debug("ERROR", "async_accept", error.message(), __FILE__, __LINE__);
+    //LOG_ERROR("async accept", "backing off ...", error.value(), error.message());
+    LOG_ERROR("async_accept", "(error=%d : %s)", error.value(), error.message());
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         asio::error::access_denied || asio::error::address_in_use)
     {
-        logger::log("FATAL " + error.message());
-        return true;;
+        LOG_ERROR("server", "max retries reached(error=%d: %s) shutting down ...", error.value(), error.message());
+        return true;
     }
 
     if(error.value() == asio::error::would_block || asio::error::try_again || asio::error::network_unreachable ||
       error.value() == asio::error::connection_refused || asio::error::timed_out || asio::error::no_buffer_space ||
       error.value() == asio::error::host_unreachable)
     {
-        logger::log("ERROR " + error.message());
         this->_retries++;
-        sleep(DEFAULT_BACKOFF_MS * _retries);
+        std::size_t backoff_time = DEFAULT_BACKOFF_MS * _retries; 
+        LOG_ERROR("server", "(error=%d :%s) backing off for %d ms", error.value(), error.message(), backoff_time);
+        sleep(backoff_time);
     }
 
     return false;

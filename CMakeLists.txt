@@ -32,7 +32,7 @@ target_link_libraries(WebServer OpenSSL::SSL OpenSSL::Crypto)
 target_compile_options(WebServer PRIVATE -Wall -Wextra -pedantic)
 
 # Set output directory
-set_target_properties(WebServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/..)
+set_target_properties(WebServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Optional installation target
 install(TARGETS WebServer DESTINATION /usr/local/bin)

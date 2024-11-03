@@ -1,27 +1,31 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <string>
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <chrono>
+#include <cstring>
 #include <ctime>
-#include <iomanip>
-#include <memory>
-#include <cmath>
+#include <string>
+#include <iostream>
+#include <ctime>
+#include <cstdio>
 
-class Session;
+#define LOG(type, tag, format, ...) do { \
+    time_t now = time(0); \
+    struct tm* timeinfo = localtime(&now); \
+    char timeStr[25]; \
+    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
+    const char* filename = strrchr(__FILE__, '/'); \
+    filename = filename ? filename + 1 : __FILE__; \
+    printf("[%s %s:%d] %s %s: " format "\n", \
+        timeStr, filename, __LINE__, type, tag, ##__VA_ARGS__); \
+} while(0)
 
-namespace logger
-{
 
-std::string get_header(const std::vector<char>& buffer);
-std::string get_user_agent(const std::vector<char>& buffer);
-void debug(std::string type, std::string s1, std::string s2, std::string file, std::size_t line);
+#define DEBUG(tag, format, ...) do { \
+    LOG("DEBUG", tag, format, ##__VA_ARGS__); \
+} while(0)
 
-void log(std::string type, const std::shared_ptr<Session>& session = nullptr);
-
-}
+#define LOG_ERROR(tag, format, ...) do { \
+    LOG("ERROR", tag, format, ##__VA_ARGS__); \
+} while(0)
 
 #endif
