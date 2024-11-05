@@ -1,29 +1,26 @@
 #include "Session.h"
 
-void Session::readRequest() {
-    auto self = shared_from_this();
-    auto buffer = std::make_shared<std::vector<char>>(BUFFER_SIZE);
+asio::awaitable<void> Session::readRequest() {
+    std::array<char, BUFFER_SIZE> buffer;
+
+    auto [ec, bytes_read] = co_await sock->co_read(buffer.data(), buffer.size());
+    if(ec) {
+        ERROR("co_read", ec.value(), ec.message(), "failed to read header");
+        co_return;
+    }
     
-    sock->do_read(buffer->data(), buffer->size(),
-    [self, buffer](const asio::error_code error, std::size_t size) {
-        if(error) {
-            // handle error
-        }
-        self->setHandler(RequestHandler::handlerFactory(self, buffer));
-        self->begin();
-    });
+    setHandler(RequestHandler::handlerFactory(weak_from_this(), buffer.data(), buffer.size()));
+    co_await handler->handle();
 }
 
-void Session::start()
-{
+asio::awaitable<void> Session::start() {
     auto self = shared_from_this();
-    sock->do_handshake(
-        [self](const asio::error_code &error) {
-            if (error) {
-                // handle error;
-            }
-            self->readRequest();
-        });
+    asio::error_code ec = co_await sock->co_handshake();
+    if(ec) {
+        ERROR("co_handshake", ec.value(), ec.message(), "session failed to start");
+        co_return;
+    }
+    co_await readRequest();
 }
 
 void Session::setHandler(std::unique_ptr<RequestHandler>&& handler) {
@@ -37,7 +34,6 @@ void Session::setHandler(std::unique_ptr<RequestHandler>&& handler) {
 void Session::begin() {
     // Start anything else, ex.) latency/RTT calc, logging etc.
     
-    handler->handle();
 }
 
 /*Maybe should take a custom exception or error type as a param, depends if the request handler or session should tell the client about the error*/

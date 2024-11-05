@@ -1,22 +1,22 @@
 #include "Socket.h"
 
-asio::ip::tcp::socket& HTTPSocket::get_raw_socket()
+asio::ip::tcp::socket& HTTPSocket::getRawSocket()
 {
     return this->_socket;
 }
 
-std::string HTTPSocket::get_IP()
+std::string HTTPSocket::getIP()
 {
     return this->_socket.remote_endpoint().address().to_string();
 }
 
-void HTTPSocket::do_handshake(const std::function<void(const asio::error_code&)>& callback)
+void HTTPSocket::handshake(const std::function<void(const asio::error_code&)>& callback)
 {
     asio::error_code ec;
     callback(ec);
 }
 
-void HTTPSocket::do_write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
+void HTTPSocket::write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
 {
     asio::async_write(this->_socket, asio::buffer(buffer, buffer_size), 
     [this, callback](const std::error_code& error, std::size_t bytes)
@@ -25,13 +25,27 @@ void HTTPSocket::do_write(char* buffer, std::size_t buffer_size, const std::func
     });
 }
 
-void HTTPSocket::do_read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
+void HTTPSocket::read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
 {
     this->_socket.async_read_some(asio::buffer(buffer, buffer_size),    
     [this, callback](const asio::error_code& error, std::size_t bytes)
     {
         callback(error, bytes);
     });
+}
+
+asio::awaitable<asio::error_code> HTTPSocket::co_handshake() {
+    co_return asio::error_code{};
+}
+
+asio::awaitable<std::tuple<asio::error_code, std::size_t>> HTTPSocket::co_read(char* buffer, std::size_t size) {
+    auto [ec, bytes_read] = co_await _socket.async_read_some(asio::buffer(buffer, size), asio::as_tuple(asio::use_awaitable));
+    co_return std::make_tuple(ec, bytes_read);
+}
+
+asio::awaitable<std::tuple<asio::error_code, std::size_t>> HTTPSocket::co_write(const char* buffer, std::size_t size) {
+    auto [ec, bytes_written] = co_await asio::async_write(_socket, asio::buffer(buffer, size), asio::as_tuple(asio::use_awaitable));
+    co_return std::make_tuple(ec, bytes_written);
 }
 
 void HTTPSocket::close()
@@ -47,17 +61,20 @@ HTTPSocket::~HTTPSocket()
     }
 }
 
-asio::ip::tcp::socket& HTTPSSocket::get_raw_socket()
+
+/*////// HTTPS Socket //////*/
+
+asio::ip::tcp::socket& HTTPSSocket::getRawSocket()
 {
     return this->_socket.next_layer();
 }
 
-std::string HTTPSSocket::get_IP()
+std::string HTTPSSocket::getIP()
 {
     return this->_socket.next_layer().remote_endpoint().address().to_string();
 }
 
-void HTTPSSocket::do_handshake(const std::function<void(const std::error_code& error)>& callback)
+void HTTPSSocket::handshake(const std::function<void(const std::error_code& error)>& callback)
 {
     this->_socket.async_handshake(asio::ssl::stream_base::server,
     [this, callback](const asio::error_code& error)
@@ -66,7 +83,7 @@ void HTTPSSocket::do_handshake(const std::function<void(const std::error_code& e
     });
 }
 
-void HTTPSSocket::do_read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
+void HTTPSSocket::read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
 {
     this->_socket.async_read_some(asio::buffer(buffer, buffer_size),    
     [this, callback](const asio::error_code& error, std::size_t bytes)
@@ -75,13 +92,28 @@ void HTTPSSocket::do_read(char* buffer, std::size_t buffer_size, const std::func
     });
 }
 
-void HTTPSSocket::do_write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
+void HTTPSSocket::write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback)
 {
     asio::async_write(this->_socket, asio::buffer(buffer, buffer_size), 
     [this, callback](const std::error_code& error, std::size_t bytes)
     {
         callback(error, bytes);
     });
+}
+
+asio::awaitable<asio::error_code> HTTPSSocket::co_handshake() {
+    auto [ec] = co_await this->_socket.async_handshake(asio::ssl::stream_base::server, asio::as_tuple(asio::use_awaitable));
+    co_return ec;
+}
+
+asio::awaitable<std::tuple<asio::error_code, std::size_t>> HTTPSSocket::co_read(char *buffer, std::size_t buffer_size) {
+    auto [ec, bytes_read]= co_await _socket.async_read_some(asio::buffer(buffer, buffer_size), asio::as_tuple(asio::use_awaitable));
+    co_return std::make_tuple(ec, bytes_read);
+}
+
+asio::awaitable<std::tuple<asio::error_code, std::size_t>> HTTPSSocket::co_write(const char *buffer, std::size_t buffer_size) {
+    auto [ec, bytes_written] = co_await asio::async_write(_socket, asio::buffer(buffer, buffer_size), asio::as_tuple(asio::use_awaitable));
+    co_return std::make_tuple(ec, bytes_written);
 }
 
 void HTTPSSocket::close()

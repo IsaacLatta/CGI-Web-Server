@@ -27,7 +27,7 @@ void Server::loadCertificate(const std::string& cert_path, const std::string& ke
 void Server::run()
 {
     std::shared_ptr<Session> session = std::make_shared<Session>(createSocket());
-    this->_acceptor->async_accept(session->getSocket()->get_raw_socket(),
+    this->_acceptor->async_accept(session->getSocket()->getRawSocket(),
     [this, session](const asio::error_code& error)
     {
         this->acceptHandler(error, session);
@@ -39,7 +39,7 @@ void Server::run()
 
 void Server::acceptCaller(std::shared_ptr<Session> session)
 {
-    this->_acceptor->async_accept(session->getSocket()->get_raw_socket(),
+    this->_acceptor->async_accept(session->getSocket()->getRawSocket(),
     [this, session](const asio::error_code& error)
     {
         this->acceptHandler(error, session);

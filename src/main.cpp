@@ -1,6 +1,5 @@
 #include "Server.h"
 
-
 #define PATH "/home/isaac/WebServer/"
 #define PORT 1025
 

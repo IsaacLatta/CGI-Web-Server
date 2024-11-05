@@ -14,25 +14,31 @@ class Session;
 class RequestHandler
 {
     public:
-    RequestHandler(std::shared_ptr<Session>, Socket* sock) : sock(sock) {};
+    RequestHandler(std::weak_ptr<Session>, Socket* sock) : sock(std::move(sock)) {};
     virtual ~RequestHandler() = default;
 
-    static std::unique_ptr<RequestHandler> handlerFactory(std::shared_ptr<Session>, std::shared_ptr<std::vector<char>> buffer);
+    static std::unique_ptr<RequestHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
 
-    virtual void handle() = 0;
+    virtual asio::awaitable<void> handle() = 0;
 
     protected:
-    std::shared_ptr<Session> session;
+    std::weak_ptr<Session> session;
     Socket* sock;
 };
 
 class GetHandler: public RequestHandler
 {
     public:
-    GetHandler(std::shared_ptr<Session> session, Socket* sock, std::shared_ptr<std::vector<char>> buffer): RequestHandler(session, sock), buffer(buffer) {};
-    void handle() override;
+    GetHandler(std::shared_ptr<Session> session, Socket* sock, char* buffer, std::size_t buf_size): RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    asio::awaitable<void> handle() override;
+    
     private:
-    std::shared_ptr<std::vector<char>> buffer;
+    asio::awaitable<void> fillRequest(const std::string& resource, const std::string& content_type);
+    asio::awaitable<long> sendHeader(int filefd, const std::string& content_type);
+    asio::awaitable<void> sendResource(int filefd, long file_len);
+
+    private:
+    std::vector<char> buffer;
 };
 
 
