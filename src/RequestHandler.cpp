@@ -1,16 +1,16 @@
 #include "RequestHandler.h"
 #include "Session.h"
 
-std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
+std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::shared_ptr<Session> session, const char* buffer, std::size_t size) {
     std::string request(buffer, size);
-    auto session = sess.lock();
     if(!session) {
         ERROR("shared_ptr.lock", 0, "NULL", "failed to lock session ptr");
         return nullptr;
     }
 
     if(request.find("GET") != std::string::npos || request.find("get") != std::string::npos) {
-        return std::make_unique<GetHandler>(session, session->getSocket(), buffer); 
+        LOG("INFO", "Request Handler", "Get request detected");
+        return std::make_unique<GetHandler>(session, session->getSocket(), buffer, size); 
     }
     else {
         return nullptr;
@@ -53,7 +53,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
         while (total_bytes_written < bytes_to_write) {
             auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_to_write - total_bytes_written);
             if (ec) {
-                ERROR("Get Handler", ec.value(), ec.message(), "Failed to send resource");
+                ERROR("Get Handler", ec.value(), ec.message().c_str(), "Failed to send resource");
                 close(filefd);
                 co_return;
             }
@@ -85,29 +85,23 @@ asio::awaitable<void> GetHandler::fillRequest(const std::string& resource, const
 }
 
 asio::awaitable<void> GetHandler::handle() {
-    auto this_session = session.lock();
-    if(!this_session) {
-        ERROR("Get Handler", 0, "NULL", "no session available");
+    if(session == nullptr) {
+        ERROR("Get Handler", 0, "NULL", "session is a nullptr: %p", session);
         co_return;
     }
     
     http::code code;
     http::clean_buffer(buffer);
-    if((code = http::validate_buffer(buffer)) != http::code::OK || (code = http::validate_method(buffer)) != http::code::OK  ) {
-        ERROR("Get Handler", code, "http", "REQUEST\n%s", buffer.data());
-        this_session->onError();
-        co_return;
-    }
-
+   
     std::string resource, content_type;
     if((code = http::extract_resource(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
         ERROR("Get Handler", code, "http", "REQUEST\n%s", buffer.data());
-        this_session->onError();
+        session->onError();
         co_return;
     }
 
     LOG("INFO", "Get Handler", "Request Received\nResource: %s\nContent_Type: %s", resource.c_str(), content_type.c_str());
     
     co_await fillRequest(resource, content_type);
-    this_session->onCompletion();
+    session->onCompletion();
 }

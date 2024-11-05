@@ -35,7 +35,6 @@ namespace http
     };
 
     code validate_method(const std::vector<char>& buffer);
-    code validate_buffer(const std::vector<char>& buffer);
     code extract_resource(const std::vector<char>& buffer, std::string& resource);
     code extract_content_type(const std::string& resource, std::string& content_type);
     void clean_buffer(std::vector<char>& buffer);

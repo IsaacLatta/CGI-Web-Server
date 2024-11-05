@@ -15,7 +15,7 @@ int main(int argc, char** argv)
     try
     {
         Server web(PORT);
-        web.run();
+        web.start();
     }
     catch(const std::exception& e)
     {

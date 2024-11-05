@@ -1,23 +1,26 @@
 #include "Session.h"
 
 asio::awaitable<void> Session::readRequest() {
+    auto self = shared_from_this();
     std::array<char, BUFFER_SIZE> buffer;
 
     auto [ec, bytes_read] = co_await sock->co_read(buffer.data(), buffer.size());
     if(ec) {
-        ERROR("co_read", ec.value(), ec.message(), "failed to read header");
+        ERROR("co_read", ec.value(), ec.message().c_str() , "failed to read header");
         co_return;
     }
     
-    setHandler(RequestHandler::handlerFactory(weak_from_this(), buffer.data(), buffer.size()));
+    setHandler(RequestHandler::handlerFactory(self, buffer.data(), buffer.size()));
     co_await handler->handle();
 }
 
 asio::awaitable<void> Session::start() {
     auto self = shared_from_this();
+    LOG("INFO", "session", "starting handshake", "");
     asio::error_code ec = co_await sock->co_handshake();
+    LOG("INFO", "session", "handshake completed", "");
     if(ec) {
-        ERROR("co_handshake", ec.value(), ec.message(), "session failed to start");
+        ERROR("co_handshake", ec.value(), ec.message().c_str() , "session failed to start");
         co_return;
     }
     co_await readRequest();

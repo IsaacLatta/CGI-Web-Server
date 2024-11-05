@@ -30,9 +30,14 @@
     strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
     const char* filename = strrchr(__FILE__, '/'); \
     filename = filename ? filename + 1 : __FILE__; \
-    printf("[%s %s:%d] %s %s: (%s: %d)" format "\n", \
+    printf("[%s %s:%d] %s %s: (Error Code: %d, Message: %s) " format "\n", \
         timeStr, filename, __LINE__, level, tag, error_code, error_msg, ##__VA_ARGS__); \
 } while(0)
+
+#define ERROR(tag, error_code, error_msg, format, ...) do { \
+    LOG_ERROR("ERROR", tag, error_code, error_msg, format, ##__VA_ARGS__); \
+} while(0)
+
 
 #define EXIT_FATAL(tag, error_code, error_msg, format, ...) do { \
     time_t now = time(0); \
@@ -46,8 +51,6 @@
     exit(EXIT_FAILURE); \
 } while (0)
 
-#define ERROR(tag, error_code, error_msg, format, ...) do { \
-    LOG_ERROR("ERROR", tag, error_code, error_msg, format, ##__VA_ARGS__); \
-} while(0)
+
 
 #endif

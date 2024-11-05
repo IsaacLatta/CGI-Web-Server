@@ -217,17 +217,3 @@ http::code http::validate_method(const std::vector<char>& buffer)
     }
     return http::code::OK;
 }
-
-http::code http::validate_buffer(const std::vector<char>& buffer)
-{
-    std::vector<const char*> bad_strs = { "../", "./", "..\\", "'", "`", "<", ">", "|", "&" };
-    std::string request = url_decode(std::string(buffer.begin(), buffer.end()));
-    for(auto& str: bad_strs)
-    {
-        if(request.find(str) != std::string::npos)
-        {
-            return http::code::Forbidden;
-        }
-    }
-    return validate_method(buffer);
-}

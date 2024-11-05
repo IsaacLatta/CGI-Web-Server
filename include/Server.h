@@ -2,6 +2,9 @@
 #define REVPROXY_H
 
 #include <asio.hpp>
+#include <asio/co_spawn.hpp>
+#include <asio/detached.hpp>
+#include <asio/use_awaitable.hpp>
 #include <string>
 #include <memory>
 #include "Session.h"
@@ -13,7 +16,13 @@ class Server
 {
     public:
     Server(int local_port, const std::string& cert_path = "", const std::string& key_path = "", bool ssl = false);
-    void run();
+    void start();
+    asio::awaitable<void> run();
+
+    private:
+    void loadCertificate(const std::string& cert_path, const std::string& key_path);
+    bool isError(const asio::error_code& error);
+    std::unique_ptr<Socket> createSocket();
 
     private:
     asio::io_context _io_context;
@@ -23,12 +32,6 @@ class Server
     int _port;
     std::size_t _retries;
     bool _ssl;
-
-    void loadCertificate(const std::string& cert_path, const std::string& key_path);
-    void acceptCaller(std::shared_ptr<Session> session);
-    void acceptHandler(const asio::error_code& error, const std::shared_ptr<Session>& session);
-    bool isError(const asio::error_code& error);
-    std::unique_ptr<Socket> createSocket();
 };
 
 #endif

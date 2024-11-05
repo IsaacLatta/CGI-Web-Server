@@ -24,26 +24,26 @@ void Server::loadCertificate(const std::string& cert_path, const std::string& ke
     this->_ssl_context.use_private_key_file(key_path, asio::ssl::context::pem); // privacy enhanced mail format
 }
 
-void Server::run()
-{
-    std::shared_ptr<Session> session = std::make_shared<Session>(createSocket());
-    this->_acceptor->async_accept(session->getSocket()->getRawSocket(),
-    [this, session](const asio::error_code& error)
-    {
-        this->acceptHandler(error, session);
-    });
+asio::awaitable<void> Server::run() {
+    std::error_code ec;
     
-    DEBUG("server", "running");
-    this->_io_context.run();
+    LOG("INFO", "server: ", "running on port %d ...", _port);
+    while(true) {
+        auto session = std::make_shared<Session>(createSocket());
+
+        co_await _acceptor->async_accept(session->getSocket()->getRawSocket(), asio::redirect_error(asio::use_awaitable, ec));
+        if(isError(ec)) {
+            co_return;
+        }
+
+        LOG("INFO", "server", "starting session for client: %s", session->getSocket()->getIP().c_str());
+        co_await session->start();
+    }
 }
 
-void Server::acceptCaller(std::shared_ptr<Session> session)
-{
-    this->_acceptor->async_accept(session->getSocket()->getRawSocket(),
-    [this, session](const asio::error_code& error)
-    {
-        this->acceptHandler(error, session);
-    });
+void Server::start() {
+    asio::co_spawn(_io_context, run(), asio::detached);
+    _io_context.run();
 }
 
 bool Server::isError(const asio::error_code& error)
@@ -54,34 +54,25 @@ bool Server::isError(const asio::error_code& error)
         return false;
     }
 
-    ERROR("server async_accept", error.value(), error.message(), "");
+    ERROR("server async_accept", error.value(), error.message().c_str(), "");
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
-        asio::error::access_denied || asio::error::address_in_use)
+        error.value() == asio::error::access_denied || error.value() == asio::error::address_in_use)
     {
-        EXIT_FATAL("server", error.value(), error.message(), "");
+        EXIT_FATAL("server", error.value(), error.message().c_str(), "");
         return true;
     }
 
-    if(error.value() == asio::error::would_block || asio::error::try_again || asio::error::network_unreachable ||
-      error.value() == asio::error::connection_refused || asio::error::timed_out || asio::error::no_buffer_space ||
+    if(error.value() == asio::error::would_block || error.value() == asio::error::try_again || error.value() == asio::error::network_unreachable ||
+      error.value() == asio::error::connection_refused || error.value() == asio::error::timed_out || error.value() == asio::error::no_buffer_space ||
       error.value() == asio::error::host_unreachable)
     {
         this->_retries++;
         std::size_t backoff_time = DEFAULT_BACKOFF_MS * _retries; 
-        ERROR("server", error.value(), error.message(), "backing off for: %d ms", backoff_time);
+        ERROR("server", error.value(), error.message().c_str(), "backing off for: %ld ms", backoff_time);
         sleep(backoff_time);
     }
 
     return false;
-}
-
-void Server::acceptHandler(const asio::error_code& error, const std::shared_ptr<Session>& session)
-{
-    if(isError(error))
-        return;
-
-    session->start(); 
-    acceptCaller(std::make_shared<Session>(createSocket()));
 }
 
 std::unique_ptr<Socket> Server::createSocket()
