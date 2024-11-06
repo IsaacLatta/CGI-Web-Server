@@ -1,7 +1,13 @@
 #include "RequestHandler.h"
 #include "Session.h"
 
-std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::shared_ptr<Session> session, const char* buffer, std::size_t size) {
+std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
+    auto session = sess.lock();
+    if(!session) {
+        ERROR("Get Handler", "0", "NULL", "session observer is NULL");
+        return nullptr;
+    }
+    
     std::string request(buffer, size);
     if(!session) {
         ERROR("shared_ptr.lock", 0, "NULL", "failed to lock session ptr");
@@ -10,11 +16,9 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::shared_ptr<S
 
     if(request.find("GET") != std::string::npos || request.find("get") != std::string::npos) {
         LOG("INFO", "Request Handler", "Get request detected");
-        return std::make_unique<GetHandler>(session, session->getSocket(), buffer, size); 
+        return std::make_unique<GetHandler>(sess, session->getSocket(), buffer, size); 
     }
-    else {
-        return nullptr;
-    }
+    return nullptr;
 }
 
 std::string GetHandler::buildHeader(int filefd, const std::string& content_type, long& file_len) {
@@ -31,6 +35,12 @@ std::string GetHandler::buildHeader(int filefd, const std::string& content_type,
 }
 
 asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
+    auto this_session = session.lock();
+    if(!this_session) {
+        ERROR("Get Handler", 0, "NULL", "session observer is null");
+        co_return;
+    }
+    
     asio::posix::stream_descriptor file_desc(co_await asio::this_coro::executor, filefd);
     
     long bytes_sent = 0;
@@ -58,23 +68,23 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     
     close(filefd);
     LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, bytes_sent);
-    session->onCompletion();
+    this_session->onCompletion();
 }
 
 
 asio::awaitable<void> GetHandler::handle() {
-    if(session == nullptr) {
-        ERROR("Get Handler", 0, "NULL", "session is a nullptr: %p", session);
+    auto this_session = session.lock();
+    if(!this_session) {
+        ERROR("Get Handler", 0, "NULL", "session observer is null");
         co_return;
     }
-    
+
     http::code code;
     http::clean_buffer(buffer);
-   
     std::string resource, content_type;
     if((code = http::extract_resource(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
         ERROR("Get Handler", code, "http", "REQUEST\n%s", buffer.data());
-        session->onError();
+        this_session->onError(http::error(code));
         co_return;
     }
 

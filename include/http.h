@@ -34,6 +34,15 @@ namespace http
         Service_Unavailable = 503 
     };
 
+    std::string get_response(code http_code);
+
+    struct error {
+        std::string message;
+        std::string response;
+        code error_code;
+        error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
+    };
+
     code validate_method(const std::vector<char>& buffer);
     code extract_resource(const std::vector<char>& buffer, std::string& resource);
     code extract_content_type(const std::string& resource, std::string& content_type);

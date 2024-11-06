@@ -19,13 +19,11 @@ class Session : public std::enable_shared_from_this<Session>
     Session(std::unique_ptr<Socket>&& sock) : sock(std::move(sock)) {};
     asio::awaitable<void> start();
     void begin();
-    asio::awaitable<void> readRequest();
     
     Socket* getSocket() {return sock.get();}
 
-    void onError();
+    void onError(http::error&& ec);
     void onCompletion();
-    void setHandler(std::unique_ptr<RequestHandler>&& handler);
 
     private:
     std::unique_ptr<RequestHandler> handler;

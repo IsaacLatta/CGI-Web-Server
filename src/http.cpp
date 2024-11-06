@@ -173,6 +173,45 @@ static http::code check_ext(const std::string& extension, std::string& content_t
     return http::code::Forbidden;
 }
 
+std::string http::get_response(http::code http_code)
+{
+    switch (http_code)
+    {
+    case http::code::OK:
+        return "HTTP/1.1 200 OK";
+    case http::code::Created:
+        return "HTTP/1.1 201 Created";
+    case http::code::Accepted:
+        return "HTTP/1.1 202 Accepted";
+    case http::code::No_Content:
+        return "HTTP/1.1 204 No Content";
+    case http::code::Moved_Permanently:
+        return "HTTP/1.1 301 Moved Permanently";
+    case http::code::Found:
+        return "HTTP/1.1 302 Found";
+    case http::code::Not_Modified:
+        return "HTTP/1.1 304 Not Modified";
+    case http::code::Bad_Request:
+        return "HTTP/1.1 400 Bad Request";
+    case http::code::Unauthorized:
+        return "HTTP/1.1 401 Unauthorized";
+    case http::code::Forbidden:
+        return "HTTP/1.1 403 Forbidden";
+    case http::code::Not_Found:
+        return "HTTP/1.1 404 Not Found";
+    case http::code::Internal_Server_Error:
+        return "HTTP/1.1 500 Internal Server Error";
+    case http::code::Not_Implemented:
+        return "HTTP/1.1 501 Not Implemented";
+    case http::code::Bad_Gateway:
+        return "HTTP/1.1 502 Bad Gateway";
+    case http::code::Service_Unavailable:
+        return "HTTP/1.1 503 Service Unavailable";
+    default:
+        return "HTTP/1.1 500 Internal Server Error"; 
+    }
+}
+
 http::code http::extract_content_type(const std::string& resource, std::string& content_type)
 {
     std::size_t start;

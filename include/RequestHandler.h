@@ -14,22 +14,22 @@ class Session;
 class RequestHandler
 {
     public:
-    RequestHandler(std::shared_ptr<Session> session, Socket* sock) : session(session), sock(sock) {};
+    RequestHandler(std::weak_ptr<Session> session, Socket* sock) : session(session), sock(sock) {};
     virtual ~RequestHandler() = default;
 
-    static std::unique_ptr<RequestHandler> handlerFactory(std::shared_ptr<Session>, const char* buffer, std::size_t size);
+    static std::unique_ptr<RequestHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
 
     virtual asio::awaitable<void> handle() = 0;
 
     protected:
-    std::shared_ptr<Session> session;
+    std::weak_ptr<Session> session;
     Socket* sock;
 };
 
 class GetHandler: public RequestHandler
 {
     public:
-    GetHandler(std::shared_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
     asio::awaitable<void> handle() override;
     
     private:
