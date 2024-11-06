@@ -34,9 +34,9 @@ void Session::begin() {
 void Session::onError(http::error&& ec) {
     // log error
     // could potentially invoke a retry, or just close the connection
-    ERROR("onError", ec.error_code, ec.message.c_str(), "invoked for client: %s", sock->getIP().c_str());
-
-
+    ERROR("onError", static_cast<int>(ec.error_code), ec.message.c_str(), "invoked for client: %s", sock->getIP().c_str());
+    
+    sock->write(ec.response.data(), ec.response.length(), [](const asio::error_code err, std::size_t size){});
     sock->close();
 }
 

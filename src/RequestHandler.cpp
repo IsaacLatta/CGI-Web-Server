@@ -4,7 +4,7 @@
 std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
     auto session = sess.lock();
     if(!session) {
-        ERROR("Get Handler", "0", "NULL", "session observer is NULL");
+        ERROR("Get Handler", 0, "NULL", "session observer is NULL");
         return nullptr;
     }
     
@@ -83,7 +83,7 @@ asio::awaitable<void> GetHandler::handle() {
     http::clean_buffer(buffer);
     std::string resource, content_type;
     if((code = http::extract_resource(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
-        ERROR("Get Handler", code, "http", "REQUEST\n%s", buffer.data());
+        ERROR("Get Handler", static_cast<int>(code), "http", "REQUEST\n%s", buffer.data());
         this_session->onError(http::error(code));
         co_return;
     }

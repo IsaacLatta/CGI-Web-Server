@@ -29,7 +29,7 @@ add_executable(WebServer ${SOURCES})
 target_link_libraries(WebServer OpenSSL::SSL OpenSSL::Crypto)
 
 # Compiler warnings
-target_compile_options(WebServer PRIVATE -Wall -Wextra -pedantic)
+target_compile_options(WebServer PRIVATE -Wall -Wextra -pedantic -Wno-sign-compare -Wno-unused-parameter)
 
 # Set output directory
 set_target_properties(WebServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
