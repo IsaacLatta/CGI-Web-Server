@@ -33,8 +33,7 @@ class GetHandler: public RequestHandler
     asio::awaitable<void> handle() override;
     
     private:
-    asio::awaitable<void> fillRequest(const std::string& resource, const std::string& content_type);
-    asio::awaitable<long> sendHeader(int filefd, const std::string& content_type);
+    std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
     asio::awaitable<void> sendResource(int filefd, long file_len);
 
     private:
