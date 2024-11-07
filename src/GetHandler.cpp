@@ -14,6 +14,16 @@ std::string GetHandler::buildHeader(int filefd, const std::string& content_type,
     return header;
 }
 
+struct TransferState {
+    long total_bytes{0};         // Total bytes to send
+    long bytes_sent{0};          // Successfully sent so far
+    long current_offset{0};      // Current file offset
+    int retry_count{0};
+    static constexpr int MAX_RETRIES = 3;
+    static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
+    TransferState(long total_bytes): total_bytes(total_bytes) {};
+};
+
 asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     auto this_session = session.lock();
     if(!this_session) {
@@ -23,33 +33,43 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     
     asio::posix::stream_descriptor file_desc(co_await asio::this_coro::executor, filefd);
     
-    long bytes_sent = 0;
-    while (bytes_sent < file_len) {
-        std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - bytes_sent));
+    TransferState state(file_len);
+    while (state.bytes_sent < file_len) {
+        std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
         std::size_t bytes_to_write = co_await file_desc.async_read_some(asio::buffer(buffer.data(), bytes_to_read), asio::use_awaitable);
         if (bytes_to_write == 0) {
             LOG("WARN", "Get Handler", "EOF reached prematurely while sending resource");
             break;
         }
 
+        state.retry_count = 0;
         std::size_t total_bytes_written = 0;
         while (total_bytes_written < bytes_to_write) {
             auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_to_write - total_bytes_written);
             if (ec) {
+                if(state.retry_count < TransferState::MAX_RETRIES) {
+                    LOG("INFO", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
+                    state.retry_count++;
+                    asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
+                    co_await timer.async_wait(asio::use_awaitable);
+                    continue;
+                }
+                
                 ERROR("Get Handler", ec.value(), ec.message().c_str(), "Failed to send resource");
                 this_session->onError(http::error(http::code::Internal_Server_Error, "Failed to send resource"));
                 close(filefd);
                 co_return;
             }
             total_bytes_written += bytes_written;
+            state.retry_count = 0;
         }
 
-        bytes_sent += total_bytes_written;
+        state.bytes_sent += total_bytes_written;
     }
     
     close(filefd);
-    LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, bytes_sent);
-    this_session->onCompletion(response_header, bytes_sent);
+    LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, state.bytes_sent);
+    this_session->onCompletion(response_header, state.bytes_sent);
 }
 
 asio::awaitable<void> GetHandler::handle() {
@@ -80,7 +100,6 @@ asio::awaitable<void> GetHandler::handle() {
     long file_len;
     response_header = buildHeader(filefd, content_type, file_len);
     if(file_len < 0) {
-        ERROR("Get Handler", errno, "", "failed to send header");
         this_session->onError(http::error(http::code::Not_Found, "404 File not found: " + resource));
         close(filefd);
         co_return;

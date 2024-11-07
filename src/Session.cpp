@@ -20,6 +20,7 @@ asio::awaitable<void> Session::start() {
     
     handler = RequestHandler::handlerFactory(weak_from_this(), buffer.data(), buffer.size());
     if(!handler) {
+        ERROR("co_handshake", error.value(), error.message().c_str() , "failed to create request handler");
         co_return;
     }
     begin(buffer.data(), buffer.size());
@@ -40,7 +41,7 @@ void Session::onError(http::error&& ec) {
     session_info.response = ec.response;
     logger::log_file(session_info, "ERROR");
 
-    sock->write(ec.response.data(), ec.response.length(), [](const asio::error_code err, std::size_t size){});
+    sock->write(ec.response.data(), ec.response.length());
     sock->close();
 }
 

@@ -21,7 +21,7 @@ void HTTPSocket::write(char* buffer, std::size_t buffer_size, const std::functio
     asio::async_write(this->_socket, asio::buffer(buffer, buffer_size), 
     [this, callback](const std::error_code& error, std::size_t bytes)
     {
-        callback(error, bytes);
+        if(callback) callback(error, bytes);
     });
 }
 
@@ -30,7 +30,7 @@ void HTTPSocket::read(char* buffer, std::size_t buffer_size, const std::function
     this->_socket.async_read_some(asio::buffer(buffer, buffer_size),    
     [this, callback](const asio::error_code& error, std::size_t bytes)
     {
-        callback(error, bytes);
+        if(callback) callback(error, bytes);
     });
 }
 
@@ -79,7 +79,7 @@ void HTTPSSocket::handshake(const std::function<void(const std::error_code& erro
     this->_socket.async_handshake(asio::ssl::stream_base::server,
     [this, callback](const asio::error_code& error)
     {
-        callback(error);
+        if(callback) callback(error);
     });
 }
 
@@ -88,7 +88,7 @@ void HTTPSSocket::read(char* buffer, std::size_t buffer_size, const std::functio
     this->_socket.async_read_some(asio::buffer(buffer, buffer_size),    
     [this, callback](const asio::error_code& error, std::size_t bytes)
     {
-        callback(error, bytes);
+        if(callback) callback(error, bytes);
     });
 }
 
@@ -97,7 +97,7 @@ void HTTPSSocket::write(char* buffer, std::size_t buffer_size, const std::functi
     asio::async_write(this->_socket, asio::buffer(buffer, buffer_size), 
     [this, callback](const std::error_code& error, std::size_t bytes)
     {
-        callback(error, bytes);
+        if(callback) callback(error, bytes);
     });
 }
 

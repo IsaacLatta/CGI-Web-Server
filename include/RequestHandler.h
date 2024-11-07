@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <asio/steady_timer.hpp>
 
 #include "Socket.h"
 

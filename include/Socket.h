@@ -12,8 +12,8 @@ class Socket
 {
     public:
     virtual void handshake(const std::function<void(const asio::error_code&)>& callback) = 0;
-    virtual void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) = 0;
-    virtual void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) = 0;
+    virtual void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) = 0;
+    virtual void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) = 0;
     
     virtual asio::awaitable<asio::error_code> co_handshake() = 0;
     virtual asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_read(char* buffer, std::size_t size) = 0;
@@ -36,8 +36,8 @@ class HTTPSocket: public Socket
     asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_write(const char* buffer, std::size_t size) override;
    
     void handshake(const std::function<void(const asio::error_code&)>& callback) override;
-    void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
-    void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
+    void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
+    void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
     
     void close() override;
     std::string getIP() override;
@@ -58,8 +58,8 @@ class HTTPSSocket : public Socket
     asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_write(const char* buffer, std::size_t buffer_size) override;
     
     void handshake(const std::function<void(const asio::error_code&)>& callback) override;
-    void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
-    void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback) override;
+    void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
+    void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
     
     void close();
     std::string getIP() override;
