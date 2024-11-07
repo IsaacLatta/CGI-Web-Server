@@ -14,16 +14,6 @@ std::string GetHandler::buildHeader(int filefd, const std::string& content_type,
     return header;
 }
 
-struct TransferState {
-    long total_bytes{0};         // Total bytes to send
-    long bytes_sent{0};          // Successfully sent so far
-    long current_offset{0};      // Current file offset
-    int retry_count{0};
-    static constexpr int MAX_RETRIES = 3;
-    static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
-    TransferState(long total_bytes): total_bytes(total_bytes) {};
-};
-
 asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     auto this_session = session.lock();
     if(!this_session) {
