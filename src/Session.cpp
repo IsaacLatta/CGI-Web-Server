@@ -11,20 +11,16 @@ asio::awaitable<void> Session::start() {
     }
 
     std::array<char, HEADER_SIZE> buffer;
-
     auto [ec, bytes_read] = co_await sock->co_read(buffer.data(), buffer.size());
     if(ec) {
         ERROR("co_read", ec.value(), ec.message().c_str() , "failed to read header");
         co_return;
     }
     
-    handler = RequestHandler::handlerFactory(weak_from_this(), buffer.data(), buffer.size());
-    if(!handler) {
-        ERROR("co_handshake", error.value(), error.message().c_str() , "failed to create request handler");
-        co_return;
+    if((handler = RequestHandler::handlerFactory(weak_from_this(), buffer.data(), bytes_read))) {
+        begin(buffer.data(), buffer.size());
+        co_await handler->handle();
     }
-    begin(buffer.data(), buffer.size());
-    co_await handler->handle();
 }
 
 void Session::begin(const char* header, std::size_t size) {
