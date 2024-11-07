@@ -8,6 +8,7 @@
 
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
 #define BUFFER_SIZE 262144
+#define HEADER_SIZE 8192
 
 class Session;
 
@@ -37,6 +38,7 @@ class GetHandler: public RequestHandler
     asio::awaitable<void> sendResource(int filefd, long file_len);
 
     private:
+    std::string response_header;
     std::vector<char> buffer;
 };
 

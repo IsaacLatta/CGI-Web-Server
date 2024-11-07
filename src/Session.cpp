@@ -2,6 +2,7 @@
 
 asio::awaitable<void> Session::start() {
     auto self = shared_from_this();
+    session_info.start_time = std::chrono::system_clock::now();
     
     asio::error_code error = co_await sock->co_handshake();
     if(error) {
@@ -9,7 +10,7 @@ asio::awaitable<void> Session::start() {
         co_return;
     }
 
-    std::array<char, BUFFER_SIZE> buffer;
+    std::array<char, HEADER_SIZE> buffer;
 
     auto [ec, bytes_read] = co_await sock->co_read(buffer.data(), buffer.size());
     if(ec) {
@@ -21,27 +22,32 @@ asio::awaitable<void> Session::start() {
     if(!handler) {
         co_return;
     }
-    begin();
+    begin(buffer.data(), buffer.size());
     co_await handler->handle();
 }
 
-void Session::begin() {
-    // Start anything else, ex.) latency/RTT calc, logging etc.
-    
+void Session::begin(const char* header, std::size_t size) {
+    session_info.user_agent = logger::get_user_agent(header, size);
+    session_info.request = logger::get_header_line(header, size);
+    session_info.RTT_start_time = std::chrono::system_clock::now();
+    session_info.client_addr = sock->getIP();
 }
 
-/*Maybe should take a custom exception or error type as a param, depends if the request handler or session should tell the client about the error*/
 void Session::onError(http::error&& ec) {
-    // log error
-    // could potentially invoke a retry, or just close the connection
     ERROR("onError", static_cast<int>(ec.error_code), ec.message.c_str(), "invoked for client: %s", sock->getIP().c_str());
     
+    session_info.end_time = std::chrono::system_clock::now();
+    session_info.response = ec.response;
+    logger::log_file(session_info, "ERROR");
+
     sock->write(ec.response.data(), ec.response.length(), [](const asio::error_code err, std::size_t size){});
     sock->close();
 }
 
-void Session::onCompletion() {
-    // finish any other metric calcs
-    // log session
+void Session::onCompletion(const std::string& response, long bytes_moved) {
+    session_info.bytes = bytes_moved;
+    session_info.response = logger::get_header_line(response.data(), response.length());
+    session_info.end_time = std::chrono::system_clock::now();
+    logger::log_file(session_info, "INFO");
     sock->close();
 }

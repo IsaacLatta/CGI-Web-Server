@@ -1,12 +1,15 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <string>
 #include <iostream>
 #include <ctime>
 #include <cstdio>
+#include <vector>
+#include <fstream>
 
 #define LOG(type, tag, format, ...) do { \
     time_t now = time(0); \
@@ -51,6 +54,23 @@
     exit(EXIT_FAILURE); \
 } while (0)
 
+namespace logger 
+{
+    struct entry {
+        long bytes;
+        std::string user_agent;
+        std::string request;
+        std::string response;
+        std::string client_addr;
+        std::chrono::time_point<std::chrono::system_clock> start_time;
+        std::chrono::time_point<std::chrono::system_clock> RTT_start_time;
+        std::chrono::time_point<std::chrono::system_clock> end_time;
+        entry(): bytes(0) {}
+    };
 
+    std::string get_user_agent(const char* buffer, std::size_t size);
+    std::string get_header_line(const char* buffer, std::size_t size);
+    void log_file(const entry& info, std::string&& type);
+};
 
 #endif
