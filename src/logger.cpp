@@ -93,7 +93,7 @@ std::string get_browser(const std::string user_agent) {
 
 std::string create_log(const logger::entry& info, std::string type) {
     std::string time = "[" + get_time() + "] ";
-    std::string client = "[client " + info.client_addr + "] "; 
+    std::string client = " [client " + info.client_addr + "] "; 
     std::string request = "\"" + info.request + "\" ";
     std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.start_time, info.end_time)) 
                                  + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.end_time)) + " ms";
@@ -102,7 +102,7 @@ std::string create_log(const logger::entry& info, std::string type) {
     }
     latency_RTT_size += "] ";
     
-    return time + type + " " + request + info.user_agent + latency_RTT_size + info.response + "\n";
+    return time + type + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
 }
 
 std::string logger::get_user_agent(const char* buffer, std::size_t size) {

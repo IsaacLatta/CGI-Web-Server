@@ -18,5 +18,7 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
         LOG("INFO", "Request Handler", "Get request detected");
         return std::make_unique<GetHandler>(sess, session->getSocket(), buffer, size); 
     }
+
+    session->onError(http::error(http::code::Not_Implemented, "Request Method not supported"));
     return nullptr;
 }
