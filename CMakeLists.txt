@@ -9,12 +9,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Include directories for headers and ASIO
 include_directories(include)
 include_directories(third_party/ASIO)
+include_directories(third_party/tinyxml2)
 
 # Define ASIO_STANDALONE for standalone Asio usage
 add_definitions(-DASIO_STANDALONE)
 
 # Collect source files
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES "src/*.cpp" "third_party/tinyxml2/*.cpp")
 
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)

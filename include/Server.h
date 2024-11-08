@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include "Session.h"
+#include "config.h"
 
 #define DEFAULT_BACKOFF_MS 100 
 #define MAX_RETRIES 5

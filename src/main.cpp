@@ -1,14 +1,20 @@
 #include "Server.h"
 
-#define PATH "/home/isaac/WebServer/"
+#define CONFIG_PATH "/home/isaac/WebServer/server.config"
 #define PORT 1025
 
 int main(int argc, char** argv)
 {
 
-    if(chroot(PATH) < 0)
+    config::ServerConfig config;
+    if(!config::load_config(CONFIG_PATH, config)) {
+        return 0;
+    }
+    
+    LOG("INFO", "configuration loaded, serving from", "%s", config.content_path.c_str());
+    if(chroot(config.content_path.c_str()) < 0)
     {
-        std::cout << "chroot failed, shutting down...\n";
+        std::cout << "chroot to " << config.content_path << ", shutting down...\n";
         return 0;
     }
 
