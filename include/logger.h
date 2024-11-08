@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <vector>
 #include <fstream>
+#include <format>
 
 #define LOG(type, tag, format, ...) do { \
     time_t now = time(0); \

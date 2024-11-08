@@ -23,7 +23,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     
     asio::posix::stream_descriptor file_desc(co_await asio::this_coro::executor, filefd);
     
-    TransferState state(file_len);
+    TransferState state{.total_bytes = file_len};
     while (state.bytes_sent < file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
         std::size_t bytes_to_write = co_await file_desc.async_read_some(asio::buffer(buffer.data(), bytes_to_read), asio::use_awaitable);
