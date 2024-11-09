@@ -23,8 +23,13 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     }
     
+    std::unordered_map<std::string, std::string> args;
     if(content_type == "application/x-www-form-urlencoded") {
-        // Parse form encoded args
+        LOG("INFO", "POST Handler", "Parsing urlencoded form");
+        args = http::parse_url_form(body);
+        for (const auto& [key, value] : args) {
+            LOG("INFO", "POST Handler", "Parsed argument => Key: %s, Val: %s", key.c_str(), value.c_str());
+        }
     }
     else if (content_type == "application/json") {
         // Parse json encoded args

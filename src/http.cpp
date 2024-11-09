@@ -180,4 +180,21 @@ http::code http::find_content_type(const std::vector<char>& buffer, std::string&
     return http::code::OK;
 }
 
+// "key1=value1&key2=value2"
+std::unordered_map<std::string, std::string> http::parse_url_form(const std::string& body) {
+    std::unordered_map<std::string, std::string> args;
+    std::istringstream stream(body);
+    std::string key_val_pair;
+
+    while (std::getline(stream, key_val_pair, '&')) {
+        size_t delimiter_pos = key_val_pair.find('=');
+        if (delimiter_pos != std::string::npos) {
+            std::string key = url_decode(key_val_pair.substr(0, delimiter_pos));
+            std::string value = url_decode(key_val_pair.substr(delimiter_pos + 1));
+            args[key] = value;
+        }
+    }
+    return args;
+}
+
 
