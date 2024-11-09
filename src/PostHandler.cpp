@@ -2,6 +2,8 @@
 #include "Session.h"
 
 asio::awaitable<void> PostHandler::handle() {
+    using json = nlohmann::json;
+    
     auto this_session = session.lock();
     if(!this_session) {
         ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
@@ -23,20 +25,18 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     }
     
-    std::unordered_map<std::string, std::string> args;
+    json args;
     if(content_type == "application/x-www-form-urlencoded") {
-        LOG("INFO", "POST Handler", "Parsing urlencoded form");
         args = http::parse_url_form(body);
-        for (const auto& [key, value] : args) {
-            LOG("INFO", "POST Handler", "Parsed argument => Key: %s, Val: %s", key.c_str(), value.c_str());
-        }
     }
     else if (content_type == "application/json") {
-        // Parse json encoded args
+        args = json::parse(body);
     }
     else {
         this_session->onError(http::error(http::code::Not_Implemented, std::format("Content-Type: {} not supported", content_type)));
+        co_return;
     }
+
     LOG("INFO", "POST Handler", "REQUEST\n%s\n\nPARSED RESULTS\nEndpoint: %s\nContent-Type: %s\nBody: %s", buffer.data(), endpoint.c_str(), content_type.c_str(), body.c_str());
 }
 

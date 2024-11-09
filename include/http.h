@@ -13,9 +13,12 @@
 #include <string>
 #include <utility>
 #include <unordered_map>
+#include "json.hpp"
 
 namespace http
 {
+    using json = nlohmann::json;
+
     enum class code {
         OK = 200,
         Created = 201,
@@ -44,7 +47,7 @@ namespace http
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 
-    std::unordered_map<std::string, std::string> parse_url_form(const std::string& body);
+    json parse_url_form(const std::string& body);
     code extract_body(const std::vector<char>& buffer, std::string& body);
     code find_content_type(const std::vector<char>& buffer, std::string& content_type);
     code extract_endpoint(const std::vector<char>& buffer, std::string& resource);

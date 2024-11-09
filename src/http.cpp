@@ -1,6 +1,5 @@
 #include "http.h" 
 
-
 std::string url_decode(std::string&& buf)
 {
     std::string decoded_buf;
@@ -33,10 +32,6 @@ void http::clean_buffer(std::vector<char>& buffer)
         }
     }
 }
-
-#include <algorithm> 
-#include <cctype>
-#include <locale> 
 
 std::string trim(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\n\r");
@@ -142,8 +137,6 @@ http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& 
     return http::code::OK;
 }
 
-#include <iostream>
-
 http::code http::extract_body(const std::vector<char>& buffer, std::string& body) {
     std::string_view header(buffer.data(), buffer.size());
 
@@ -151,11 +144,17 @@ http::code http::extract_body(const std::vector<char>& buffer, std::string& body
     if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
         return http::code::Bad_Request;    
     }
-
     std::size_t offset = (header[start] == '\r') ? 4 : 2;
-    body = std::string(header.substr(start + offset));
+
+    std::size_t end;
+    if ((end = header.find("\r\n", start + offset)) == std::string::npos && (end = header.find("\n", start + offset)) == std::string::npos) {
+        end = header.size();
+    }
+
+    body = std::string(header.substr(start + offset, end - (start + offset)));
     return http::code::OK;
 }
+
 
 http::code http::find_content_type(const std::vector<char>& buffer, std::string& content_type) {
     std::string_view header(buffer.data(), buffer.size());
@@ -181,20 +180,20 @@ http::code http::find_content_type(const std::vector<char>& buffer, std::string&
 }
 
 // "key1=value1&key2=value2"
-std::unordered_map<std::string, std::string> http::parse_url_form(const std::string& body) {
-    std::unordered_map<std::string, std::string> args;
+http::json http::parse_url_form(const std::string& body) {
     std::istringstream stream(body);
     std::string key_val_pair;
 
+    http::json result;
     while (std::getline(stream, key_val_pair, '&')) {
         size_t delimiter_pos = key_val_pair.find('=');
         if (delimiter_pos != std::string::npos) {
             std::string key = url_decode(key_val_pair.substr(0, delimiter_pos));
             std::string value = url_decode(key_val_pair.substr(delimiter_pos + 1));
-            args[key] = value;
+            result[key] = value;
         }
     }
-    return args;
+    return result;
 }
 
 
