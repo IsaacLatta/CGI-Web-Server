@@ -28,6 +28,7 @@ namespace http
         Unauthorized = 401,
         Forbidden = 403,
         Not_Found = 404,
+        Method_Not_Allowed = 405,
         Internal_Server_Error = 500,
         Not_Implemented = 501,
         Bad_Gateway = 502,
@@ -43,8 +44,12 @@ namespace http
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 
-    code validate_method(const std::vector<char>& buffer);
-    code extract_resource(const std::vector<char>& buffer, std::string& resource);
+    /*
+    /* Extract the body of a request, currently just used for POST
+    /* @param body: output paramter to hold the request body */
+    code extract_body(const std::vector<char>& buffer, std::string& body);
+
+    code extract_endpoint(const std::vector<char>& buffer, std::string& resource);
     code extract_content_type(const std::string& resource, std::string& content_type);
     void clean_buffer(std::vector<char>& buffer);
 };

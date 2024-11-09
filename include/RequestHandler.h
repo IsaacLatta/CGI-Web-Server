@@ -4,8 +4,10 @@
 #include <vector>
 #include <memory>
 #include <asio/steady_timer.hpp>
+#include <unordered_map> 
 
 #include "Socket.h"
+#include "config.h"
 
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
 #define BUFFER_SIZE 262144
@@ -65,5 +67,18 @@ class HeadHandler: public RequestHandler
     std::vector<char> buffer;
 };
 
+class PostHandler: public RequestHandler 
+{
+    public:
+    PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, std::unordered_map<config::Endpoint, config::Route>& routes): 
+                RequestHandler(session, sock), buffer(buffer, buffer + buf_size),  routes(routes) {};
+    asio::awaitable<void> handle() override;
+
+    private:
+
+    private:
+    std::unordered_map<config::Endpoint, config::Route>& routes;
+    std::vector<char> buffer;
+};
 
 #endif

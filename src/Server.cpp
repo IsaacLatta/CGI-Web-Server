@@ -29,9 +29,9 @@ void Server::loadCertificate(const std::string& cert_path, const std::string& ke
 asio::awaitable<void> Server::run() {
     std::error_code ec;
     
-    LOG("INFO", "server: ", "running on port %d ...", _port);
+    LOG("INFO", "server", "running on port %d ...", _port);
     while(true) {
-        auto session = std::make_shared<Session>(createSocket());
+        auto session = std::make_shared<Session>(createSocket(), _config.routes);
 
         co_await _acceptor->async_accept(session->getSocket()->getRawSocket(), asio::redirect_error(asio::use_awaitable, ec));
         if(isError(ec)) {

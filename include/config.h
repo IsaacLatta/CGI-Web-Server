@@ -9,16 +9,18 @@
 
 namespace config {
 
-struct RouteConfig {
+using Endpoint = std::string;
+
+struct Route {
     std::string method;
-    std::string endpoint;
+    Endpoint endpoint;
     std::string script;
     bool is_protected{false};
 };
 
 struct ServerConfig {
     std::string content_path;
-    std::unordered_map<std::string, RouteConfig> routes;
+    std::unordered_map<std::string, Route> routes;
 };
 
 bool load_config(const std::string& config_path, ServerConfig& server_config);

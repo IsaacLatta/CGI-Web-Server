@@ -103,34 +103,43 @@ http::code http::extract_content_type(const std::string& resource, std::string& 
     return check_ext(extension, content_type);
 }
 
-http::code http::extract_resource(const std::vector<char>& buffer, std::string& resource)
+/*
+POST /resource HTTP/1.1
+Host: 127.0.0.1:1025
+User-Agent: curl/8.6.0
+Accept: 
+Content-Length: 23
+Content-Type: application/x-www-form-urlencoded
+
+key1=value1&key2=value2�T
+*/
+
+http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource)
 {
     std::size_t start, end;
-    std::string request(buffer.begin(), buffer.end());
-    if((start = request.find(" ")) == std::string::npos || (end = request.find(" ", start + 1)) == std::string::npos)
-    {
+    std::string_view request(buffer.begin(), buffer.end());
+    if((start = request.find(" ")) == std::string::npos || (end = request.find(" ", start + 1)) == std::string::npos) {
         return http::code::Bad_Request;
     }
     resource = request.substr(start + 1, end - start - 1);
-    if(resource == "/")
-    {
+    if(resource == "/") {
         resource = "/index.html";
     }
     return http::code::OK;
 }
 
-http::code http::validate_method(const std::vector<char>& buffer)
-{
-    std::size_t pos;
-    std::string str(buffer.begin(), buffer.end());
-    if((pos = str.find("HTTP/")) == std::string::npos)
-    {
-        return http::code::Bad_Request;
+#include <iostream>
+
+http::code http::extract_body(const std::vector<char>& buffer, std::string& body) {
+    std::string_view header(buffer.data(), buffer.size());
+
+    std::size_t start;
+    if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
+        return http::code::Bad_Request;    
     }
-    std::string method = str.substr(0, pos);
-    if(method.find("GET") == std::string::npos && method.find("get") == std::string::npos)
-    {
-        return http::code::Not_Implemented;
-    }
+
+    std::size_t offset = (header[start] == '\r') ? 4 : 2;
+    body = std::string(header.substr(start + offset));
     return http::code::OK;
 }
+

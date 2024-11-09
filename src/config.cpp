@@ -11,7 +11,7 @@ static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& server
 
     XMLElement* route_el = routes->FirstChildElement("Route");
     while(route_el) {
-        RouteConfig route;
+        Route route;
         route.method = route_el->Attribute("method") ? route_el->Attribute("method") : "";
         route.endpoint = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
         route.script = route_el->Attribute("script") ? route_el->Attribute("script") : "";
