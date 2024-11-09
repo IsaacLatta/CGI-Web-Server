@@ -18,7 +18,7 @@ asio::awaitable<void> Session::start() {
     }
     
     if((handler = RequestHandler::handlerFactory(weak_from_this(), buffer.data(), bytes_read))) {
-        begin(buffer.data(), buffer.size());
+        begin(buffer.data(), bytes_read);
         co_await handler->handle();
     }
 }

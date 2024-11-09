@@ -45,7 +45,6 @@ asio::awaitable<void> HeadHandler::handle() {
         co_return;
     }
 
-    long bytes_written;
     TransferState state;
     while (state.retry_count < TransferState::MAX_RETRIES) {
         auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());

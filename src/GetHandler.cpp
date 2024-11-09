@@ -45,8 +45,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
                     continue;
                 }
                 
-                ERROR("Get Handler", ec.value(), ec.message().c_str(), "Failed to send resource");
-                this_session->onError(http::error(http::code::Internal_Server_Error, "Failed to send resource"));
+                this_session->onError(http::error(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached, error={} ({})", ec.value(), ec.message())));
                 close(filefd);
                 co_return;
             }
@@ -70,6 +69,7 @@ asio::awaitable<void> GetHandler::handle() {
     }
 
     http::code code;
+    LOG("INFO", "Get Handler", "REQUEST: %s", buffer.data());
     http::clean_buffer(buffer);
     std::string resource, content_type;
     if((code = http::extract_resource(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
@@ -78,12 +78,11 @@ asio::awaitable<void> GetHandler::handle() {
         co_return;
     }
 
-    LOG("INFO", "Get Handler", "Request Received\nResource: %s\nContent_Type: %s", resource.c_str(), content_type.c_str());
+    LOG("INFO", "Get Handler", "PARSED RESULTS\nResource: %s\nContent_Type: %s", resource.c_str(), content_type.c_str());
     
     int filefd =  open(resource.c_str(), O_RDONLY | O_NONBLOCK);
     if(filefd == -1) {
-        ERROR("Get Handler", errno, "", "failed to open resource: %s", resource.c_str());
-        this_session->onError(http::error(http::code::Not_Found, "404 File not found: " + resource));
+        this_session->onError(http::error(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno))));
         co_return;
     }
     
@@ -95,11 +94,18 @@ asio::awaitable<void> GetHandler::handle() {
         co_return;
     }
 
-    auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
-    if(error) {
-        ERROR("Get Handler", error.value(), error.message().c_str(), "failed send header");
-        co_return;
-    }
+    asio::error_code error;
+    TransferState state;
+    while(state.retry_count < TransferState::MAX_RETRIES) {
+        auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
+        
+        if (!error) {
+            co_return co_await sendResource(filefd, file_len);
+        }
 
-    co_await sendResource(filefd, file_len);
+        state.retry_count++;
+        asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
+        co_await timer.async_wait(asio::use_awaitable);
+    }
+    this_session->onError(http::error(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", resource, sock->getIP(), response_header, error.value(), error.message())));
 }

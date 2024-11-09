@@ -106,24 +106,24 @@ std::string create_log(const logger::entry& info, std::string type) {
 }
 
 std::string logger::get_user_agent(const char* buffer, std::size_t size) {
-    int ua_start, ua_end;
-    std::string buffer_str(buffer, size);
+    std::size_t ua_start, ua_end;
+    std::string_view buffer_str(buffer, size);
     if((ua_start = buffer_str.find("User-Agent")) == std::string::npos)
         return "";
     if((ua_end = buffer_str.find("\r\n", ua_start)) == std::string::npos)
         return "";
 
-    std::string user_agent =  buffer_str.substr(ua_start, ua_end - ua_start);
+    std::string user_agent(buffer_str.substr(ua_start, ua_end - ua_start));
     trim_user_agent(user_agent);
     return get_identifier(user_agent) + get_os(user_agent) + get_browser(user_agent);
 }
 
 std::string logger::get_header_line(const char* buffer, std::size_t size) {
-    int end;
-    std::string header(buffer, size);
-    if((end = header.find("\r\n")) == std::string::npos || end < 0)
+    std::size_t end;
+    std::string_view header(buffer, size);
+    if((end = header.find("\r\n")) == std::string::npos)
         return "";
-    return header.substr(0, end);
+    return std::string(header.substr(0, end));
 }
 
 void logger::log_file(const logger::entry& info, std::string&& type) {

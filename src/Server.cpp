@@ -1,7 +1,9 @@
 #include "Server.h"
 
-Server::Server(int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
-    : _ssl_context(asio::ssl::context::tlsv12), 
+Server::Server(config::ServerConfig server_config, int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
+    : 
+    _config(server_config),
+    _ssl_context(asio::ssl::context::tlsv12), 
     _port(local_port), 
     _ssl(ssl),
     _retries(0)

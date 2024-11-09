@@ -13,7 +13,7 @@ struct RouteConfig {
     std::string method;
     std::string endpoint;
     std::string script;
-    bool is_protected;
+    bool is_protected{false};
 };
 
 struct ServerConfig {
