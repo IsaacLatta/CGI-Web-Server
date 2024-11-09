@@ -34,6 +34,18 @@ void http::clean_buffer(std::vector<char>& buffer)
     }
 }
 
+#include <algorithm> 
+#include <cctype>
+#include <locale> 
+
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos) return "";
+    size_t last = str.find_last_not_of(" \t\n\r");
+    return str.substr(first, (last - first + 1));
+}
+
+
 static http::code check_ext(const std::string& extension, std::string& content_type)
 {
     std::vector<std::pair<std::string, std::string>> valid_exts = { {".html", "text/html"}, {".css", "text/css"}, 
@@ -75,8 +87,10 @@ std::string http::get_response(http::code http_code)
         return "HTTP/1.1 401 Unauthorized";
     case http::code::Forbidden:
         return "HTTP/1.1 403 Forbidden";
-    case http::code::Not_Found:
+    case http::code::Not_Found: 
         return "HTTP/1.1 404 Not Found";
+    case http::code::Method_Not_Allowed:
+        return "HTTP/1.1 405 Method Not Allowed";
     case http::code::Internal_Server_Error:
         return "HTTP/1.1 500 Internal Server Error";
     case http::code::Not_Implemented:
@@ -90,7 +104,7 @@ std::string http::get_response(http::code http_code)
     }
 }
 
-http::code http::extract_content_type(const std::string& resource, std::string& content_type)
+http::code http::determine_content_type(const std::string& resource, std::string& content_type)
 {
     std::size_t start;
     std::string extension;
@@ -142,4 +156,28 @@ http::code http::extract_body(const std::vector<char>& buffer, std::string& body
     body = std::string(header.substr(start + offset));
     return http::code::OK;
 }
+
+http::code http::find_content_type(const std::vector<char>& buffer, std::string& content_type) {
+    std::string_view header(buffer.data(), buffer.size());
+    const std::string delimiter = "Content-Type: ";
+
+    std::size_t start = header.find(delimiter);
+    if (start == std::string::npos) {
+        content_type = "application/json";
+        return http::code::OK;
+    }
+    start += delimiter.length();
+
+    std::size_t end;
+    if ((end = header.find("\r\n", start)) == std::string::npos && (end = header.find("\n", start)) == std::string::npos) {
+        return http::code::Bad_Request; 
+    }
+
+    content_type = std::string(header.substr(start, end - start));
+    trim(content_type);
+    std::transform(content_type.begin(), content_type.end(), content_type.begin(), ::tolower);
+
+    return http::code::OK;
+}
+
 

@@ -24,7 +24,7 @@ asio::awaitable<void> HeadHandler::handle() {
     http::code code;
     http::clean_buffer(buffer);
     std::string resource, content_type;
-    if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
+    if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::determine_content_type(resource, content_type)) != http::code::OK) {
         this_session->onError(http::error(code, std::format("Parsing failed with http={} \nREQUEST: {}", static_cast<int>(code), buffer.data())));
         co_return;
     }

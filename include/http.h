@@ -44,13 +44,10 @@ namespace http
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 
-    /*
-    /* Extract the body of a request, currently just used for POST
-    /* @param body: output paramter to hold the request body */
     code extract_body(const std::vector<char>& buffer, std::string& body);
-
+    code find_content_type(const std::vector<char>& buffer, std::string& content_type);
     code extract_endpoint(const std::vector<char>& buffer, std::string& resource);
-    code extract_content_type(const std::string& resource, std::string& content_type);
+    code determine_content_type(const std::string& resource, std::string& content_type);
     void clean_buffer(std::vector<char>& buffer);
 };
 

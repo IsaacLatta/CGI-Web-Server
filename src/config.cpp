@@ -16,12 +16,23 @@ static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& server
         route.endpoint = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
         route.script = route_el->Attribute("script") ? route_el->Attribute("script") : "";
         if (!route.method.empty() && !route.endpoint.empty() && !route.script.empty()) {
+                LOG("INFO", "loading route configuration", "method: %s, endpoint: %s, script: %s", route.method.c_str(), route.endpoint.c_str(), route.script.c_str());
                 serverConfig.routes[route.endpoint] = route;
             } 
         else {
             ERROR("loading config", 0, "incomplete route attribute", ""); 
         }
         route_el = route_el->NextSiblingElement("Route");
+    }
+}
+
+void config::print_routes(const std::unordered_map<Endpoint, Route>& routes) {
+    for (const auto& [endpoint, route] : routes) {
+        std::cout << "Endpoint: " << endpoint << std::endl;
+        std::cout << "  Method: " << route.method << std::endl;
+        std::cout << "  Script: " << route.script << std::endl;
+        std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << std::endl;
+        std::cout << std::endl;
     }
 }
 

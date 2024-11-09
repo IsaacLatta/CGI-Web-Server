@@ -72,7 +72,7 @@ asio::awaitable<void> GetHandler::handle() {
     LOG("INFO", "Get Handler", "REQUEST: %s", buffer.data());
     http::clean_buffer(buffer);
     std::string resource, content_type;
-    if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::extract_content_type(resource, content_type)) != http::code::OK) {
+    if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::determine_content_type(resource, content_type)) != http::code::OK) {
         this_session->onError(http::error(code));
         co_return;
     }

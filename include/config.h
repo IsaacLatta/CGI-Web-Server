@@ -23,6 +23,8 @@ struct ServerConfig {
     std::unordered_map<std::string, Route> routes;
 };
 
+void print_routes(const std::unordered_map<Endpoint, Route>& routes);
+
 bool load_config(const std::string& config_path, ServerConfig& server_config);
 
 };

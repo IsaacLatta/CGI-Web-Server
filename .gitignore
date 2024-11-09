@@ -2,5 +2,6 @@
 *.log
 *.pem
 *.vscode
-*/TEST
+/TEST
 build/*
+/example

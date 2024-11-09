@@ -15,6 +15,7 @@ Server::Server(config::ServerConfig server_config, int local_port, const std::st
     {
         loadCertificate(cert_path, key_path);
     }
+    print_routes(_config.routes);
 }
 
 void Server::loadCertificate(const std::string& cert_path, const std::string& key_path)
