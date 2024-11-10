@@ -3,8 +3,11 @@
 
 #include <vector>
 #include <memory>
+#include <unistd.h>
+#include <asio.hpp>
 #include <asio/steady_timer.hpp>
 #include <unordered_map> 
+#include <spawn.h>
 
 #include "Socket.h"
 #include "config.h"
@@ -75,8 +78,11 @@ class PostHandler: public RequestHandler
     asio::awaitable<void> handle() override;
 
     private:
+    asio::awaitable<void> runScript(const std::string& json_args);
+    bool runSubprocess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
 
     private:
+    config::Route& active_route;
     std::unordered_map<config::Endpoint, config::Route>& routes;
     std::vector<char> buffer;
 };
