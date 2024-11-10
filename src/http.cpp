@@ -179,7 +179,6 @@ http::code http::find_content_type(const std::vector<char>& buffer, std::string&
     return http::code::OK;
 }
 
-// "key1=value1&key2=value2"
 http::json http::parse_url_form(const std::string& body) {
     std::istringstream stream(body);
     std::string key_val_pair;
@@ -196,4 +195,22 @@ http::json http::parse_url_form(const std::string& body) {
     return result;
 }
 
+http::code http::build_json(const std::vector<char>& buffer, http::json& json_array) {
+    http::code code;
+    std::string body, content_type;
+    if((code = http::extract_body(buffer, body)) != http::code::OK || (code = http::find_content_type(buffer, content_type)) != http::code::OK) {
+        return code;
+    }
 
+    if(content_type == "application/x-www-form-urlencoded") {
+        json_array = http::parse_url_form(body);
+    }
+    else if (content_type == "application/json") {
+        json_array = http::json::parse(body);
+    }
+    else {
+        return http::code::Not_Implemented;
+    }
+
+    return http::code::OK;
+}

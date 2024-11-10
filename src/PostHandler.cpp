@@ -2,19 +2,14 @@
 #include "Session.h"
 
 asio::awaitable<void> PostHandler::handle() {
-    using json = nlohmann::json;
-    
     auto this_session = session.lock();
     if(!this_session) {
         ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
     }
 
     http::code code;
-    std::string endpoint, body, content_type;
-    if( (code = http::extract_endpoint(buffer, endpoint)) != http::code::OK || 
-        (code = http::extract_body(buffer, body)) != http::code::OK ||
-        (code = http::find_content_type(buffer, content_type)) != http::code::OK)
-    {
+    std::string endpoint;
+    if( (code = http::extract_endpoint(buffer, endpoint)) != http::code::OK ) {
         this_session->onError(http::error(code, "Failed to parse POST request"));
         co_return;
     }
@@ -25,18 +20,12 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     }
     
-    json args;
-    if(content_type == "application/x-www-form-urlencoded") {
-        args = http::parse_url_form(body);
-    }
-    else if (content_type == "application/json") {
-        args = json::parse(body);
-    }
-    else {
-        this_session->onError(http::error(http::code::Not_Implemented, std::format("Content-Type: {} not supported", content_type)));
+    http::json args;
+    if((code = http::build_json(buffer, args)) != http::code::OK) {
+        this_session->onError(http::error(code, "Failed to build json array"));
         co_return;
     }
 
-    LOG("INFO", "POST Handler", "REQUEST\n%s\n\nPARSED RESULTS\nEndpoint: %s\nContent-Type: %s\nBody: %s", buffer.data(), endpoint.c_str(), content_type.c_str(), body.c_str());
+    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\n\nPARSED RESULTS\nEndpoint: %s\nJSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
 }
 

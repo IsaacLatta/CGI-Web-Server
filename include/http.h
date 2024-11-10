@@ -47,6 +47,7 @@ namespace http
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 
+    code build_json(const std::vector<char>& buffer, json& json_array);
     json parse_url_form(const std::string& body);
     code extract_body(const std::vector<char>& buffer, std::string& body);
     code find_content_type(const std::vector<char>& buffer, std::string& content_type);
