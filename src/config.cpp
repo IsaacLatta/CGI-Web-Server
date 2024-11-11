@@ -26,6 +26,14 @@ static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& server
     }
 }
 
+const config::Route* config::find_route(const std::unordered_map<Endpoint, Route>& routes, const Endpoint& endpoint) {
+    auto it = routes.find(endpoint);
+    if(it == routes.end()) {
+        return nullptr;
+    }
+    return &it->second;
+}
+
 void config::print_routes(const std::unordered_map<Endpoint, Route>& routes) {
     for (const auto& [endpoint, route] : routes) {
         std::cout << "Endpoint: " << endpoint << std::endl;

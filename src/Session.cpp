@@ -31,12 +31,14 @@ void Session::begin(const char* header, std::size_t size) {
 }
 
 void Session::onError(http::error&& ec) {
-    ERROR("onError", static_cast<int>(ec.error_code), ec.message.c_str(), "invoked for client: %s", sock->getIP().c_str());
+    char buffer[BUFSIZ];
+    snprintf(buffer, BUFSIZ, "Invoked for client %s", sock->getIP().c_str());
+    ERROR(buffer, static_cast<int>(ec.error_code), ec.message.c_str(), "");
     
     session_info.end_time = std::chrono::system_clock::now();
     session_info.response = ec.response;
     logger::log_file(session_info, "ERROR");
-
+    
     sock->write(ec.response.data(), ec.response.length());
     sock->close();
 }

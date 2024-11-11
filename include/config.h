@@ -12,19 +12,20 @@ namespace config {
 using Endpoint = std::string;
 
 struct Route {
-    std::string method;
-    Endpoint endpoint;
-    std::string script;
+    std::string method{""};
+    Endpoint endpoint{""};
+    std::string script{""};
     bool is_protected{false};
+    Route() {}
 };
 
 struct ServerConfig {
     std::string content_path;
-    std::unordered_map<std::string, Route> routes;
+    std::unordered_map<Endpoint, Route> routes;
 };
 
+const Route* find_route(const std::unordered_map<Endpoint, Route>& routes, const Endpoint& endpoint);
 void print_routes(const std::unordered_map<Endpoint, Route>& routes);
-
 bool load_config(const std::string& config_path, ServerConfig& server_config);
 
 };

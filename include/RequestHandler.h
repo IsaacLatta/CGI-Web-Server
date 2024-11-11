@@ -8,9 +8,11 @@
 #include <asio/steady_timer.hpp>
 #include <unordered_map> 
 #include <spawn.h>
+#include <optional>
 
 #include "Socket.h"
 #include "config.h"
+#include "http.h"
 
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
 #define BUFFER_SIZE 262144
@@ -75,15 +77,19 @@ class PostHandler: public RequestHandler
     public:
     PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, std::unordered_map<config::Endpoint, config::Route>& routes): 
                 RequestHandler(session, sock), buffer(buffer, buffer + buf_size),  routes(routes) {};
+    
     asio::awaitable<void> handle() override;
 
     private:
-    asio::awaitable<void> runScript(const std::string& json_args);
-    bool runSubprocess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
+    asio::awaitable<std::optional<http::error>> sendResponse(asio::posix::stream_descriptor& reader);
+    std::optional<asio::posix::stream_descriptor> runScript(const http::json& args, std::string& opt_error_msg);
+    bool runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
 
     private:
-    config::Route& active_route;
-    std::unordered_map<config::Endpoint, config::Route>& routes;
+    long total_bytes;
+    std::string response_header;
+    const config::Route* active_route;
+    const std::unordered_map<config::Endpoint, config::Route>& routes;
     std::vector<char> buffer;
 };
 

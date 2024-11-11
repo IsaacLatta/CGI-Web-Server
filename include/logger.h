@@ -35,7 +35,7 @@
     strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
     const char* filename = strrchr(__FILE__, '/'); \
     filename = filename ? filename + 1 : __FILE__; \
-    printf("[%s %s:%d] %s %s: (Error Code: %d, Message: %s) " format "\n", \
+    printf("[%s %s:%d] %s %s: (Error Code: %d => %s) " format "\n", \
         timeStr, filename, __LINE__, level, tag, error_code, error_msg, ##__VA_ARGS__); \
 } while(0)
 
