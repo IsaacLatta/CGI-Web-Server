@@ -32,22 +32,24 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
             break;
         }
 
-        state.retry_count = 0;
+        state.retry_count = 1;
         std::size_t total_bytes_written = 0;
         while (total_bytes_written < bytes_to_write) {
             auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_to_write - total_bytes_written);
-            if (ec) {
-                if(state.retry_count < TransferState::MAX_RETRIES) {
-                    LOG("INFO", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
-                    state.retry_count++;
-                    asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
-                    co_await timer.async_wait(asio::use_awaitable);
-                    continue;
-                }
-                
-                this_session->onError(http::error(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached, error={} ({})", ec.value(), ec.message())));
+            if (ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof) {
+                this_session->onError(http::error(http::code::Client_Closed_Request, "Connection reset by client"));
                 close(filefd);
                 co_return;
+            }
+
+            if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
+                LOG("INFO", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
+                state.retry_count++;
+
+                asio::steady_timer timer(co_await asio::this_coro::executor);
+                timer.expires_after(asio::chrono::milliseconds(TransferState::RETRY_DELAY * state.retry_count));
+                co_await timer.async_wait(asio::use_awaitable);
+                continue;
             }
             total_bytes_written += bytes_written;
             state.retry_count = 0;
@@ -99,7 +101,8 @@ asio::awaitable<void> GetHandler::handle() {
         auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
         
         if (!error) {
-            co_return co_await sendResource(filefd, file_len);
+            co_await sendResource(filefd, file_len);
+            co_return;
         }
 
         state.retry_count++;

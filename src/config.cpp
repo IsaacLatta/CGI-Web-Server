@@ -15,8 +15,8 @@ static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& server
         route.method = route_el->Attribute("method") ? route_el->Attribute("method") : "";
         route.endpoint = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
         route.script = route_el->Attribute("script") ? route_el->Attribute("script") : "";
+        route.script = serverConfig.content_path + "/" + route.script;
         if (!route.method.empty() && !route.endpoint.empty() && !route.script.empty()) {
-                LOG("INFO", "loading route configuration", "method: %s, endpoint: %s, script: %s", route.method.c_str(), route.endpoint.c_str(), route.script.c_str());
                 serverConfig.routes[route.endpoint] = route;
             } 
         else {

@@ -24,6 +24,7 @@ asio::awaitable<void> Session::start() {
 }
 
 void Session::begin(const char* header, std::size_t size) {
+    sock->storeIP();
     session_info.user_agent = logger::get_user_agent(header, size);
     session_info.request = logger::get_header_line(header, size);
     session_info.RTT_start_time = std::chrono::system_clock::now();
@@ -38,8 +39,10 @@ void Session::onError(http::error&& ec) {
     session_info.end_time = std::chrono::system_clock::now();
     session_info.response = ec.response;
     logger::log_file(session_info, "ERROR");
-    
-    sock->write(ec.response.data(), ec.response.length());
+
+    if(ec.error_code != http::code::Client_Closed_Request) {
+        sock->write(ec.response.data(), ec.response.length());
+    }
     sock->close();
 }
 

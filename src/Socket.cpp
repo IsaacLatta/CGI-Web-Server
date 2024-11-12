@@ -1,13 +1,19 @@
 #include "Socket.h"
 
+HTTPSocket::HTTPSocket(asio::io_context& io_context) : _socket(io_context) {}
+    
 asio::ip::tcp::socket& HTTPSocket::getRawSocket()
 {
     return this->_socket;
 }
 
-std::string HTTPSocket::getIP()
-{
-    return this->_socket.remote_endpoint().address().to_string();
+void HTTPSocket::storeIP() {
+    if(_socket.is_open()) {
+        address = _socket.remote_endpoint().address().to_string();
+    }
+    else {
+        address = "address not available";
+    }
 }
 
 void HTTPSocket::handshake(const std::function<void(const asio::error_code&)>& callback)
@@ -61,17 +67,22 @@ HTTPSocket::~HTTPSocket()
     }
 }
 
-
 /*////// HTTPS Socket //////*/
+
+HTTPSSocket::HTTPSSocket(asio::io_context& io_context, asio::ssl::context& ssl_context): _socket(io_context, ssl_context)  {}
+
+void HTTPSSocket::storeIP() {
+    if(_socket.next_layer().is_open()) {
+        address = _socket.next_layer().remote_endpoint().address().to_string();
+    }
+    else {
+        address = "address not available";
+    }
+}
 
 asio::ip::tcp::socket& HTTPSSocket::getRawSocket()
 {
     return this->_socket.next_layer();
-}
-
-std::string HTTPSSocket::getIP()
-{
-    return this->_socket.next_layer().remote_endpoint().address().to_string();
 }
 
 void HTTPSSocket::handshake(const std::function<void(const std::error_code& error)>& callback)

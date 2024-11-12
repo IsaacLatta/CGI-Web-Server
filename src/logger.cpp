@@ -128,7 +128,7 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
 
 void logger::log_file(const logger::entry& info, std::string&& type) {
     std::fstream log_file;
-    std::string file_name = "web-" + get_date(get_time()) + ".log";
+    std::string file_name = "log/web-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);
     if(!log_file.is_open()) {
         return;

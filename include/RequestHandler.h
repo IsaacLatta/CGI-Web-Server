@@ -7,6 +7,7 @@
 #include <asio.hpp>
 #include <asio/steady_timer.hpp>
 #include <unordered_map> 
+#include <sys/wait.h>
 #include <spawn.h>
 #include <optional>
 
@@ -24,7 +25,7 @@ struct TransferState {
     long total_bytes{0};         
     long bytes_sent{0};          
     long current_offset{0};      
-    int retry_count{0};
+    int retry_count{1};
     static constexpr int MAX_RETRIES = 3;
     static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
 };
@@ -76,13 +77,13 @@ class PostHandler: public RequestHandler
 {
     public:
     PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, std::unordered_map<config::Endpoint, config::Route>& routes): 
-                RequestHandler(session, sock), buffer(buffer, buffer + buf_size),  routes(routes) {};
+                RequestHandler(session, sock), buffer(buffer, buffer + buf_size),  routes(routes) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 
     private:
     asio::awaitable<std::optional<http::error>> sendResponse(asio::posix::stream_descriptor& reader);
-    std::optional<asio::posix::stream_descriptor> runScript(const http::json& args, std::string& opt_error_msg);
+    std::optional<asio::posix::stream_descriptor> runScript(const http::json& args, int* pid, int* status, std::string& opt_error_msg);
     bool runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
 
     private:

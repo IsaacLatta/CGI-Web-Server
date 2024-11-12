@@ -12,12 +12,13 @@ int main(int argc, char** argv)
     }
     
     LOG("INFO", "configuration loaded, serving from", "%s", config.content_path.c_str());
-    if(chroot(config.content_path.c_str()) < 0)
+    
+    if(chdir(config.content_path.c_str()) < 0)
     {
-        std::cout << "chroot to " << config.content_path << " failed, shutting down...\n";
+        std::cout << "chdir to " << config.content_path << " failed, shutting down...\n";
         return 0;
     }
-
+    
     try
     {
         Server web(config, PORT);

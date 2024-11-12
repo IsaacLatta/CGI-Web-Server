@@ -33,13 +33,14 @@ void http::clean_buffer(std::vector<char>& buffer)
     }
 }
 
-std::string trim(const std::string& str) {
+std::string http::trim_to_lower(const std::string& str_param) {
+    std::string str = str_param;
     size_t first = str.find_first_not_of(" \t\n\r");
     if (first == std::string::npos) return "";
     size_t last = str.find_last_not_of(" \t\n\r");
+    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
     return str.substr(first, (last - first + 1));
 }
-
 
 static http::code check_ext(const std::string& extension, std::string& content_type)
 {
@@ -86,6 +87,8 @@ std::string http::get_response(http::code http_code)
         return "HTTP/1.1 404 Not Found";
     case http::code::Method_Not_Allowed:
         return "HTTP/1.1 405 Method Not Allowed";
+    case http::code::Client_Closed_Request:
+        return "HTTP/1.1 499 Client Closed Request";
     case http::code::Internal_Server_Error:
         return "HTTP/1.1 500 Internal Server Error";
     case http::code::Not_Implemented:
@@ -112,16 +115,14 @@ http::code http::determine_content_type(const std::string& resource, std::string
     return check_ext(extension, content_type);
 }
 
-/*
-POST /resource HTTP/1.1
-Host: 127.0.0.1:1025
-User-Agent: curl/8.6.0
-Accept: 
-Content-Length: 23
-Content-Type: application/x-www-form-urlencoded
-
-key1=value1&key2=value2�T
-*/
+std::string http::extract_header_line(const std::vector<char>& buffer) {
+    std::string_view response(buffer.data(), buffer.size());
+    std::size_t end;
+    if((end = response.find("\r\n")) == std::string::npos) {
+        return "";
+    }
+    return (std::string)(response.substr(0, end + 2));
+}
 
 http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource)
 {
@@ -134,6 +135,7 @@ http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& 
     if(resource == "/") {
         resource = "/index.html";
     }
+    resource = resource.substr(1); // remove the '/' from the path
     return http::code::OK;
 }
 
@@ -173,9 +175,7 @@ http::code http::find_content_type(const std::vector<char>& buffer, std::string&
     }
 
     content_type = std::string(header.substr(start, end - start));
-    trim(content_type);
-    std::transform(content_type.begin(), content_type.end(), content_type.begin(), ::tolower);
-
+    trim_to_lower(content_type);
     return http::code::OK;
 }
 
