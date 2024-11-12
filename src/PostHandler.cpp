@@ -150,6 +150,7 @@ asio::awaitable<void> PostHandler::handle() {
 
     auto error = co_await sendResponse(reader);
     if(error != std::nullopt) {
+        waitpid(pid, &status, NULL);
         this_session->onError(std::move(*error));
         co_return;
     }
