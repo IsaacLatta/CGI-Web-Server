@@ -11,11 +11,11 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
     std::string request(buffer, size);
     if(request.find("GET") != std::string::npos || request.find("get") != std::string::npos) {
         LOG("INFO", "Request Handler", "GET request detected");
-        return std::make_unique<GetHandler>(sess, session->getSocket(), buffer, size); 
+        return std::make_unique<GetHandler>(sess, session->getSocket(), buffer, size, session->getRoutes()); 
     }
     if(request.find("HEAD") != std::string::npos || request.find("head") != std::string::npos) {
         LOG("INFO", "Request Handler", "HEAD request detected");
-        return std::make_unique<HeadHandler>(sess, session->getSocket(), buffer, size); 
+        return std::make_unique<HeadHandler>(sess, session->getSocket(), buffer, size, session->getRoutes()); 
     }
     if(request.find("POST") != std::string::npos || request.find("POST") != std::string::npos) {
         LOG("INFO", "Request Handler", "POST request detected");

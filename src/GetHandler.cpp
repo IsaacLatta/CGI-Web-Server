@@ -63,6 +63,8 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     this_session->onCompletion(response_header, state.bytes_sent);
 }
 
+
+
 asio::awaitable<void> GetHandler::handle() {
     auto this_session = session.lock();
     if(!this_session) {
@@ -77,6 +79,14 @@ asio::awaitable<void> GetHandler::handle() {
     if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::determine_content_type(resource, content_type)) != http::code::OK) {
         this_session->onError(http::error(code));
         co_return;
+    }
+    
+    const config::Route* route = config::find_route(routes, resource);
+    if(route && route->is_protected) {
+        // authenticate the user
+    }
+    else {
+        resource = "public/" + resource;
     }
 
     LOG("INFO", "Get Handler", "PARSED RESULTS\nResource: %s\nContent_Type: %s", resource.c_str(), content_type.c_str());

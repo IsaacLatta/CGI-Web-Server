@@ -31,6 +31,14 @@ asio::awaitable<void> HeadHandler::handle() {
 
     LOG("INFO", "Get Handler", "REQUEST: %s \nPARSED RESULTS\n Resource: %s\nContent_Type: %s", buffer.data(), resource.c_str(), content_type.c_str());
     
+    const config::Route* route = config::find_route(routes, resource);
+    if(route && route->is_protected) {
+        // authenticate the user
+    }
+    else {
+        resource = "public/" + resource;
+    }
+
     int filefd =  open(resource.c_str(), O_RDONLY | O_NONBLOCK);
     if(filefd == -1) {
         this_session->onError(http::error(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno))));

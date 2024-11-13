@@ -48,7 +48,9 @@ class RequestHandler
 class GetHandler: public RequestHandler
 {
     public:
-    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, const std::unordered_map<config::Endpoint, config::Route>& routes): 
+    RequestHandler(session, sock), buffer(buffer, buffer + buf_size), routes(routes) {};
+    
     asio::awaitable<void> handle() override;
     
     private:
@@ -56,6 +58,7 @@ class GetHandler: public RequestHandler
     asio::awaitable<void> sendResource(int filefd, long file_len);
 
     private:
+    const std::unordered_map<config::Endpoint, config::Route>& routes;
     std::string response_header;
     std::vector<char> buffer;
 };
@@ -63,13 +66,16 @@ class GetHandler: public RequestHandler
 class HeadHandler: public RequestHandler
 {
     public:
-    HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, const std::unordered_map<config::Endpoint, config::Route>& routes): 
+    RequestHandler(session, sock), buffer(buffer, buffer + buf_size), routes(routes) {};
+    
     asio::awaitable<void> handle() override;
 
     private:
     std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
 
     private:
+    const std::unordered_map<config::Endpoint, config::Route>& routes;
     std::vector<char> buffer;
 };
 

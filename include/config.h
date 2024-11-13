@@ -16,6 +16,8 @@ struct Route {
     Endpoint endpoint{""};
     std::string script{""};
     bool is_protected{false};
+    std::string role{"viewer"};
+    bool is_authenticator{false};
     Route() {}
 };
 

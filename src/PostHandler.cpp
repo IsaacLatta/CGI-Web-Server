@@ -59,7 +59,7 @@ std::optional<asio::posix::stream_descriptor> PostHandler::runScript(const http:
         return std::nullopt;
     } 
 
-    LOG("POST Handler", "INFO", "Endpoint=%s, executing %s (pid = %d) with status=%d ...", active_route->endpoint.c_str(), active_route->script.c_str(), *pid, *status);
+    LOG("POST Handler", "INFO", "Endpoint=%s, executing %s (pid = %d) with status %d ...", active_route->endpoint.c_str(), active_route->script.c_str(), *pid, *status);
     
     ssize_t bytes;
     if ((bytes = write(stdin_pipe[1], args.dump().c_str(), args.dump().length())) < 0) {
@@ -94,6 +94,10 @@ asio::awaitable<std::optional<http::error>> PostHandler::sendResponse(asio::posi
         bytes_to_write = bytes_read;
         while(bytes_written < bytes_read) {
             auto [write_ec, bytes] = co_await sock->co_write(buffer.data() + bytes_written, bytes_to_write - bytes_written);
+            if (write_ec == asio::error::connection_reset || write_ec == asio::error::broken_pipe || write_ec == asio::error::eof) {
+                co_return http::error(http::code::Client_Closed_Request, "Connection reset by client");
+            }
+            
             if(write_ec) {
                 co_return http::error(http::code::Internal_Server_Error, 
                 std::format("Failed to write response from subprocess {}, endpoint {}, asio::error={} ({})", 
@@ -156,6 +160,6 @@ asio::awaitable<void> PostHandler::handle() {
     }
     
     waitpid(pid, &status, NULL);
-    this_session->onCompletion(this->response_header, total_bytes);
+    this_session->onCompletion(this->response_header, this->total_bytes);
 }
 
