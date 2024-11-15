@@ -1,5 +1,11 @@
 #include "config.h"
 
+static config::role get_role(const char* role) {
+    if(!strcmp(role, "user")) return config::role::user;
+    if(!strcmp(role, "admin")) return config::role::admin;   
+    return config::role::view;
+}
+
 static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& serverConfig) {
     using namespace tinyxml2;
     using namespace config;
@@ -19,10 +25,10 @@ static void load_routes(tinyxml2::XMLDocument* doc, config::ServerConfig& server
         route.script = serverConfig.content_path + "/" + route.script;
         route.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(route.is_protected) {
-            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : "user"; // default to user for protected routes
+            route.permission = route_el->Attribute("role") ? get_role(route_el->Attribute("role")) : config::role::user; // default to user for protected routes
         }
         else {
-            route.role = "viewer";
+            route.permission = config::role::view;
         }
         route.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
@@ -50,7 +56,7 @@ void config::print_routes(const std::unordered_map<Endpoint, Route>& routes) {
         std::cout << "  Method: " << route.method << std::endl;
         std::cout << "  Script: " << route.script << std::endl;
         std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << std::endl;
-        std::cout << "  Role: " << route.role << "\n";
+        std::cout << "  Role: " << static_cast<int>.permission << "\n";
         std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
         std::cout << std::endl;
     }

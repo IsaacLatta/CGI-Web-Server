@@ -83,6 +83,10 @@ asio::awaitable<std::optional<http::error>> PostHandler::sendResponse(asio::posi
         if(first_read) {
             this->response_header = http::extract_header_line(buffer);
             first_read = false;
+            if(active_route->is_authenticator) {
+                // extract the role
+                // generate the token
+            }
         }
         
         if(read_ec && read_ec != asio::error::eof) {
@@ -130,18 +134,25 @@ asio::awaitable<void> PostHandler::handle() {
         this_session->onError(http::error(http::code::Not_Found, std::format("Attempt to access endpoint {} with POST, no matching route", endpoint)));
         co_return;
     }
+    
     if(http::trim_to_lower(active_route->method) != "post") {
         this_session->onError(http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method)));
         co_return;
     }
     
+    std::string token;    
+    if(active_route->is_protected && (code = http::extract_token(buffer, token)) != http::code::OK && (code = http::verify_token(token, active_route->role)) != http::code::OK) {
+        this_session->onError(http::error(code, std::format("Authentication failed for protected endpoint {} with method POST", active_route->endpoint)));
+        co_return;
+    }
+
     http::json args;
     if((code = http::build_json(buffer, args)) != http::code::OK) {
         this_session->onError(http::error(code, "Failed to build json array"));
         co_return;
     }
 
-    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\n\nPARSED RESULTS Endpoint: %s JSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
+    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\nPARSED RESULTS Endpoint: %s JSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
     
     int pid, status;
     std::string error_msg;

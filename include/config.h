@@ -11,12 +11,16 @@ namespace config {
 
 using Endpoint = std::string;
 
+enum class role {
+    view, user, admin
+};
+
 struct Route {
     std::string method{""};
     Endpoint endpoint{""};
     std::string script{""};
     bool is_protected{false};
-    std::string role{"viewer"};
+    role permission{role::view};
     bool is_authenticator{false};
     Route() {}
 };
@@ -25,6 +29,7 @@ struct ServerConfig {
     std::string content_path;
     std::unordered_map<Endpoint, Route> routes;
 };
+
 
 const Route* find_route(const std::unordered_map<Endpoint, Route>& routes, const Endpoint& endpoint);
 void print_routes(const std::unordered_map<Endpoint, Route>& routes);
