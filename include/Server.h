@@ -32,8 +32,9 @@ class Server
     std::shared_ptr<asio::ip::tcp::acceptor> _acceptor;
     asio::ip::tcp::endpoint _endpoint;
     int _port;
-    std::size_t _retries;
     bool _ssl;
+    std::size_t _retries;
+
 };
 
 #endif

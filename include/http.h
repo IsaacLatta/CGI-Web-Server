@@ -14,6 +14,7 @@
 #include <utility>
 #include <unordered_map>
 #include "json.hpp"
+#include <jwt-cpp/jwt.h>
 
 namespace http
 {
@@ -50,6 +51,8 @@ namespace http
 
     //code verify_token(const std::vector<char>& buffer, const std::string& role);
 
+    code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
+    
     std::string trim_to_lower(const std::string& str);
     code build_json(const std::vector<char>& buffer, json& json_array);
     json parse_url_form(const std::string& body);

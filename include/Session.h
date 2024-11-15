@@ -21,7 +21,7 @@ class Session : public std::enable_shared_from_this<Session>
     asio::awaitable<void> start();
     void begin(const char* request_header, std::size_t header_size);
     void onError(http::error&& ec);
-    void onCompletion(const std::string& response, long bytes_moved);
+    void onCompletion(const std::string& response, long bytes_moved = 0);
     
     Socket* getSocket() const {return sock.get();}
 

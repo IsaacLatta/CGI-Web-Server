@@ -36,7 +36,8 @@ class Config
 
     const Route* findRoute(const Endpoint& endpoint) const;
     const Routes* getRoutes() const {return &routes;}
-    const std::string& getContentPath() const {return content_path;};
+    const std::string& getContentPath() const {return content_path;}
+    const std::string getSecret() const {return secret;}
 
     void printRoutes() const;
 
@@ -52,8 +53,11 @@ class Config
     static Config INSTANCE;
     static std::once_flag initFlag;
     Routes routes;
+    std::string secret = "top-secret";
     std::string content_path;
 };
+
+std::string getRoleHash(const std::string& role);
 
 };
 #endif

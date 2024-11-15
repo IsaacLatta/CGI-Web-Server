@@ -140,14 +140,29 @@ asio::awaitable<void> PostHandler::handle() {
         this_session->onError(http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method)));
         co_return;
     }
-    
-    /*
-    std::string token;    
-    if(active_route->is_protected && (code = http::extract_token(buffer, token)) != http::code::OK && (code = http::verify_token(token, active_route->role)) != http::code::OK) {
-        this_session->onError(http::error(code, std::format("Authentication failed for protected endpoint {} with method POST", active_route->endpoint)));
+
+    std::string token_recv = "";
+    if(active_route->is_protected && (code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
+        this_session->onError(http::error(code, 
+        std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", active_route->endpoint, active_route->role)));
+    }
+
+    if(active_route->script.empty()) {
+        std::string token = "", response = "HTTP/1.1 200 OK\r\n";
+        if(active_route->is_authenticator) {
+            auto tokenBuilder = jwt::create();
+            token = tokenBuilder
+                .set_issuer("server")
+                .set_subject("auth-token")
+                .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
+                .set_expires_at(DEFAULT_EXPIRATION)
+                .sign(jwt::algorithm::hs256{config->getSecret()});
+            response += "Authorization: Bearer " + token + "\r\n" "Content-Length: 0\r\n\r\n";
+        }        
+
+        this_session->onCompletion(response);
         co_return;
     }
-    */
 
     http::json args;
     if((code = http::build_json(buffer, args)) != http::code::OK) {
@@ -168,12 +183,12 @@ asio::awaitable<void> PostHandler::handle() {
 
     auto error = co_await sendResponse(reader);
     if(error != std::nullopt) {
-        waitpid(pid, &status, NULL);
+        waitpid(pid, &status, 0);
         this_session->onError(std::move(*error));
         co_return;
     }
     
-    waitpid(pid, &status, NULL);
+    waitpid(pid, &status, 0);
     this_session->onCompletion(this->response_header, this->total_bytes);
 }
 

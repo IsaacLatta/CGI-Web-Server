@@ -29,8 +29,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         Route route;
         route.method = route_el->Attribute("method") ? route_el->Attribute("method") : "";
         route.endpoint = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
-        route.script = route_el->Attribute("script") ? route_el->Attribute("script") : "";
-        route.script = content_path + "/" + route.script;
+        route.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
         route.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(route.is_protected) {
             route.role = route_el->Attribute("role") ? route_el->Attribute("role") : user; // default to user for protected routes
@@ -40,7 +39,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         }
         route.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
-        if (!route.method.empty() && !route.endpoint.empty() && !route.script.empty()) {
+        if (!route.method.empty() && !route.endpoint.empty()) {
                 routes[route.endpoint] = route;
             } 
         else {
@@ -62,7 +61,7 @@ void Config::printRoutes() const {
     for (const auto& [endpoint, route] : routes) {
         std::cout << "Endpoint: " << endpoint << "\n";
         std::cout << "  Method: " << route.method << "\n";
-        std::cout << "  Script: " << route.script << "\n";
+        std::cout << "  Script: " << (route.script.empty() ? "Empty" : route.script) << "\n";
         std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << "\n";
         std::cout << "  Role: " << route.role << "\n";
         std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
@@ -86,4 +85,8 @@ void Config::initialize(const std::string& config_path) {
     }
 
     loadRoutes(&doc, content_path);
+}
+
+std::string cfg::getRoleHash(const std::string& role) {
+    return role;
 }

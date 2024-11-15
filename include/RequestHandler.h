@@ -19,7 +19,7 @@
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
 #define BUFFER_SIZE 262144
 #define HEADER_SIZE 8192
-#define DEFAULT_EXPIRATION
+#define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
 
 class Session;
 
@@ -35,7 +35,7 @@ struct TransferState {
 class RequestHandler
 {
     public:
-    RequestHandler(std::weak_ptr<Session> session, Socket* sock) : session(session), sock(sock) {};
+    RequestHandler(std::weak_ptr<Session> session, Socket* sock) : session(session), sock(sock), config(cfg::Config::getInstance()) {};
     virtual ~RequestHandler() = default;
 
     static std::unique_ptr<RequestHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
@@ -45,6 +45,7 @@ class RequestHandler
     protected:
     std::weak_ptr<Session> session;
     Socket* sock;
+    const cfg::Config* config;
 };
 
 class GetHandler: public RequestHandler

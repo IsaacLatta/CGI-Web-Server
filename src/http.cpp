@@ -214,3 +214,14 @@ http::code http::build_json(const std::vector<char>& buffer, http::json& json_ar
 
     return http::code::OK;
 }
+
+http::code http::extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result) {
+    field += ": ";
+    std::string_view header(buffer.data(), buffer.size());
+    std::size_t start, end;
+    if((start = header.find(field)) == std::string::npos || (end = header.find("\r\n", start)) == std::string::npos || (start += field.size()) > end) {
+        return http::code::Bad_Request;
+    }
+    result = header.substr(start, end - start);
+    return http::code::OK;
+}

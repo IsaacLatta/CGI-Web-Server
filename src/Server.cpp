@@ -1,21 +1,22 @@
 #include "Server.h"
 
 Server::Server(const cfg::Config* server_config, int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
-    : 
-    _config(server_config),
-    _ssl_context(asio::ssl::context::tlsv12), 
-    _port(local_port), 
-    _ssl(ssl),
-    _retries(0)
+    : _config(server_config),
+      _io_context(),
+      _ssl_context(asio::ssl::context::tlsv12),
+      _acceptor(),
+      _endpoint(asio::ip::tcp::v4(), local_port),
+      _port(local_port),
+      _ssl(ssl),
+      _retries(0)
 {
-    this->_endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v4(), this->_port);
-    _acceptor = std::make_shared<asio::ip::tcp::acceptor>(this->_io_context, this->_endpoint);
+    this->_acceptor = std::make_shared<asio::ip::tcp::acceptor>(this->_io_context, this->_endpoint);
 
-    if(_ssl && !cert_path.empty() && !key_path.empty())
-    {
+    if (_ssl && !cert_path.empty() && !key_path.empty()) {
         loadCertificate(cert_path, key_path);
     }
 }
+
 
 void Server::loadCertificate(const std::string& cert_path, const std::string& key_path)
 {
