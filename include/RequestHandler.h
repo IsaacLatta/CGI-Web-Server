@@ -50,8 +50,8 @@ class RequestHandler
 class GetHandler: public RequestHandler
 {
     public:
-    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, const std::unordered_map<config::Endpoint, config::Route>& routes): 
-    RequestHandler(session, sock), buffer(buffer, buffer + buf_size), routes(routes) {};
+    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
+    RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
     
     asio::awaitable<void> handle() override;
     
@@ -60,7 +60,6 @@ class GetHandler: public RequestHandler
     asio::awaitable<void> sendResource(int filefd, long file_len);
 
     private:
-    const std::unordered_map<config::Endpoint, config::Route>& routes;
     std::string response_header;
     std::vector<char> buffer;
 };
@@ -68,8 +67,8 @@ class GetHandler: public RequestHandler
 class HeadHandler: public RequestHandler
 {
     public:
-    HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, const std::unordered_map<config::Endpoint, config::Route>& routes): 
-    RequestHandler(session, sock), buffer(buffer, buffer + buf_size), routes(routes) {};
+    HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
+    RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
     
     asio::awaitable<void> handle() override;
 
@@ -77,15 +76,14 @@ class HeadHandler: public RequestHandler
     std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
 
     private:
-    const std::unordered_map<config::Endpoint, config::Route>& routes;
     std::vector<char> buffer;
 };
 
 class PostHandler: public RequestHandler 
 {
     public:
-    PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size, std::unordered_map<config::Endpoint, config::Route>& routes): 
-                RequestHandler(session, sock), buffer(buffer, buffer + buf_size),  routes(routes) {total_bytes = 0;};
+    PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
+                RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 
@@ -97,8 +95,7 @@ class PostHandler: public RequestHandler
     private:
     long total_bytes;
     std::string response_header;
-    const config::Route* active_route;
-    const std::unordered_map<config::Endpoint, config::Route>& routes;
+    const cfg::Route* active_route;
     std::vector<char> buffer;
 };
 

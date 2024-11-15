@@ -4,36 +4,56 @@
 #include <tinyxml2.h>
 #include <string>
 #include <unordered_map>
+#include <mutex>
 
 #include "logger.h"
 
-namespace config {
+namespace cfg {
+
+constexpr std::string viewer = "viewer";
+constexpr std::string user = "user";
+constexpr std::string admin = "admin";
 
 using Endpoint = std::string;
-
-enum class role {
-    view, user, admin
-};
 
 struct Route {
     std::string method{""};
     Endpoint endpoint{""};
     std::string script{""};
     bool is_protected{false};
-    role permission{role::view};
+    std::string role{viewer};
     bool is_authenticator{false};
     Route() {}
 };
 
-struct ServerConfig {
+using Routes = std::unordered_map<Endpoint, Route>;
+
+class Config 
+{
+    public:
+    static const Config* getInstance(const std::string& config_path = "");
+    void initialize(const std::string& config_path);
+
+    const Route* findRoute(const Endpoint& endpoint) const;
+    const Routes* getRoutes() const {return &routes;}
+    const std::string& getContentPath() const {return content_path;};
+
+    void printRoutes() const;
+
+    private:
+    Config();
+
+    Config(Config&) = delete;
+    void operator=(Config&) = delete;
+
+    void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
+
+    private:
+    static Config INSTANCE;
+    static std::once_flag initFlag;
+    Routes routes;
     std::string content_path;
-    std::unordered_map<Endpoint, Route> routes;
 };
-
-
-const Route* find_route(const std::unordered_map<Endpoint, Route>& routes, const Endpoint& endpoint);
-void print_routes(const std::unordered_map<Endpoint, Route>& routes);
-bool load_config(const std::string& config_path, ServerConfig& server_config);
 
 };
 #endif

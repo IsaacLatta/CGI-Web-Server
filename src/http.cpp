@@ -214,5 +214,3 @@ http::code http::build_json(const std::vector<char>& buffer, http::json& json_ar
 
     return http::code::OK;
 }
-
-http::code http::verify_token(const std::vector<char>& buffer, const std::string& role)

@@ -122,15 +122,16 @@ asio::awaitable<void> PostHandler::handle() {
         ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
         co_return;
     }
+    auto config = cfg::Config::getInstance();
 
     http::code code;
-    config::Endpoint endpoint;
+    cfg::Endpoint endpoint;
     if( (code = http::extract_endpoint(buffer, endpoint)) != http::code::OK ) {
         this_session->onError(http::error(code, "Failed to parse POST request"));
         co_return;
     }
 
-    if((active_route = config::find_route(routes, endpoint)) == nullptr) {
+    if((active_route = config->findRoute(endpoint)) == nullptr) {
         this_session->onError(http::error(http::code::Not_Found, std::format("Attempt to access endpoint {} with POST, no matching route", endpoint)));
         co_return;
     }
@@ -140,11 +141,13 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     }
     
+    /*
     std::string token;    
     if(active_route->is_protected && (code = http::extract_token(buffer, token)) != http::code::OK && (code = http::verify_token(token, active_route->role)) != http::code::OK) {
         this_session->onError(http::error(code, std::format("Authentication failed for protected endpoint {} with method POST", active_route->endpoint)));
         co_return;
     }
+    */
 
     http::json args;
     if((code = http::build_json(buffer, args)) != http::code::OK) {

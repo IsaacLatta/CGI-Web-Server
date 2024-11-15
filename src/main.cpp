@@ -5,20 +5,18 @@
 
 int main(int argc, char** argv)
 {
-
-    config::ServerConfig config;
-    if(!config::load_config(CONFIG_PATH, config)) {
-        return 0;
-    }
+    const cfg::Config* config = cfg::Config::getInstance(CONFIG_PATH);
     
-    LOG("INFO", "configuration loaded, serving from", "%s", config.content_path.c_str());
+    LOG("INFO", "configuration loaded, serving from", "%s", config->getContentPath().c_str());
     
-    if(chdir(config.content_path.c_str()) < 0)
+    if(chdir(config->getContentPath().c_str()) < 0)
     {
-        std::cout << "chdir to " << config.content_path << " failed, shutting down...\n";
+        std::cout << "chdir to " << config->getContentPath().c_str() << " failed, shutting down...\n";
         return 0;
     }
     
+    config->printRoutes();
+
     try
     {
         Server web(config, PORT);
@@ -29,6 +27,5 @@ int main(int argc, char** argv)
         std::cerr << e.what() << '\n';
     }
    
-
     return 0;
 }

@@ -81,7 +81,8 @@ asio::awaitable<void> GetHandler::handle() {
         co_return;
     }
     
-    const config::Route* route = config::find_route(routes, resource);
+    auto config = cfg::Config::getInstance(); 
+    auto route = config->findRoute(resource);
     if(route && route->is_protected) {
         // authenticate the user
     }

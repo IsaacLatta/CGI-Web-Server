@@ -31,7 +31,8 @@ asio::awaitable<void> HeadHandler::handle() {
 
     LOG("INFO", "Get Handler", "REQUEST: %s \nPARSED RESULTS\n Resource: %s\nContent_Type: %s", buffer.data(), resource.c_str(), content_type.c_str());
     
-    const config::Route* route = config::find_route(routes, resource);
+    auto config = cfg::Config::getInstance();
+    const cfg::Route* route = config->findRoute(resource);
     if(route && route->is_protected) {
         // authenticate the user
     }

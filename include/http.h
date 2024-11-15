@@ -48,7 +48,7 @@ namespace http
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 
-    code verify_token(const std::vector<char>& buffer, const std::string& role);
+    //code verify_token(const std::vector<char>& buffer, const std::string& role);
 
     std::string trim_to_lower(const std::string& str);
     code build_json(const std::vector<char>& buffer, json& json_array);

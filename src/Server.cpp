@@ -1,6 +1,6 @@
 #include "Server.h"
 
-Server::Server(config::ServerConfig server_config, int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
+Server::Server(const cfg::Config* server_config, int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
     : 
     _config(server_config),
     _ssl_context(asio::ssl::context::tlsv12), 
@@ -15,7 +15,6 @@ Server::Server(config::ServerConfig server_config, int local_port, const std::st
     {
         loadCertificate(cert_path, key_path);
     }
-    print_routes(_config.routes);
 }
 
 void Server::loadCertificate(const std::string& cert_path, const std::string& key_path)
@@ -32,7 +31,7 @@ asio::awaitable<void> Server::run() {
     
     LOG("INFO", "server", "running on port %d ...", _port);
     while(true) {
-        auto session = std::make_shared<Session>(createSocket(), _config.routes);
+        auto session = std::make_shared<Session>(createSocket());
 
         co_await _acceptor->async_accept(session->getSocket()->getRawSocket(), asio::redirect_error(asio::use_awaitable, ec));
         if(isError(ec)) {

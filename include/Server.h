@@ -16,7 +16,7 @@
 class Server
 {
     public:
-    Server(config::ServerConfig server_config, int local_port, const std::string& cert_path = "", const std::string& key_path = "", bool ssl = false);
+    Server(const cfg::Config* server_config, int local_port, const std::string& cert_path = "", const std::string& key_path = "", bool ssl = false);
     void start();
     asio::awaitable<void> run();
 
@@ -26,7 +26,7 @@ class Server
     std::unique_ptr<Socket> createSocket();
 
     private:
-    config::ServerConfig _config;
+    const cfg::Config* _config;
     asio::io_context _io_context;
     asio::ssl::context _ssl_context;
     std::shared_ptr<asio::ip::tcp::acceptor> _acceptor;
