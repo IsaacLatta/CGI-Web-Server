@@ -21,6 +21,7 @@ class Server
     asio::awaitable<void> run();
 
     private:
+    std::string getIP();
     void loadCertificate(const std::string& cert_path, const std::string& key_path);
     bool isError(const asio::error_code& error);
     std::unique_ptr<Socket> createSocket();

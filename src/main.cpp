@@ -14,7 +14,7 @@ int main(int argc, char** argv)
         std::cout << "chdir to " << config->getContentPath().c_str() << " failed, shutting down...\n";
         return 0;
     }
-    
+    logger::log_message("STATUS", "Server", std::format("Configuration loaded from file: {}", CONFIG_PATH));
     config->printRoutes();
 
     try

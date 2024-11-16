@@ -126,7 +126,7 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
     return std::string(header.substr(0, end));
 }
 
-void logger::log_file(const logger::entry& info, std::string&& type) {
+void logger::log_session(const logger::entry& info, std::string&& type) {
     std::fstream log_file;
     std::string file_name = "log/web-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);
@@ -134,6 +134,22 @@ void logger::log_file(const logger::entry& info, std::string&& type) {
         return;
     }
     std::string log_msg = create_log(info, type);
+    LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
+    log_file << log_msg;
+}
+
+void logger::log_message(std::string&& level, std::string&& context, std::string&& msg) {
+    std::fstream log_file;
+    std::string file_name = "log/web-" + get_date(get_time()) + ".log";
+    log_file.open(file_name, std::fstream::app);
+    if(!log_file.is_open()) {
+        return;
+    }
+
+    level += " ";
+    std::string curr_time = "[" + get_time() +"] ";
+    context = "[" + context + "] ";
+    std::string log_msg = curr_time + level + context + msg + "\n";
     LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
     log_file << log_msg;
 }

@@ -38,7 +38,7 @@ void Session::onError(http::error&& ec) {
     
     session_info.end_time = std::chrono::system_clock::now();
     session_info.response = ec.response;
-    logger::log_file(session_info, "ERROR");
+    logger::log_session(session_info, "ERROR");
 
     if(ec.error_code != http::code::Client_Closed_Request) {
         sock->write(ec.response.data(), ec.response.length());
@@ -50,6 +50,6 @@ void Session::onCompletion(const std::string& response, long bytes_moved) {
     session_info.bytes = bytes_moved;
     session_info.response = logger::get_header_line(response.data(), response.length());
     session_info.end_time = std::chrono::system_clock::now();
-    logger::log_file(session_info, "INFO");
+    logger::log_session(session_info, "INFO");
     sock->close();
 }

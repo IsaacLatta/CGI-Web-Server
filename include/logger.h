@@ -44,18 +44,6 @@
 } while(0)
 
 
-#define EXIT_FATAL(tag, error_code, error_msg, format, ...) do { \
-    time_t now = time(0); \
-    struct tm* timeinfo = localtime(&now); \
-    char timeStr[25]; \
-    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
-    const char* filename = strrchr(__FILE__, '/'); \
-    filename = filename ? filename + 1 : __FILE__; \
-    fprintf(stderr, "[%s %s:%d] FATAL %s: (%s: %d) " format " exiting pid=%d ...\n", \
-        timeStr, filename, __LINE__, tag, error_msg, error_code, ##__VA_ARGS__, getpid()); \
-    exit(EXIT_FAILURE); \
-} while (0)
-
 namespace logger 
 {
     struct entry {
@@ -71,7 +59,21 @@ namespace logger
 
     std::string get_user_agent(const char* buffer, std::size_t size);
     std::string get_header_line(const char* buffer, std::size_t size);
-    void log_file(const entry& info, std::string&& type);
+    void log_session(const entry& info, std::string&& type);
+    void log_message(std::string&& level, std::string&& context, std::string&& msg);
 };
+
+#define EXIT_FATAL(tag, error_code, error_msg, format, ...) do { \
+    time_t now = time(0); \
+    struct tm* timeinfo = localtime(&now); \
+    char timeStr[25]; \
+    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
+    const char* filename = strrchr(__FILE__, '/'); \
+    filename = filename ? filename + 1 : __FILE__; \
+    fprintf(stderr, "[%s %s:%d] FATAL %s: (%s: %d) " format " exiting pid=%d ...\n", \
+        timeStr, filename, __LINE__, tag, error_msg, error_code, ##__VA_ARGS__, getpid()); \
+    exit(EXIT_FAILURE); \
+} while (0)
+
 
 #endif

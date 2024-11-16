@@ -73,6 +73,7 @@ void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLDocument doc;
     
     if(doc.LoadFile(config_path.c_str()) != tinyxml2::XML_SUCCESS) {
+        logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
         EXIT_FATAL("loading server configuration", static_cast<int>(doc.ErrorID()), doc.ErrorStr(), "failed to load config file: %s", config_path.c_str());
     }
 
@@ -81,6 +82,7 @@ void Config::initialize(const std::string& config_path) {
         content_path = web_dir->GetText();
     }
     else {
+        logger::log_message("FATAL", "Server", "Configuration Failed: no web directory path found");
         EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
     }
 

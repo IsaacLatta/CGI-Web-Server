@@ -1,5 +1,9 @@
 #include "Server.h"
 
+#include <asio.hpp>
+#include <iostream>
+#include <string>
+
 Server::Server(const cfg::Config* server_config, int local_port, const std::string& cert_path, const std::string& key_path, bool ssl) 
     : _config(server_config),
       _io_context(),
@@ -17,9 +21,21 @@ Server::Server(const cfg::Config* server_config, int local_port, const std::stri
     }
 }
 
+std::string Server::getIP() {
+    asio::ip::tcp::resolver resolver(_io_context);
+    asio::ip::tcp::resolver::query query(asio::ip::host_name(), "");
+    asio::ip::tcp::resolver::iterator endpoints = resolver.resolve(query);
 
-void Server::loadCertificate(const std::string& cert_path, const std::string& key_path)
-{
+    for (auto it = endpoints; it != asio::ip::tcp::resolver::iterator(); ++it) {
+        auto endpoint = it->endpoint();
+        if (endpoint.address().is_v4()) { 
+            return endpoint.address().to_string();
+        }
+    }
+    return "127.0.0.1"; 
+}
+
+void Server::loadCertificate(const std::string& cert_path, const std::string& key_path) {
     this->_ssl_context.set_options(asio::ssl::context::default_workarounds | // workaround common bugs
                                   asio::ssl::context::no_sslv2 | // disable sslv2
                                   asio::ssl::context::single_dh_use); // enable new dh use for each session
@@ -31,6 +47,7 @@ asio::awaitable<void> Server::run() {
     std::error_code ec;
     
     LOG("INFO", "server", "running on port %d ...", _port);
+    logger::log_message("STATUS", "Server", std::format("Running on host [{} {}:{}] pid={}", asio::ip::host_name(), getIP(), _port, getpid()));
     while(true) {
         auto session = std::make_shared<Session>(createSocket());
 
@@ -70,9 +87,10 @@ bool Server::isError(const asio::error_code& error)
       error.value() == asio::error::host_unreachable)
     {
         this->_retries++;
-        std::size_t backoff_time = DEFAULT_BACKOFF_MS * _retries; 
-        ERROR("server", error.value(), error.message().c_str(), "backing off for: %ld ms", backoff_time);
-        sleep(backoff_time);
+        std::size_t backoff_time_ms = DEFAULT_BACKOFF_MS * _retries; 
+        ERROR("server", error.value(), error.message().c_str(), "backing off for: %ld ms", backoff_time_ms);
+        logger::log_message("WARN", "Server", std::format("[error={} {}] Backing off for {} ms", error.value(), error.message(), backoff_time_ms));
+        sleep(backoff_time_ms);
     }
 
     return false;
