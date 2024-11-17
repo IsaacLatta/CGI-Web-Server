@@ -1,6 +1,6 @@
 #include "Server.h"
 
-#define CONFIG_PATH "/home/isaac/Web-Server/example/server.config"
+#define CONFIG_PATH "/home/isaac/Projects/Web-Server/example/server.config"
 #define PORT 1025
 
 int main(int argc, char** argv)
