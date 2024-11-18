@@ -13,6 +13,8 @@ namespace cfg {
 constexpr std::string viewer = "viewer";
 constexpr std::string user = "user";
 constexpr std::string admin = "admin";
+constexpr std::string NO_HOST_NAME  = "";
+
 
 using Endpoint = std::string;
 
@@ -38,7 +40,7 @@ class Config
     const Routes* getRoutes() const {return &routes;}
     const std::string& getContentPath() const {return content_path;}
     const std::string getSecret() const {return secret;}
-
+    const std::string getHostName() const {return host_name;}
     void printRoutes() const;
 
     private:
@@ -55,6 +57,7 @@ class Config
     Routes routes;
     std::string secret = "top-secret";
     std::string content_path;
+    std::string host_name;
 };
 
 std::string getRoleHash(const std::string& role);

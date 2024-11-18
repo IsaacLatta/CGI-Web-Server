@@ -86,6 +86,14 @@ void Config::initialize(const std::string& config_path) {
         EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
     }
 
+    tinyxml2::XMLElement* host = doc.FirstChildElement("ServerConfig")->FirstChildElement("Host");
+    if(host) {
+        host_name = host->GetText();
+    }
+    else {
+        host_name = cfg::NO_HOST_NAME;
+    }
+
     loadRoutes(&doc, content_path);
 }
 

@@ -47,7 +47,7 @@ asio::awaitable<void> Server::run() {
     std::error_code ec;
     
     LOG("INFO", "server", "running on port %d ...", _port);
-    logger::log_message("STATUS", "Server", std::format("Running on host [{} {}:{}] pid={}", asio::ip::host_name(), getIP(), _port, getpid()));
+    logger::log_message("STATUS", "Server", std::format("{} is running on [{} {}:{}] pid={}", _config->getHostName(), asio::ip::host_name(), getIP(), _port, getpid()));
     while(true) {
         auto session = std::make_shared<Session>(createSocket());
 
