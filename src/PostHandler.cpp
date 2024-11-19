@@ -35,7 +35,8 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
 std::optional<asio::posix::stream_descriptor> PostHandler::runScript(int* pid, int* status,  http::error& error) {
     auto this_session = session.lock();
     if(!this_session) {
-        error = http::error(http::code::Internal_Server_Error, std::format("Failed to lock session observer in POST handler, aborting launch of subprocess {} for endpoint {}", active_route->script, active_route->endpoint));
+        error = http::error(http::code::Internal_Server_Error, 
+		std::format("Failed to lock session observer in POST handler, aborting launch of subprocess {} for endpoint {}", active_route->script, active_route->endpoint));
         return std::nullopt;
     } 
 
