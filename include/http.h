@@ -46,6 +46,7 @@ namespace http
         std::string message;
         std::string response;
         code error_code;
+        error() {}
         error(code ec, std::string&& message = ""): message(message), error_code(ec) {response = get_response(ec);}
     };
 

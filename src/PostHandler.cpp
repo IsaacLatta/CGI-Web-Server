@@ -32,17 +32,25 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
     return true;
 }
 
-std::optional<asio::posix::stream_descriptor> PostHandler::runScript(const http::json& args, int* pid, int* status, std::string& opt_error_msg) {
+std::optional<asio::posix::stream_descriptor> PostHandler::runScript(int* pid, int* status,  http::error& error) {
     auto this_session = session.lock();
     if(!this_session) {
-        opt_error_msg = std::format("Failed to lock session observer in POST handler, aborting launch of subprocess {} for endpoint {}", active_route->script, active_route->endpoint);
+        error = http::error(http::code::Internal_Server_Error, std::format("Failed to lock session observer in POST handler, aborting launch of subprocess {} for endpoint {}", active_route->script, active_route->endpoint));
         return std::nullopt;
     } 
+
+    http::json args;
+    http::code code;
+    if((code = http::build_json(buffer, args)) != http::code::OK) {
+        error = http::error(code, "Failed to build json array");
+        return std::nullopt;
+    }
+
     auto executor = this_session->getSocket()->getRawSocket().get_executor();
 
     int stdin_pipe[2], stdout_pipe[2];
     if(pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0) {
-        opt_error_msg = std::format("Failed to create pipes for subprocess {}, endpoint: {}, errno={} ({})", active_route->script, active_route->endpoint, errno, strerror(errno));  
+        error = http::error(http::code::Internal_Server_Error, std::format("Failed to create pipes for subprocess {}, endpoint: {}, errno={} ({})", active_route->script, active_route->endpoint, errno, strerror(errno)));  
         close(stdin_pipe[0]);
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
@@ -51,7 +59,7 @@ std::optional<asio::posix::stream_descriptor> PostHandler::runScript(const http:
     }
 
     if(!runProcess(stdin_pipe, stdout_pipe, pid, status)) {
-        opt_error_msg = std::format("Failed to launch subprocess {} with posix_spawn, endpoint: {}, errno={} ({})", active_route->script, active_route->endpoint, errno, strerror(errno));  
+        error = http::error(http::code::Internal_Server_Error, std::format("Failed to launch subprocess {} with posix_spawn, endpoint: {}, errno={} ({})", active_route->script, active_route->endpoint, errno, strerror(errno)));  
         close(stdin_pipe[0]);
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
@@ -63,7 +71,7 @@ std::optional<asio::posix::stream_descriptor> PostHandler::runScript(const http:
     
     ssize_t bytes;
     if ((bytes = write(stdin_pipe[1], args.dump().c_str(), args.dump().length())) < 0) {
-        opt_error_msg = std::format("Failed to write args to subprocess {} (pid={}), endpoint: {}, errno={}, ({})", active_route->script, *pid, active_route->endpoint, errno, strerror(errno));
+        error = http::error(http::code::Internal_Server_Error, std::format("Failed to write args to subprocess {} (pid={}), endpoint: {}, errno={}, ({})", active_route->script, *pid, active_route->endpoint, errno, strerror(errno)));
         close(stdout_pipe[0]);
         close(stdin_pipe[1]);
         return std::nullopt;
@@ -141,51 +149,33 @@ void PostHandler::handleEmptyScript(std::shared_ptr<Session> session) {
     session->onCompletion(response);
 }
 
-bool PostHandler::parseRequest(http::json& args) {
+std::optional<http::error> PostHandler::parseRequest() {
     auto this_session = session.lock();
     if(!this_session) {
-        ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
-        return true;
+        return http::error(http::code::Internal_Server_Error, "failed to lock session observer");
     }
 
     http::code code;
     cfg::Endpoint endpoint;
     if( (code = http::extract_endpoint(buffer, endpoint)) != http::code::OK ) {
-        this_session->onError(http::error(code, "Failed to parse POST request"));
-        return true;
+        return http::error(code, "Failed to parse POST request");
     }
 
     if((active_route = config->findRoute(endpoint)) == nullptr) {
-        this_session->onError(http::error(http::code::Not_Found, std::format("Attempt to access endpoint {} with POST, no matching route", endpoint)));
-        return true;
+        return http::error(http::code::Not_Found, std::format("Attempt to access endpoint {} with POST, no matching route", endpoint));
     }
     
     if(http::trim_to_lower(active_route->method) != "post") {
-        this_session->onError(http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method)));
-        return true;
+        return http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method));
     }
 
+    std::optional<http::error> error;
     std::string token_recv = "";
-    if(active_route->is_protected && (code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
-        //authenticate(active_route, error);
-        
-        this_session->onError(http::error(code, 
-        std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", active_route->endpoint, active_route->role)));
-        return true;
+    if((error = authenticate(active_route)) != std::nullopt) {
+        return error;
     }
 
-    if(active_route->script.empty()) {
-        handleEmptyScript(this_session);
-        return true;
-    }
-
-    if((code = http::build_json(buffer, args)) != http::code::OK) {
-        this_session->onError(http::error(code, "Failed to build json array"));
-        return true;
-    }
-
-    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\nPARSED RESULTS Endpoint: %s JSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
-    return false;
+    return std::nullopt;
 }
 
 asio::awaitable<void> PostHandler::handle() {
@@ -195,17 +185,22 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     }
 
-    http::json args;
-    bool request_completed = parseRequest(args);
-    if(request_completed) {
+    std::optional<http::error> error_code = parseRequest();
+    if(error_code) {
+        this_session->onError(std::move(*error_code));
         co_return;
     }
     
+    if(active_route->script.empty()) {
+        handleEmptyScript(this_session);
+        co_return;
+    }
+
     int pid, status;
-    std::string error_msg;
-    auto reader_opt = runScript(args, &pid, &status, error_msg);
+    http::error ec;
+    auto reader_opt = runScript(&pid, &status, ec);
     if(reader_opt == std::nullopt) {
-        this_session->onError(http::error(http::code::Internal_Server_Error, std::move(error_msg)));
+        this_session->onError(std::move(ec));
         co_return;
     }
     auto& reader = *reader_opt;

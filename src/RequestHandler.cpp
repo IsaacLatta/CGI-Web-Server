@@ -26,9 +26,20 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
     return nullptr;
 }
 
-bool RequestHandler::authenticate(const cfg::Route* route, http::error& error) {
+std::optional<http::error> RequestHandler::authenticate(const cfg::Route* route) {
+    if(!route->is_protected) {
+        return std::nullopt;
+    }
+    
     http::code code;
     std::string token_recv;
-    
-    return true;
+    if((code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
+        return http::error(code, 
+        std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", route->endpoint, route->role)); 
+    } 
+
+
+
+
+    return std::nullopt;
 }
