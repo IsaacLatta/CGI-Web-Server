@@ -43,6 +43,9 @@ class RequestHandler
     virtual asio::awaitable<void> handle() = 0;
 
     protected:
+    bool authenticate(cfg::Route* route);
+
+    protected:
     std::weak_ptr<Session> session;
     Socket* sock;
     const cfg::Config* config;
@@ -92,6 +95,8 @@ class PostHandler: public RequestHandler
     asio::awaitable<std::optional<http::error>> sendResponse(asio::posix::stream_descriptor& reader);
     std::optional<asio::posix::stream_descriptor> runScript(const http::json& args, int* pid, int* status, std::string& opt_error_msg);
     bool runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
+    bool parseRequest(http::json& args);
+    void handleEmptyScript(std::shared_ptr<Session>);
 
     private:
     long total_bytes;

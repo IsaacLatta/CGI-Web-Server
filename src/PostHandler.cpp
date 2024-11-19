@@ -116,61 +116,88 @@ asio::awaitable<std::optional<http::error>> PostHandler::sendResponse(asio::posi
     co_return std::nullopt;
 }
 
-asio::awaitable<void> PostHandler::handle() {
+void PostHandler::handleEmptyScript(std::shared_ptr<Session> session) {
+    http::json response_body;
+    std::string token = "", response = "HTTP/1.1 200 OK\r\n";
+    if (active_route->is_authenticator)
+    {
+        LOG("INFO", "POST handler", "authenticating user");
+        auto tokenBuilder = jwt::create();
+        token = tokenBuilder
+                    .set_issuer("server")
+                    .set_subject("auth-token")
+                    .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
+                    .set_expires_at(DEFAULT_EXPIRATION)
+                    .sign(jwt::algorithm::hs256{config->getSecret()});
+        response_body["token"] = token;
+    }
+    else {
+        response_body["message"] = "Endpoint active, no script set";
+    }
+
+    response += std::format("Connection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}\r\n", (response_body.dump().length() + 2), response_body.dump());
+    LOG("INFO", "Response", "%s", response.c_str());
+    sock->write(response.data(), response.length());
+    session->onCompletion(response);
+}
+
+bool PostHandler::parseRequest(http::json& args) {
     auto this_session = session.lock();
     if(!this_session) {
         ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
-        co_return;
+        return true;
     }
-    auto config = cfg::Config::getInstance();
 
     http::code code;
     cfg::Endpoint endpoint;
     if( (code = http::extract_endpoint(buffer, endpoint)) != http::code::OK ) {
         this_session->onError(http::error(code, "Failed to parse POST request"));
-        co_return;
+        return true;
     }
 
     if((active_route = config->findRoute(endpoint)) == nullptr) {
         this_session->onError(http::error(http::code::Not_Found, std::format("Attempt to access endpoint {} with POST, no matching route", endpoint)));
-        co_return;
+        return true;
     }
     
     if(http::trim_to_lower(active_route->method) != "post") {
         this_session->onError(http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method)));
-        co_return;
+        return true;
     }
 
     std::string token_recv = "";
     if(active_route->is_protected && (code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
         this_session->onError(http::error(code, 
         std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", active_route->endpoint, active_route->role)));
+        return true;
     }
 
     if(active_route->script.empty()) {
-        std::string token = "", response = "HTTP/1.1 200 OK\r\n";
-        if(active_route->is_authenticator) {
-            auto tokenBuilder = jwt::create();
-            token = tokenBuilder
-                .set_issuer("server")
-                .set_subject("auth-token")
-                .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
-                .set_expires_at(DEFAULT_EXPIRATION)
-                .sign(jwt::algorithm::hs256{config->getSecret()});
-            response += "Authorization: Bearer " + token + "\r\n" "Content-Length: 0\r\n\r\n";
-        }        
+        handleEmptyScript(this_session);
+        return true;
+    }
 
-        this_session->onCompletion(response);
+    if((code = http::build_json(buffer, args)) != http::code::OK) {
+        this_session->onError(http::error(code, "Failed to build json array"));
+        return true;
+    }
+
+    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\nPARSED RESULTS Endpoint: %s JSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
+    return false;
+}
+
+asio::awaitable<void> PostHandler::handle() {
+    auto this_session = session.lock();
+    if(!this_session) {
+        ERROR("POST Handler", 0, "NULL", "failed to lock session observer");
         co_return;
     }
 
     http::json args;
-    if((code = http::build_json(buffer, args)) != http::code::OK) {
-        this_session->onError(http::error(code, "Failed to build json array"));
+    bool request_completed = parseRequest(args);
+    if(request_completed) {
         co_return;
     }
-
-    LOG("INFO", "POST Handler", "REQUEST PARSING SUCCEDED\n%s\nPARSED RESULTS Endpoint: %s JSON Args: %s", buffer.data(), endpoint.c_str(), args.dump().c_str());
     
     int pid, status;
     std::string error_msg;

@@ -25,3 +25,7 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
     session->onError(http::error(http::code::Not_Implemented, "Request Method not supported"));
     return nullptr;
 }
+
+bool RequestHandler::authenticate(cfg::Route* route) {
+    return true;
+}
