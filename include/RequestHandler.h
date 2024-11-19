@@ -35,7 +35,8 @@ struct TransferState {
 class RequestHandler
 {
     public:
-    RequestHandler(std::weak_ptr<Session> session, Socket* sock) : session(session), sock(sock), config(cfg::Config::getInstance()) {};
+    RequestHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size) : 
+                    session(session), sock(sock), buffer(buffer, buffer + buf_size), config(cfg::Config::getInstance()) {};
     virtual ~RequestHandler() = default;
 
     static std::unique_ptr<RequestHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
@@ -43,11 +44,12 @@ class RequestHandler
     virtual asio::awaitable<void> handle() = 0;
 
     protected:
-    bool authenticate(cfg::Route* route);
+    bool authenticate(const cfg::Route* route, http::error& error);
 
     protected:
     std::weak_ptr<Session> session;
     Socket* sock;
+    std::vector<char> buffer;
     const cfg::Config* config;
 };
 
@@ -55,7 +57,7 @@ class GetHandler: public RequestHandler
 {
     public:
     GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    RequestHandler(session, sock, buffer, buf_size) {};
     
     asio::awaitable<void> handle() override;
     
@@ -65,14 +67,13 @@ class GetHandler: public RequestHandler
 
     private:
     std::string response_header;
-    std::vector<char> buffer;
 };
 
 class HeadHandler: public RequestHandler
 {
     public:
     HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {};
+    RequestHandler(session, sock, buffer, buf_size){};
     
     asio::awaitable<void> handle() override;
 
@@ -80,14 +81,13 @@ class HeadHandler: public RequestHandler
     std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
 
     private:
-    std::vector<char> buffer;
 };
 
 class PostHandler: public RequestHandler 
 {
     public:
     PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-                RequestHandler(session, sock), buffer(buffer, buffer + buf_size) {total_bytes = 0;};
+                RequestHandler(session, sock, buffer, buf_size) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 
@@ -102,7 +102,6 @@ class PostHandler: public RequestHandler
     long total_bytes;
     std::string response_header;
     const cfg::Route* active_route;
-    std::vector<char> buffer;
 };
 
 #endif

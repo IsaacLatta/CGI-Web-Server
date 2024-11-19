@@ -26,6 +26,9 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
     return nullptr;
 }
 
-bool RequestHandler::authenticate(cfg::Route* route) {
+bool RequestHandler::authenticate(const cfg::Route* route, http::error& error) {
+    http::code code;
+    std::string token_recv;
+    
     return true;
 }

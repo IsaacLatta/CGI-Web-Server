@@ -167,6 +167,8 @@ bool PostHandler::parseRequest(http::json& args) {
 
     std::string token_recv = "";
     if(active_route->is_protected && (code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
+        //authenticate(active_route, error);
+        
         this_session->onError(http::error(code, 
         std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", active_route->endpoint, active_route->role)));
         return true;
