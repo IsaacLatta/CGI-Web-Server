@@ -39,10 +39,12 @@ std::optional<http::error> RequestHandler::authenticate(const cfg::Route* route)
         std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", route->endpoint, route->role)); 
     } 
 
-    LOG("INFO", "authenticator", "token extracted: %s", token_recv.c_str());
+    LOG("INFO", "authenticator", "TOKEN EXTRACTED: %s", token_recv.c_str());
     try {
         auto decoded_token = jwt::decode(token_recv);
-        LOG("INFO", "authenticator", "\nTOKEN RECV: %s\nTOKEN DECODED: %s\n", token_recv.c_str(), decoded_token.get_token().c_str());
+        LOG("INFO", "authenticator", "Header: %s", decoded_token.get_header().c_str());
+        LOG("INFO", "authenticator", "Payload: %s", decoded_token.get_payload().c_str());
+        LOG("INFO", "authenticator", "Algorithm: %s", decoded_token.get_algorithm().c_str());
 
         auto verifier = jwt::verify();
         auto algo = decoded_token.get_algorithm();

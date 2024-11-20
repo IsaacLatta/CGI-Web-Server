@@ -170,13 +170,7 @@ std::optional<http::error> PostHandler::parseRequest() {
         return http::error(http::code::Method_Not_Allowed, std::format("Attempt to access {} with POST, allowed={}", endpoint, active_route->method));
     }
 
-    std::optional<http::error> error;
-    std::string token_recv = "";
-    if((error = authenticate(active_route)) != std::nullopt) {
-        return error;
-    }
-
-    return std::nullopt;
+    return authenticate(active_route);
 }
 
 asio::awaitable<void> PostHandler::handle() {
