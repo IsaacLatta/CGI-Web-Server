@@ -225,3 +225,24 @@ http::code http::extract_header_field(const std::vector<char>& buffer, std::stri
     result = header.substr(start, end - start);
     return http::code::OK;
 }
+
+http::code http::extract_token(const std::vector<char>& buffer, std::string& token) {
+    
+    std::string_view header(buffer.data(), buffer.size());
+    http::code code;
+    std::string field;
+    if((code = http::extract_header_field(buffer, "Authorization", field)) != http::code::OK) {
+        std::cout << "header field failed";
+        return code;
+    }
+
+    std::string delim = "Bearer ";
+    std::size_t start;
+    if((start = field.find(delim)) == std::string::npos) {
+        std::cout << "delim failed\n";
+        return http::code::Bad_Request;
+    }
+
+    token = field.substr(delim.length());
+    return http::code::OK;
+}

@@ -34,13 +34,34 @@ std::optional<http::error> RequestHandler::authenticate(const cfg::Route* route)
     
     http::code code;
     std::string token_recv;
-    if((code = http::extract_header_field(buffer, "Authorization", token_recv)) != http::code::OK) {
+    if((code = http::extract_token(buffer, token_recv)) != http::code::OK) {
         return http::error(code, 
         std::format("Failed to authenticate token for protected endpoint {} with POST, required role {}", route->endpoint, route->role)); 
     } 
 
+    LOG("INFO", "authenticator", "token extracted: %s", token_recv.c_str());
+    try {
+        auto decoded_token = jwt::decode(token_recv);
+        LOG("INFO", "authenticator", "\nTOKEN RECV: %s\nTOKEN DECODED: %s\n", token_recv.c_str(), decoded_token.get_token().c_str());
 
+        auto verifier = jwt::verify();
+        auto algo = decoded_token.get_algorithm();
+        if (algo == "HS256") {
+            verifier.allow_algorithm(jwt::algorithm::hs256(config->getSecret()));
+        }
+        else if (algo == "HS512") {
+            verifier.allow_algorithm(jwt::algorithm::hs512(config->getSecret()));
+        }
+        else {
+            throw std::runtime_error(std::format("Token recv for endpoint: {}, unsupported algorithm: {}", route->endpoint, algo));
+        }
 
+        verifier.with_issuer(config->getHostName()).verify(decoded_token);
 
-    return std::nullopt;
+        return std::nullopt;
+    }
+    catch (const std::exception &e) {
+        return http::error(http::code::Bad_Request, e.what());
+    }
 }
+
