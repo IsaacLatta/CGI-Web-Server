@@ -12,7 +12,7 @@ int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_
 }
 
 std::string format_bytes(long bytes) {
-    if(bytes == 1) return " byte";
+    if(bytes == 1) return " byte"; // Hello World
 
     std::string units[] = {" bytes", " KB", " MB", " GB", " TB"};
     int i = 0;

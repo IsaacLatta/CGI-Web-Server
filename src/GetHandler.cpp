@@ -43,7 +43,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
             }
 
             if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
-                LOG("INFO", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
+                LOG("WARN", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
                 state.retry_count++;
 
                 asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -62,8 +62,6 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, state.bytes_sent);
     this_session->onCompletion(response_header, state.bytes_sent);
 }
-
-
 
 asio::awaitable<void> GetHandler::handle() {
     auto this_session = session.lock();
