@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <asio.hpp>
 #include <tinyxml2.h>
 #include <string>
 #include <unordered_map>
@@ -10,20 +11,25 @@
 
 namespace cfg {
 
-constexpr std::string viewer = "viewer";
-constexpr std::string user = "user";
-constexpr std::string admin = "admin";
+constexpr std::string VIEWER = "viewer";
+constexpr std::string USER = "user";
+constexpr std::string ADMIN = "admin";
 constexpr std::string NO_HOST_NAME  = "";
 
-
 using Endpoint = std::string;
+
+struct SSLConfig {
+    bool active;
+    std::string key_path;
+    std::string certificate_path;
+};
 
 struct Route {
     std::string method{""};
     Endpoint endpoint{""};
     std::string script{""};
     bool is_protected{false};
-    std::string role{viewer};
+    std::string role{VIEWER};
     bool is_authenticator{false};
     Route() {}
 };
@@ -40,7 +46,9 @@ class Config
     const Routes* getRoutes() const {return &routes;}
     const std::string& getContentPath() const {return content_path;}
     const std::string getSecret() const {return secret;}
-    const std::string getHostName() const {return host_name;}
+    const std::string getServerName() const {return host_name;}
+    const SSLConfig* getSSL() const {return &ssl;}
+    std::string getHostIP() const {return host_address;}
     void printRoutes() const;
 
     private:
@@ -49,15 +57,20 @@ class Config
     Config(Config&) = delete;
     void operator=(Config&) = delete;
 
+    void loadSSL(tinyxml2::XMLDocument* doc);
+    void loadHostIP();
     void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
 
     private:
     static Config INSTANCE;
     static std::once_flag initFlag;
+    
     Routes routes;
+    SSLConfig ssl;
     std::string secret = "top-secret";
     std::string content_path;
     std::string host_name;
+    std::string host_address;
 };
 
 std::string getRoleHash(const std::string& role);

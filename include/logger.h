@@ -70,7 +70,7 @@ namespace logger
     strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
     const char* filename = strrchr(__FILE__, '/'); \
     filename = filename ? filename + 1 : __FILE__; \
-    fprintf(stderr, "[%s %s:%d] FATAL %s: (%s: %d) " format " exiting pid=%d ...\n", \
+    fprintf(stderr, "[%s %s:%d] FATAL %s: (%s: %d) " format ", exiting pid=%d\n", \
         timeStr, filename, __LINE__, tag, error_msg, error_code, ##__VA_ARGS__, getpid()); \
     exit(EXIT_FAILURE); \
 } while (0)

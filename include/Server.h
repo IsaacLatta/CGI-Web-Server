@@ -16,13 +16,12 @@
 class Server
 {
     public:
-    Server(const cfg::Config* server_config, int local_port, const std::string& cert_path = "", const std::string& key_path = "", bool ssl = false);
+    Server(const cfg::Config* server_config, int local_port);
     void start();
     asio::awaitable<void> run();
 
     private:
-    std::string getIP();
-    void loadCertificate(const std::string& cert_path, const std::string& key_path);
+    void loadCertificate();
     bool isError(const asio::error_code& error);
     std::unique_ptr<Socket> createSocket();
 

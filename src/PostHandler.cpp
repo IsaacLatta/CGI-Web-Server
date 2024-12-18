@@ -133,7 +133,7 @@ void PostHandler::handleEmptyScript(std::shared_ptr<Session> session) {
         LOG("INFO", "POST handler", "authenticating user");
         auto tokenBuilder = jwt::create();
         token = tokenBuilder
-                    .set_issuer(config->getHostName())
+                    .set_issuer(config->getServerName())
                     .set_subject("auth-token")
                     .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
                     .set_expires_at(DEFAULT_EXPIRATION)

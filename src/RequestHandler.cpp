@@ -58,7 +58,7 @@ std::optional<http::error> RequestHandler::authenticate(const cfg::Route* route)
             throw std::runtime_error(std::format("Token recv for endpoint: {}, unsupported algorithm: {}", route->endpoint, algo));
         }
 
-        verifier.with_issuer(config->getHostName()).verify(decoded_token);
+        verifier.with_issuer(config->getServerName()).verify(decoded_token);
 
         return std::nullopt;
     }

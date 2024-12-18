@@ -32,10 +32,10 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         route.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
         route.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(route.is_protected) {
-            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : user; // default to user for protected routes
+            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : USER; // default to user for protected routes
         }
         else {
-            route.role = viewer;
+            route.role = VIEWER;
         }
         route.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
@@ -82,10 +82,14 @@ void Config::initialize(const std::string& config_path) {
         content_path = web_dir->GetText();
     }
     else {
-        logger::log_message("FATAL", "Server", "Configuration Failed: no web directory path found");
         EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
     }
 
+    if(chdir(content_path.c_str()) < 0) {
+        EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to chdir to web directory path: %s", content_path.c_str());
+    }
+
+    logger::log_message("STATUS", "Server", "initialiizing ...");
     tinyxml2::XMLElement* host = doc.FirstChildElement("ServerConfig")->FirstChildElement("Host");
     if(host) {
         host_name = host->GetText();
@@ -94,9 +98,47 @@ void Config::initialize(const std::string& config_path) {
         host_name = cfg::NO_HOST_NAME;
     }
 
+    loadSSL(&doc);
     loadRoutes(&doc, content_path);
+    loadHostIP();
 }
 
 std::string cfg::getRoleHash(const std::string& role) {
     return role;
+}
+
+void cfg::Config::loadSSL(tinyxml2::XMLDocument* doc) {
+    tinyxml2::XMLElement* ssl_config = doc->FirstChildElement("ServerConfig")->FirstChildElement("SSL");
+    if(!ssl_config) {
+        return;
+    }
+    ssl.active = true;
+    tinyxml2::XMLElement* cert = ssl_config->FirstChildElement("Certificate");
+    if(!cert) {
+        logger::log_message("FATAL", "Server", std::format("certificate not found: exiting pid={}", getpid()));
+        EXIT_FATAL("loading server configuration", 0, "Certificate Not Found", "please provide a valid certificate");
+    }
+    ssl.certificate_path = cert->GetText();
+    tinyxml2::XMLElement* key = ssl_config->FirstChildElement("PrivateKey");
+    if(!key) {
+        logger::log_message("FATAL", "Server", std::format("private key not found: exiting pid={}", getpid()));
+        EXIT_FATAL("loading server configuration", 0, "Private Key Not Found", "please provide a valid key");
+    }
+    ssl.key_path = key->GetText();
+}
+
+void cfg::Config::loadHostIP() {
+    asio::io_context io;
+    asio::ip::tcp::resolver resolver(io);
+    asio::ip::tcp::resolver::query query(asio::ip::host_name(), "");
+    asio::ip::tcp::resolver::iterator endpoints = resolver.resolve(query);
+
+    for (auto it = endpoints; it != asio::ip::tcp::resolver::iterator(); ++it) {
+        auto endpoint = it->endpoint();
+        if (endpoint.address().is_v4()) { 
+            host_address = endpoint.address().to_string();
+            return;
+        }
+    }
+    host_address = "127.0.0.1";
 }
