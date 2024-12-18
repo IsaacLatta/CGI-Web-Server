@@ -1,7 +1,6 @@
 #include "Server.h"
 
 #define CONFIG_PATH "/home/isaac/Projects/Web-Server/example/server.config"
-#define PORT 1025
 
 int main(int argc, char** argv)
 {
@@ -12,7 +11,7 @@ int main(int argc, char** argv)
     config->printRoutes();
 
     try {
-        Server server(config, PORT);
+        Server server(config);
         server.start();
     }
     catch(const std::exception& e) {

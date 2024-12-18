@@ -49,6 +49,7 @@ class Config
     const std::string getServerName() const {return host_name;}
     const SSLConfig* getSSL() const {return &ssl;}
     std::string getHostIP() const {return host_address;}
+    int getPort() const {return port;}
     void printRoutes() const;
 
     private:
@@ -71,6 +72,7 @@ class Config
     std::string content_path;
     std::string host_name;
     std::string host_address;
+    int port;
 };
 
 std::string getRoleHash(const std::string& role);

@@ -98,6 +98,9 @@ void Config::initialize(const std::string& config_path) {
         host_name = cfg::NO_HOST_NAME;
     }
 
+    tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
+    port = host_port ? std::stoi(host_port->GetText()) : 80;
+
     loadSSL(&doc);
     loadRoutes(&doc, content_path);
     loadHostIP();
@@ -125,6 +128,7 @@ void cfg::Config::loadSSL(tinyxml2::XMLDocument* doc) {
         EXIT_FATAL("loading server configuration", 0, "Private Key Not Found", "please provide a valid key");
     }
     ssl.key_path = key->GetText();
+    port = port == 80 ? 443 : port;
 }
 
 void cfg::Config::loadHostIP() {

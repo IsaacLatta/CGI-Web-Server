@@ -4,13 +4,12 @@
 #include <iostream>
 #include <string>
 
-Server::Server(const cfg::Config* server_config, int local_port) 
+Server::Server(const cfg::Config* server_config) 
     : _config(server_config),
       _io_context(),
       _ssl_context(asio::ssl::context::tlsv12),
       _acceptor(),
-      _endpoint(asio::ip::tcp::v4(), local_port),
-      _port(local_port),
+      _endpoint(asio::ip::tcp::v4(), server_config->getPort()),
       _ssl(_config->getSSL()->active),
       _retries(0)
 {
@@ -31,8 +30,7 @@ void Server::loadCertificate() {
 }
 
 asio::awaitable<void> Server::run() {
-    LOG("INFO", "server", "running on port %d ...", _port);
-    logger::log_message("STATUS", "Server", std::format("{} is running on [{} {}:{}] pid={}", _config->getServerName(), asio::ip::host_name(), _config->getHostIP(), _port, getpid()));
+    logger::log_message("STATUS", "Server", std::format("{} is running on [{} {}:{}] pid={}", _config->getServerName(), asio::ip::host_name(), _config->getHostIP(), _config->getPort(), getpid()));
 
     std::error_code ec;
     while(true) {
@@ -64,6 +62,7 @@ bool Server::isError(const asio::error_code& error)
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         error.value() == asio::error::access_denied || error.value() == asio::error::address_in_use)
     {
+        logger::log_message("FATAL", "Server", std::format("{} ({}): exiting pid={}", error.message(), error.value(), getpid()));
         EXIT_FATAL("server", error.value(), error.message().c_str(), "");
         return true;
     }
@@ -74,8 +73,7 @@ bool Server::isError(const asio::error_code& error)
     {
         this->_retries++;
         std::size_t backoff_time_ms = DEFAULT_BACKOFF_MS * _retries; 
-        ERROR("server", error.value(), error.message().c_str(), "backing off for: %ld ms", backoff_time_ms);
-        logger::log_message("WARN", "Server", std::format("[error={} {}] backing off for {} ms", error.value(), error.message(), backoff_time_ms));
+        logger::log_message("WARN", "Server", std::format("{} ({}): backing off for {} ms", error.message(), error.value(), backoff_time_ms));
         sleep(backoff_time_ms);
     }
 

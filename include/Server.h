@@ -16,7 +16,7 @@
 class Server
 {
     public:
-    Server(const cfg::Config* server_config, int local_port);
+    Server(const cfg::Config* server_config);
     void start();
     asio::awaitable<void> run();
 
@@ -31,10 +31,8 @@ class Server
     asio::ssl::context _ssl_context;
     std::shared_ptr<asio::ip::tcp::acceptor> _acceptor;
     asio::ip::tcp::endpoint _endpoint;
-    int _port;
     bool _ssl;
     std::size_t _retries;
-
 };
 
 #endif
