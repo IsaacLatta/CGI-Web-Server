@@ -1,5 +1,5 @@
-#ifndef REQUESTHANDLER_H
-#define REQUESTHANDLER_H
+#ifndef METHODHANDLER_H
+#define METHODHANDLER_H
 
 #include <vector>
 #include <memory>
@@ -32,14 +32,14 @@ struct TransferState {
     static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
 };
 
-class RequestHandler
+class MethodHandler
 {
     public:
-    RequestHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size) : 
+    MethodHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size) : 
                     session(session), sock(sock), buffer(buffer, buffer + buf_size), config(cfg::Config::getInstance()) {};
-    virtual ~RequestHandler() = default;
+    virtual ~MethodHandler() = default;
 
-    static std::unique_ptr<RequestHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
+    static std::unique_ptr<MethodHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
 
     virtual asio::awaitable<void> handle() = 0;
 
@@ -53,11 +53,11 @@ class RequestHandler
     const cfg::Config* config;
 };
 
-class GetHandler: public RequestHandler
+class GetHandler: public MethodHandler
 {
     public:
     GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    RequestHandler(session, sock, buffer, buf_size) {};
+    MethodHandler(session, sock, buffer, buf_size) {};
     
     asio::awaitable<void> handle() override;
     
@@ -69,11 +69,11 @@ class GetHandler: public RequestHandler
     std::string response_header;
 };
 
-class HeadHandler: public RequestHandler
+class HeadHandler: public MethodHandler
 {
     public:
     HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    RequestHandler(session, sock, buffer, buf_size){};
+    MethodHandler(session, sock, buffer, buf_size){};
     
     asio::awaitable<void> handle() override;
 
@@ -83,11 +83,11 @@ class HeadHandler: public RequestHandler
     private:
 };
 
-class PostHandler: public RequestHandler 
+class PostHandler: public MethodHandler 
 {
     public:
     PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-                RequestHandler(session, sock, buffer, buf_size) {total_bytes = 0;};
+                MethodHandler(session, sock, buffer, buf_size) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 

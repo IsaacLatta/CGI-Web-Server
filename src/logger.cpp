@@ -91,7 +91,7 @@ std::string get_browser(const std::string user_agent) {
     return result;
 }
 
-std::string create_log(const logger::entry& info, std::string type) {
+std::string create_log(const logger::Entry& info, std::string type) {
     std::string time = "[" + get_time() + "] ";
     std::string client = " [client " + info.client_addr + "] "; 
     std::string request = "\"" + info.request + "\" ";
@@ -126,7 +126,7 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
     return std::string(header.substr(0, end));
 }
 
-void logger::log_session(const logger::entry& info, std::string&& type) {
+void logger::log_session(const logger::Entry& info, std::string&& type) {
     std::fstream log_file;
     std::string file_name = "log/web-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);

@@ -59,7 +59,7 @@ static http::code check_ext(const std::string& extension, std::string& content_t
     return http::code::Forbidden;
 }
 
-std::string http::get_response(http::code http_code)
+std::string http::get_status_msg(http::code http_code)
 {
     switch (http_code)
     {

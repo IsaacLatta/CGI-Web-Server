@@ -1,7 +1,7 @@
 #include "RequestHandler.h"
 #include "Session.h"
 
-std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
+std::unique_ptr<MethodHandler> MethodHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
     auto session = sess.lock();
     if(!session) {
         ERROR("Get Handler", 0, "NULL", "failed to lock session observer");
@@ -27,7 +27,7 @@ std::unique_ptr<RequestHandler> RequestHandler::handlerFactory(std::weak_ptr<Ses
     return nullptr;
 }
 
-std::optional<http::error> RequestHandler::authenticate(const cfg::Route* route) {
+std::optional<http::error> MethodHandler::authenticate(const cfg::Route* route) {
     if(!route->is_protected) {
         return std::nullopt;
     }

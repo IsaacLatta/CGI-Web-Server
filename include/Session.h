@@ -13,21 +13,23 @@
 #include "logger.h"
 #include "http.h"
 #include "config.h"
+#include "Middleware.h"
 
 class Session : public std::enable_shared_from_this<Session>
 {
     public:
     Session(std::unique_ptr<Socket>&& sock) : sock(std::move(sock)){};
     asio::awaitable<void> start();
-    void begin(const char* request_header, std::size_t header_size);
     void onError(http::error&& ec);
-    void onCompletion(const std::string& response, long bytes_moved = 0);
     
     Socket* getSocket() const {return sock.get();}
 
     private:
-    logger::entry session_info;
-    std::unique_ptr<RequestHandler> handler;
+    void buildPipeline();
+    asio::awaitable<void> runPipeline(Transaction* txn, std::size_t index);
+
+    private:
+    std::vector<std::unique_ptr<Middleware>> pipeline;
     std::unique_ptr<Socket> sock;
 };
 

@@ -46,7 +46,7 @@
 
 namespace logger 
 {
-    struct entry {
+    struct Entry {
         long bytes{0};
         std::string user_agent{""};
         std::string request{""};
@@ -59,7 +59,7 @@ namespace logger
 
     std::string get_user_agent(const char* buffer, std::size_t size);
     std::string get_header_line(const char* buffer, std::size_t size);
-    void log_session(const entry& info, std::string&& type);
+    void log_session(const Entry& info, std::string&& type);
     void log_message(std::string&& level, std::string&& context, std::string&& msg);
 };
 
