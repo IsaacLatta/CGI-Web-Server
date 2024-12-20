@@ -27,6 +27,8 @@ class RequestHandlerMiddleware: public Middleware
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
+    private:
+    std::unique_ptr<MethodHandler> createMethodHandler(const std::vector<char>& buffer, Transaction* txn);
 };
 
 class LoggingMiddleware: public Middleware

@@ -91,7 +91,7 @@ std::string get_browser(const std::string user_agent) {
     return result;
 }
 
-std::string create_log(const logger::Entry& info, std::string type) {
+std::string create_log(const logger::Entry& info, std::string_view type) {
     std::string time = "[" + get_time() + "] ";
     std::string client = " [client " + info.client_addr + "] "; 
     std::string request = "\"" + info.request + "\" ";
@@ -102,7 +102,7 @@ std::string create_log(const logger::Entry& info, std::string type) {
     }
     latency_RTT_size += "] ";
     
-    return time + type + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
+    return time + std::string(type) + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
 }
 
 std::string logger::get_user_agent(const char* buffer, std::size_t size) {
@@ -126,19 +126,19 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
     return std::string(header.substr(0, end));
 }
 
-void logger::log_session(const logger::Entry& info, std::string&& type) {
+void logger::log_session(const logger::Entry& info, std::string_view level) {
     std::fstream log_file;
     std::string file_name = "log/web-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);
     if(!log_file.is_open()) {
         return;
     }
-    std::string log_msg = create_log(info, type);
+    std::string log_msg = create_log(info, level);
     LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
     log_file << log_msg;
 }
 
-void logger::log_message(std::string&& level, std::string&& context, std::string&& msg) {
+void logger::log_message(std::string level, std::string&& context, std::string&& msg) {
     std::fstream log_file;
     std::string file_name = "log/web-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);

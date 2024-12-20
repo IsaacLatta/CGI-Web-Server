@@ -108,7 +108,7 @@ asio::awaitable<std::optional<http::error>> PostHandler::sendResponse(asio::posi
         while(bytes_written < bytes_read) {
             auto [write_ec, bytes] = co_await sock->co_write(buffer.data() + bytes_written, bytes_to_write - bytes_written);
             if (write_ec == asio::error::connection_reset || write_ec == asio::error::broken_pipe || write_ec == asio::error::eof) {
-                co_return http::error(http::code::Client_Closed_Request, "Connection reset by client");
+                //co_return http::error(http::code::Client_Closed_Request, "Connection reset by client");
             }
             
             if(write_ec) {

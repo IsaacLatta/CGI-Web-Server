@@ -2,6 +2,7 @@
 #define METHODHANDLER_H
 
 #include <vector>
+#include <span>
 #include <memory>
 #include <unistd.h>
 #include <asio.hpp>
@@ -35,8 +36,8 @@ struct TransferState {
 class MethodHandler
 {
     public:
-    MethodHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size) : 
-                    session(session), sock(sock), buffer(buffer, buffer + buf_size), config(cfg::Config::getInstance()) {};
+    MethodHandler(Socket* sock, const char* buffer, std::size_t buf_size) : 
+                sock(sock), buffer(buffer, buffer + buf_size), config(cfg::Config::getInstance()) {};
     virtual ~MethodHandler() = default;
 
     static std::unique_ptr<MethodHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
@@ -47,7 +48,6 @@ class MethodHandler
     std::optional<http::error> authenticate(const cfg::Route* route);
 
     protected:
-    std::weak_ptr<Session> session;
     Socket* sock;
     std::vector<char> buffer;
     const cfg::Config* config;
@@ -56,8 +56,8 @@ class MethodHandler
 class GetHandler: public MethodHandler
 {
     public:
-    GetHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    MethodHandler(session, sock, buffer, buf_size) {};
+    GetHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
+    MethodHandler(sock, buffer, buf_size) {};
     
     asio::awaitable<void> handle() override;
     
@@ -72,8 +72,8 @@ class GetHandler: public MethodHandler
 class HeadHandler: public MethodHandler
 {
     public:
-    HeadHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-    MethodHandler(session, sock, buffer, buf_size){};
+    HeadHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
+    MethodHandler(sock, buffer, buf_size){};
     
     asio::awaitable<void> handle() override;
 
@@ -86,8 +86,8 @@ class HeadHandler: public MethodHandler
 class PostHandler: public MethodHandler 
 {
     public:
-    PostHandler(std::weak_ptr<Session> session, Socket* sock, const char* buffer, std::size_t buf_size): 
-                MethodHandler(session, sock, buffer, buf_size) {total_bytes = 0;};
+    PostHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
+                MethodHandler(sock, buffer, buf_size) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 

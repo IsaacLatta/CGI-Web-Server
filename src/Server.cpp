@@ -50,8 +50,7 @@ void Server::start() {
     _io_context.run();
 }
 
-bool Server::isError(const asio::error_code& error)
-{
+bool Server::isError(const asio::error_code& error) {
     if(!error) {
         _retries = 0;
         return false;
@@ -63,7 +62,6 @@ bool Server::isError(const asio::error_code& error)
     {
         logger::log_message("FATAL", "Server", std::format("{} ({}): exiting pid={}", error.message(), error.value(), getpid()));
         EXIT_FATAL("server", error.value(), error.message().c_str(), "");
-        return true;
     }
 
     if(error.value() == asio::error::would_block || error.value() == asio::error::try_again || error.value() == asio::error::network_unreachable ||

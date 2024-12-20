@@ -32,14 +32,15 @@ void http::clean_buffer(std::vector<char>& buffer)
         }
     }
 }
-
-std::string http::trim_to_lower(const std::string& str_param) {
-    std::string str = str_param;
-    size_t first = str.find_first_not_of(" \t\n\r");
-    if (first == std::string::npos) return "";
-    size_t last = str.find_last_not_of(" \t\n\r");
-    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-    return str.substr(first, (last - first + 1));
+std::string http::trim_to_upper(std::string_view& str_param) {
+    size_t first = str_param.find_first_not_of(" \t\n\r");
+    if (first == std::string_view::npos) 
+        return ""; 
+        
+    size_t last = str_param.find_last_not_of(" \t\n\r");
+    std::string result = std::string(str_param.substr(first, (last - first + 1)));
+    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+    return result;
 }
 
 static http::code check_ext(const std::string& extension, std::string& content_type)
@@ -226,20 +227,72 @@ http::code http::extract_header_field(const std::vector<char>& buffer, std::stri
     return http::code::OK;
 }
 
+http::code http::extract_method(const std::vector<char>& buffer, std::string& method) {
+    std::string_view header(buffer.data(), buffer.size());
+    std::size_t line_end = header.find("\r\n");
+    if (line_end == std::string_view::npos) {
+        return http::code::Bad_Request;
+    }
+    std::string_view request_line = header.substr(0, line_end);
+
+    std::size_t method_end = request_line.find(' ');
+    if (method_end == std::string_view::npos) {
+        return http::code::Bad_Request;
+    }
+    method = std::string(request_line.substr(0, method_end));
+
+    if (method.empty()) {
+        return http::code::Bad_Request;
+    }
+    return http::code::OK;
+}
+
+http::code http::extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers) {
+    std::size_t pos = 0, end = 0;
+    std::string_view request(buffer.data(), buffer.size());
+    const std::string_view line_end = "\r\n";
+    const std::string_view header_splitter = ": ";
+
+    std::size_t headers_end = request.find("\r\n\r\n");
+    if (headers_end == std::string_view::npos) {
+        return http::code::Bad_Request; 
+    }
+
+    while ((end = request.find(line_end, pos)) != std::string_view::npos) {
+        std::string_view line = request.substr(pos, end - pos);
+        if (line.empty()) {
+            break;
+        }
+
+        std::size_t splitter_pos = line.find(header_splitter);
+        if (splitter_pos == std::string_view::npos) {
+            return http::code::Bad_Request;
+        }
+
+        std::string key = std::string(line.substr(0, splitter_pos));
+        std::string value = std::string(line.substr(splitter_pos + header_splitter.size()));
+        headers[std::move(key)] = std::move(value);
+
+        pos = end + line_end.size();
+        if (pos >= headers_end) {
+            break;
+        }
+    }
+    return http::code::OK;
+}
+
 http::code http::extract_token(const std::vector<char>& buffer, std::string& token) {
     
     std::string_view header(buffer.data(), buffer.size());
     http::code code;
     std::string field;
     if((code = http::extract_header_field(buffer, "Authorization", field)) != http::code::OK) {
-        std::cout << "header field failed";
         return code;
     }
 
     std::string delim = "Bearer ";
     std::size_t start;
     if((start = field.find(delim)) == std::string::npos) {
-        std::cout << "delim failed\n";
         return http::code::Bad_Request;
     }
 
