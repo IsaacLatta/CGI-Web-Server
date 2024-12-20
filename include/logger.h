@@ -47,7 +47,7 @@
 namespace logger 
 {
     struct Entry {
-        long bytes{0};
+        unsigned long bytes{0};
         std::string user_agent{""};
         std::string request{""};
         std::string response{""};

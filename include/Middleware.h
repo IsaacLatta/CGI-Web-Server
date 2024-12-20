@@ -34,7 +34,14 @@ class LoggingMiddleware: public Middleware
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
-    bool forward{false};
+    bool forward{true};
+};
+
+class ParserMiddleware: public Middleware
+{
+    public:
+    asio::awaitable<void> process(Transaction* txn, Next next) override;
+    private:
 };
 
 #endif

@@ -37,7 +37,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
         while (total_bytes_written < bytes_to_write) {
             auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_to_write - total_bytes_written);
             if (ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof) {
-                this_session->onError(http::error(http::code::Client_Closed_Request, "Connection reset by client"));
+                //this_session->onError(http::error(http::code::Client_Closed_Request, "Connection reset by client"));
                 close(filefd);
                 co_return;
             }
@@ -60,7 +60,7 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     
     close(filefd);
     LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, state.bytes_sent);
-    this_session->onCompletion(response_header, state.bytes_sent);
+    //this_session->onCompletion(response_header, state.bytes_sent);
 }
 
 asio::awaitable<void> GetHandler::handle() {
@@ -75,7 +75,7 @@ asio::awaitable<void> GetHandler::handle() {
     http::clean_buffer(buffer);
     std::string resource, content_type;
     if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::determine_content_type(resource, content_type)) != http::code::OK) {
-        this_session->onError(http::error(code));
+      //  this_session->onError(http::error(code));
         co_return;
     }
     
@@ -92,14 +92,14 @@ asio::awaitable<void> GetHandler::handle() {
     
     int filefd =  open(resource.c_str(), O_RDONLY | O_NONBLOCK);
     if(filefd == -1) {
-        this_session->onError(http::error(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno))));
+        //this_session->onError(http::error(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno))));
         co_return;
     }
     
     long file_len;
     response_header = buildHeader(filefd, content_type, file_len);
     if(file_len < 0) {
-        this_session->onError(http::error(http::code::Not_Found, "404 File not found: " + resource));
+        //this_session->onError(http::error(http::code::Not_Found, "404 File not found: " + resource));
         close(filefd);
         co_return;
     }
@@ -118,5 +118,5 @@ asio::awaitable<void> GetHandler::handle() {
         asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
         co_await timer.async_wait(asio::use_awaitable);
     }
-    this_session->onError(http::error(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", resource, sock->getIP(), response_header, error.value(), error.message())));
+    //this_session->onError(http::error(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", resource, sock->getIP(), response_header, error.value(), error.message())));
 }

@@ -41,7 +41,6 @@ asio::awaitable<void> Server::run() {
             co_return;
         }
 
-        LOG("INFO", "server", "starting session for client: %s", session->getSocket()->getIP().c_str());
         co_await session->start();
     }
 }

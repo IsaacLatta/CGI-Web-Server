@@ -23,7 +23,7 @@ std::unique_ptr<MethodHandler> MethodHandler::handlerFactory(std::weak_ptr<Sessi
         return std::make_unique<PostHandler>(sess, session->getSocket(), buffer, size);
     }
 
-    session->onError(http::error(http::code::Not_Implemented, "Request Method not supported"));
+    // session->onError(http::error(http::code::Not_Implemented, "Request Method not supported"));
     return nullptr;
 }
 

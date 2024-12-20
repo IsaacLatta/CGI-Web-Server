@@ -147,7 +147,7 @@ void PostHandler::handleEmptyScript(std::shared_ptr<Session> session) {
     response += std::format("Connection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}\r\n", (response_body.dump().length() + 2), response_body.dump());
     LOG("INFO", "Response", "%s", response.c_str());
     sock->write(response.data(), response.length());
-    session->onCompletion(response);
+    // session->onCompletion(response);
 }
 
 std::optional<http::error> PostHandler::parseRequest() {
@@ -182,7 +182,7 @@ asio::awaitable<void> PostHandler::handle() {
 
     std::optional<http::error> error_code = parseRequest();
     if(error_code) {
-        this_session->onError(std::move(*error_code));
+        //this_session->onError(std::move(*error_code));
         co_return;
     }
     
@@ -195,7 +195,7 @@ asio::awaitable<void> PostHandler::handle() {
     http::error ec;
     auto reader_opt = runScript(&pid, &status, ec);
     if(reader_opt == std::nullopt) {
-        this_session->onError(std::move(ec));
+        //this_session->onError(std::move(ec));
         co_return;
     }
     auto& reader = *reader_opt;
@@ -203,11 +203,11 @@ asio::awaitable<void> PostHandler::handle() {
     auto error = co_await sendResponse(reader);
     if(error != std::nullopt) {
         waitpid(pid, &status, 0);
-        this_session->onError(std::move(*error));
+        //this_session->onError(std::move(*error));
         co_return;
     }
     
     waitpid(pid, &status, 0);
-    this_session->onCompletion(this->response_header, this->total_bytes);
+    //this_session->onCompletion(this->response_header, this->total_bytes);
 }
 

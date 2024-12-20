@@ -19,9 +19,8 @@ class Session : public std::enable_shared_from_this<Session>
 {
     public:
     Session(std::unique_ptr<Socket>&& sock) : sock(std::move(sock)){};
-    asio::awaitable<void> start();
-    void onError(http::error&& ec);
     
+    asio::awaitable<void> start();
     Socket* getSocket() const {return sock.get();}
 
     private:
