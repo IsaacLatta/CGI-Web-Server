@@ -18,11 +18,11 @@ asio::awaitable<void> Session::start() {
     LOG("DEBUG", "Session", "session ended for client: %s", sock->getIP().c_str());
 }
 
-/* Add authentication later */
 void Session::buildPipeline() {
     pipeline.push_back(std::make_unique<ErrorHandlerMiddleware>());
     pipeline.push_back(std::make_unique<LoggingMiddleware>());
     pipeline.push_back(std::make_unique<ParserMiddleware>());
+    pipeline.push_back(std::make_unique<AuthenticatorMiddleware>());
     pipeline.push_back(std::make_unique<RequestHandlerMiddleware>());
 }
 

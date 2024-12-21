@@ -7,34 +7,17 @@ asio::awaitable<void> ErrorHandlerMiddleware::process(Transaction* txn, Next nex
         co_await next();
     }
     catch (const http::HTTPException& http_error) {
-        std::cout << "ERROR\n";
         txn->log_entry.response = http_error.getResponse()->getStr();
         txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
+        LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
         logger::log_session(txn->log_entry, logger::ERROR);
     }
     catch (const std::exception& error) {
-        std::cout << "ERROR\n";
         txn->log_entry.response = http::get_status_msg(http::code::Internal_Server_Error);
         txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
+        LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
         logger::log_session(txn->log_entry, logger::ERROR);
     }
-}
-
-std::unique_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(const std::vector<char>& buffer, Transaction* txn) {
-    std::string_view request(buffer.data(), buffer.size());
-    if(http::trim_to_upper(request).find(http::method::GET) != std::string::npos) {
-        LOG("INFO", "Request Handler", "GET request detected");
-        return std::make_unique<GetHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
-    }
-    if(http::trim_to_upper(request).find(http::method::HEAD) != std::string::npos) {
-        LOG("INFO", "Request Handler", "HEAD request detected");
-        return std::make_unique<HeadHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
-    }
-    if(http::trim_to_upper(request).find(http::method::POST) != std::string::npos) {
-        LOG("INFO", "Request Handler", "POST request detected");
-        return std::make_unique<PostHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse());
-    }
-    return nullptr;
 }
 
 void log_parsed_results(const http::Request& request) {
@@ -42,7 +25,7 @@ void log_parsed_results(const http::Request& request) {
     request.method.c_str(), request.endpoint.c_str(), request.body.c_str(), static_cast<int>(request.headers.size()));
 
     for(const auto& [key, val]: request.headers) {
-        LOG("DEBUG", "ParserMW Header Found", "%s: %s", key.c_str(), val.c_str()); 
+        std::cout << "\tPARSED HEADER -> " << key << ": " << val << "\n";
     }
 }
 
@@ -92,16 +75,46 @@ asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
     logger::log_session(*entry, "INFO");
 }
 
+std::unique_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(Transaction* txn) {
+    http::Request* request = txn->getRequest();
+    if(request->method == http::method::GET) {
+        LOG("INFO", "Request Handler", "GET request detected");
+        return std::make_unique<GetHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
+    }
+    if(request->method == http::method::HEAD) {
+        LOG("INFO", "Request Handler", "HEAD request detected");
+        return std::make_unique<HeadHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
+    }
+    if(request->method == http::method::POST) {
+        LOG("INFO", "Request Handler", "POST request detected");
+        return std::make_unique<PostHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse());
+    }
+    return nullptr;
+}
+
 asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next next) {
     LOG("DEBUG", "RequestHandlerMW", "processed");
-    /*
-    if(auto handler = createMethodHandler(buffer, txn)) {
+    
+    if(auto handler = createMethodHandler(txn)) {
         co_await handler->handle();
         co_await next();
     }
     else {
         throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
     }    
-    */
+}
+
+asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next next) {
+    LOG("DEBUG", "AuthenticatorMW", "processed");
+    auto request = txn->getRequest();
+    const cfg::Config* config = cfg::Config::getInstance();
+
+    const cfg::Route* route = config->findRoute(request->endpoint);
+    if(route && route->is_protected) {
+        // Authenticate
+        co_await next();
+        co_return;
+    }
+    request->endpoint = "public/" + request->endpoint;
     co_await next();
 }

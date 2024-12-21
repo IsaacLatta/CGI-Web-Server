@@ -65,7 +65,7 @@ namespace http
             status_msg = http::get_status_msg(status);
         }
 
-        void addHeader(const std::string& key, const std::string& val) {
+        void addHeader(std::string key, const std::string& val) {
             headers[key] = val;
         }
 
@@ -86,7 +86,7 @@ namespace http
     class HTTPException : public std::exception {
         public:
 
-            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {}
+            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {response.build();}
 
             const Response* getResponse() const {return &response;}
 

@@ -46,7 +46,7 @@ class MethodHandler
     Socket* sock;
     http::Request* request;
     http::Response* response;
-    std::vector<char> buffer;
+    std::vector<char> nbuffer;
     const cfg::Config* config;
 };
 
@@ -58,12 +58,7 @@ class GetHandler: public MethodHandler
     asio::awaitable<void> handle() override;
     
     private:
-    std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
     asio::awaitable<void> sendResource(int filefd, long file_len);
-
-    private:
-    std::string response_header;
-    http::Response* response;
 };
 
 class HeadHandler: public MethodHandler

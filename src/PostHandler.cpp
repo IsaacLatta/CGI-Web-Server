@@ -35,7 +35,7 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
 asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
     http::json args;
     http::code code;
-    if((code = http::build_json(buffer, args)) != http::code::OK) {
+    if((code = http::build_json(nbuffer, args)) != http::code::OK) {
         throw http::HTTPException(code, "Failed to build json array");
     }
 
@@ -73,13 +73,13 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
 
 asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& reader) {
     asio::error_code read_ec;
-    buffer.resize(BUFFER_SIZE);
+    nbuffer.resize(BUFFER_SIZE);
     bool first_read = true;
     std::size_t bytes_read, bytes_to_write, bytes_written(0);
     do {
-        std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
+        std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(nbuffer.data(), nbuffer.size()), asio::as_tuple(asio::use_awaitable));
         if(first_read) {
-            this->response_header = http::extract_header_line(buffer);
+            this->response_header = http::extract_header_line(nbuffer);
             first_read = false;
             if(active_route->is_authenticator) {
                 // extract the role
@@ -95,7 +95,7 @@ asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& 
         
         bytes_to_write = bytes_read;
         while(bytes_written < bytes_read) {
-            auto [write_ec, bytes] = co_await sock->co_write(buffer.data() + bytes_written, bytes_to_write - bytes_written);
+            auto [write_ec, bytes] = co_await sock->co_write(nbuffer.data() + bytes_written, bytes_to_write - bytes_written);
             if (write_ec == asio::error::connection_reset || write_ec == asio::error::broken_pipe || write_ec == asio::error::eof) {
                 //co_return http::error(http::code::Client_Closed_Request, "Connection reset by client");
             }
