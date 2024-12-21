@@ -9,7 +9,7 @@
 #include <iostream>
 #include <chrono>
 
-#include "RequestHandler.h"
+#include "MethodHandler.h"
 #include "logger.h"
 #include "http.h"
 #include "config.h"

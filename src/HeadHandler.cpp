@@ -1,4 +1,4 @@
-#include "RequestHandler.h"
+#include "MethodHandler.h"
 #include "Session.h"
 
 std::string HeadHandler::buildHeader(int filefd, const std::string& content_type, long& file_len) {
