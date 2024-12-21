@@ -49,40 +49,9 @@ namespace http
 
     std::string get_status_msg(code http_code);
 
-    class HTTPException : public std::exception {
+// Optionally add a file descriptor for body
+    class Response {
         public:
-
-            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {}
-
-            Response* getResponse() const {return &response;}
-
-            const char* what() const noexcept override {
-                return message.c_str();
-            }
-        private:
-            Response response;
-            std::string message;
-    };
-
-    struct Request {
-        std::string method;
-        std::string endpoint;
-        std::unordered_map<std::string, std::string> headers;
-        std::string body;
-
-        std::string addHeader(std::string key, std::string value) {headers[key] = value;}
-
-        std::string getHeader(std::string key) {
-            auto it = headers.find(key);
-            if(it == headers.end()) {
-                return "";
-            }
-            return it->second;
-        }
-    };
-
-    // Optionally add a file descriptor for body
-    struct Response {
         code status{code::OK};
         std::string status_msg{get_status_msg(code::OK)};
         std::unordered_map<std::string, std::string> headers;
@@ -100,8 +69,8 @@ namespace http
             headers[key] = val;
         }
 
-        std::string getStr() {
-            return built_response.empty() ? built_response : build();
+        std::string getStr() const {
+            return built_response;
         }
 
         std::string build() {
@@ -114,6 +83,40 @@ namespace http
         }
     };
 
+    class HTTPException : public std::exception {
+        public:
+
+            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {}
+
+            const Response* getResponse() const {return &response;}
+
+            const char* what() const noexcept override {
+                return message.c_str();
+            }
+        private:
+            Response response;
+            std::string message;
+    };
+
+    struct Request {
+        std::string method;
+        std::string endpoint;
+        std::unordered_map<std::string, std::string> headers;
+        std::string body;
+
+        void addHeader(std::string key, std::string value) {headers[key] = value;}
+
+        std::string getHeader(std::string key) {
+            auto it = headers.find(key);
+            if(it == headers.end()) {
+                return "";
+            }
+            return it->second;
+        }
+    };
+
+    
+
     //code verify_token(const std::vector<char>& buffer, const std::string& role);
 
     code extract_method(const std::vector<char>& buffer, std::string& method);
@@ -121,7 +124,7 @@ namespace http
     code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
     code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
 
-
+    std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);
     code build_json(const std::vector<char>& buffer, json& json_array);
     json parse_url_form(const std::string& body);

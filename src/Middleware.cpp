@@ -22,15 +22,15 @@ std::unique_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(con
     std::string_view request(buffer.data(), buffer.size());
     if(http::trim_to_upper(request).find(http::method::GET) != std::string::npos) {
         LOG("INFO", "Request Handler", "GET request detected");
-        return std::make_unique<GetHandler>(txn->getSocket(), buffer.data(), buffer.size()); 
+        return std::make_unique<GetHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
     }
     if(http::trim_to_upper(request).find(http::method::HEAD) != std::string::npos) {
         LOG("INFO", "Request Handler", "HEAD request detected");
-        return std::make_unique<HeadHandler>(txn->getSocket(), buffer.data(), buffer.size()); 
+        return std::make_unique<HeadHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
     }
     if(http::trim_to_upper(request).find(http::method::POST) != std::string::npos) {
         LOG("INFO", "Request Handler", "POST request detected");
-        return std::make_unique<PostHandler>(txn->getSocket(), buffer.data(), buffer.size());
+        return std::make_unique<PostHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse());
     }
     return nullptr;
 }
@@ -39,7 +39,7 @@ void log_parsed_results(const http::Request& request) {
     LOG("DEBUG", "ParserMW", "PARSED RESULTS\n\tMethod: %s\n\tEndpoint: %s\n\tBody: %s", 
     request.method.c_str(), request.endpoint.c_str(), request.body.c_str());
 
-    for(const auto [key, val]: request.headers) {
+    for(const auto& [key, val]: request.headers) {
         LOG("DEBUG", "ParserMW Header Found", "%s: %s", key.c_str(), val.c_str()); 
     }
 }
@@ -65,6 +65,13 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
         txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
     }
     
+    // Should move into GET parser, POST parser etc
+    std::string content_type;
+    if((code = http::determine_content_type(request.endpoint, content_type)) != http::code::OK) {
+    throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
+        txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
+    }    
+
     log_parsed_results(request);
     txn->setRequest(std::move(request));
     co_await next();
@@ -92,6 +99,7 @@ asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
 
 asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next next) {
     LOG("DEBUG", "RequestHandlerMW", "processed");
+    /*
     if(auto handler = createMethodHandler(buffer, txn)) {
         co_await handler->handle();
         co_await next();
@@ -99,6 +107,6 @@ asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next n
     else {
         throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
     }    
-    
+    */
     co_await next();
 }

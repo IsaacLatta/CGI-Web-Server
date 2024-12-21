@@ -25,7 +25,7 @@ struct Transaction {
 
     void addBytes(long additional_bytes) { bytes += additional_bytes; }
     void setBuffer(std::vector<char>&& new_buffer) { buffer = std::move(new_buffer); }
-    void setRequest(http::Request&& request) {request = std::move(request);}
+    void setRequest(http::Request&& new_request) {request = std::move(new_request);}
 
     unsigned long getBytes() const {return bytes;}
     const std::vector<char>* getBuffer() const {return &buffer;}

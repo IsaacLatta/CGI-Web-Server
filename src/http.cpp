@@ -32,6 +32,19 @@ void http::clean_buffer(std::vector<char>& buffer)
         }
     }
 }
+
+std::string http::trim_to_lower(std::string_view& str_param) {
+    size_t first = str_param.find_first_not_of(" \t\n\r");
+    if (first == std::string_view::npos) 
+        return ""; 
+        
+    size_t last = str_param.find_last_not_of(" \t\n\r");
+    std::string result = std::string(str_param.substr(first, (last - first + 1)));
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
+}
+
+
 std::string http::trim_to_upper(std::string_view& str_param) {
     size_t first = str_param.find_first_not_of(" \t\n\r");
     if (first == std::string_view::npos) 
@@ -49,10 +62,8 @@ static http::code check_ext(const std::string& extension, std::string& content_t
         {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"}, {".ico", "image/ico"},
         {".gif", "image/gif"}, {".pdf", "application/pdf"}, {".txt", "text/plain"} };
     
-    for(auto& ext : valid_exts)
-    {
-        if(extension == ext.first)
-        {
+    for(auto& ext : valid_exts) {
+        if(extension == ext.first) {
             content_type = ext.second;
             return http::code::OK;
         }
@@ -60,10 +71,8 @@ static http::code check_ext(const std::string& extension, std::string& content_t
     return http::code::Forbidden;
 }
 
-std::string http::get_status_msg(http::code http_code)
-{
-    switch (http_code)
-    {
+std::string http::get_status_msg(http::code http_code) {
+    switch (http_code) {
     case http::code::OK:
         return "HTTP/1.1 200 OK";
     case http::code::Created:
@@ -103,8 +112,7 @@ std::string http::get_status_msg(http::code http_code)
     }
 }
 
-http::code http::determine_content_type(const std::string& resource, std::string& content_type)
-{
+http::code http::determine_content_type(const std::string& resource, std::string& content_type) {
     std::size_t start;
     std::string extension;
     if((start = resource.find(".")) == std::string::npos)
@@ -125,8 +133,7 @@ std::string http::extract_header_line(const std::vector<char>& buffer) {
     return (std::string)(response.substr(0, end + 2));
 }
 
-http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource)
-{
+http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource) {
     std::size_t start, end;
     std::string_view request(buffer.begin(), buffer.end());
     if((start = request.find(" ")) == std::string::npos || (end = request.find(" ", start + 1)) == std::string::npos) {
@@ -175,8 +182,8 @@ http::code http::find_content_type(const std::vector<char>& buffer, std::string&
         return http::code::Bad_Request; 
     }
 
-    content_type = std::string(header.substr(start, end - start));
-    trim_to_lower(content_type);
+    std::string_view content_type_view = std::string_view(header.substr(start, end - start));
+    content_type = http::trim_to_lower(content_type_view);
     return http::code::OK;
 }
 

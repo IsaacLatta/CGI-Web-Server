@@ -5,6 +5,7 @@
 #include <asio/awaitable.hpp>
 #include <exception>
 #include "Transaction.h"
+#include "RequestHandler.h"
 
 class Session;
 

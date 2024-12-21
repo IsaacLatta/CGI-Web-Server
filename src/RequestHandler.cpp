@@ -1,6 +1,7 @@
 #include "RequestHandler.h"
 #include "Session.h"
 
+/*
 std::unique_ptr<MethodHandler> MethodHandler::handlerFactory(std::weak_ptr<Session> sess, const char* buffer, std::size_t size) {
     auto session = sess.lock();
     if(!session) {
@@ -26,7 +27,8 @@ std::unique_ptr<MethodHandler> MethodHandler::handlerFactory(std::weak_ptr<Sessi
     // session->onError(http::error(http::code::Not_Implemented, "Request Method not supported"));
     return nullptr;
 }
-
+*/
+/*
 std::optional<http::error> MethodHandler::authenticate(const cfg::Route* route) {
     if(!route->is_protected) {
         return std::nullopt;
@@ -66,4 +68,5 @@ std::optional<http::error> MethodHandler::authenticate(const cfg::Route* route) 
         return http::error(http::code::Bad_Request, e.what());
     }
 }
+*/
 

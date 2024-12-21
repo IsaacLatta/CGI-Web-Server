@@ -15,55 +15,38 @@ std::string HeadHandler::buildHeader(int filefd, const std::string& content_type
 }
 
 asio::awaitable<void> HeadHandler::handle() {
-    auto this_session = session.lock();
-    if(!this_session) {
-        ERROR("Get Handler", 0, "NULL", "session observer is null");
-        co_return;
-    }
-
-    http::code code;
-    http::clean_buffer(buffer);
     std::string resource, content_type;
-    if((code = http::extract_endpoint(buffer, resource)) != http::code::OK || (code = http::determine_content_type(resource, content_type)) != http::code::OK) {
-        //this_session->onError(http::error(code, std::format("Parsing failed with http={} \nREQUEST: {}", static_cast<int>(code), buffer.data())));
-        co_return;
-    }
 
-    LOG("INFO", "Get Handler", "REQUEST: %s \nPARSED RESULTS\n Resource: %s\nContent_Type: %s", buffer.data(), resource.c_str(), content_type.c_str());
-    
     auto config = cfg::Config::getInstance();
-    const cfg::Route* route = config->findRoute(resource);
+    const cfg::Route* route = config->findRoute(request->endpoint);
     if(route && route->is_protected) {
         // authenticate the user
     }
     else {
-        resource = "public/" + resource;
+        request->endpoint = "public/" + request->endpoint;
     }
 
     int filefd =  open(resource.c_str(), O_RDONLY | O_NONBLOCK);
     if(filefd == -1) {
-        //this_session->onError(http::error(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno))));
-        co_return;
+        throw http::HTTPException(http::code::Not_Found, std::format("Failed to open resource: {}, errno={} ({})", resource.c_str(), errno, strerror(errno)));
     }
     
     long file_len;
     std::string response_header = buildHeader(filefd, content_type, file_len);
     if(file_len < 0) {
-        //this_session->onError(http::error(http::code::Not_Found, "404 File not found: " + resource));
         close(filefd);
-        co_return;
+        throw http::HTTPException(http::code::Not_Found, "404 File not found: " + resource);
     }
 
     TransferState state;
     while (state.retry_count < TransferState::MAX_RETRIES) {
         auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
         if (!error) {
-            //this_session->onCompletion(response_header, bytes_written);
             co_return;
         }
         state.retry_count++;
         asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
         co_await timer.async_wait(asio::use_awaitable);
     }
-    //this_session->onError(http::error(http::code::Internal_Server_Error, "Max retries reached HEAD request, resource: " + resource));
+    throw http::HTTPException(http::code::Internal_Server_Error, "Max retries reached HEAD request, resource: " + resource);
 }

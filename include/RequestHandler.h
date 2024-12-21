@@ -36,19 +36,16 @@ struct TransferState {
 class MethodHandler
 {
     public:
-    MethodHandler(Socket* sock, const char* buffer, std::size_t buf_size) : 
-                sock(sock), buffer(buffer, buffer + buf_size), config(cfg::Config::getInstance()) {};
+    MethodHandler(Socket* sock, http::Request* request, http::Response* response) : 
+                sock(sock), request(request), response(response), config(cfg::Config::getInstance()) {};
     virtual ~MethodHandler() = default;
-
-    static std::unique_ptr<MethodHandler> handlerFactory(std::weak_ptr<Session>, const char* buffer, std::size_t size);
 
     virtual asio::awaitable<void> handle() = 0;
 
     protected:
-    std::optional<http::error> authenticate(const cfg::Route* route);
-
-    protected:
     Socket* sock;
+    http::Request* request;
+    http::Response* response;
     std::vector<char> buffer;
     const cfg::Config* config;
 };
@@ -56,8 +53,7 @@ class MethodHandler
 class GetHandler: public MethodHandler
 {
     public:
-    GetHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
-    MethodHandler(sock, buffer, buf_size) {};
+    GetHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {};
     
     asio::awaitable<void> handle() override;
     
@@ -67,13 +63,13 @@ class GetHandler: public MethodHandler
 
     private:
     std::string response_header;
+    http::Response* response;
 };
 
 class HeadHandler: public MethodHandler
 {
     public:
-    HeadHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
-    MethodHandler(sock, buffer, buf_size){};
+    HeadHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response){};
     
     asio::awaitable<void> handle() override;
 
@@ -86,17 +82,15 @@ class HeadHandler: public MethodHandler
 class PostHandler: public MethodHandler 
 {
     public:
-    PostHandler(Socket* sock, const char* buffer, std::size_t buf_size): 
-                MethodHandler(sock, buffer, buf_size) {total_bytes = 0;};
+    PostHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {total_bytes = 0;};
     
     asio::awaitable<void> handle() override;
 
     private:
-    asio::awaitable<std::optional<http::error>> sendResponse(asio::posix::stream_descriptor& reader);
-    std::optional<asio::posix::stream_descriptor> runScript(int* pid, int* status, http::error& opt_error);
+    asio::awaitable<void> sendResponse(asio::posix::stream_descriptor& reader);
+    asio::posix::stream_descriptor runScript(int* pid, int* status);
     bool runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
-    std::optional<http::error> parseRequest();
-    void handleEmptyScript(std::shared_ptr<Session>);
+    void handleEmptyScript();
 
     private:
     long total_bytes;
