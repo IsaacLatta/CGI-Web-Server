@@ -133,8 +133,6 @@ namespace http
     code find_content_type(const std::vector<char>& buffer, std::string& content_type);
     code extract_endpoint(const std::vector<char>& buffer, std::string& resource);
     code determine_content_type(const std::string& resource, std::string& content_type);
-    void clean_buffer(std::vector<char>& buffer);
-
 };
 
 #endif

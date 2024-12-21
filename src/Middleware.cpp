@@ -7,14 +7,16 @@ asio::awaitable<void> ErrorHandlerMiddleware::process(Transaction* txn, Next nex
         co_await next();
     }
     catch (const http::HTTPException& http_error) {
+        std::cout << "ERROR\n";
         txn->log_entry.response = http_error.getResponse()->getStr();
         txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
-        logger::log_session(txn->log_entry, logger::INFO);
+        logger::log_session(txn->log_entry, logger::ERROR);
     }
     catch (const std::exception& error) {
+        std::cout << "ERROR\n";
         txn->log_entry.response = http::get_status_msg(http::code::Internal_Server_Error);
         txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
-        logger::log_session(txn->log_entry, logger::INFO);
+        logger::log_session(txn->log_entry, logger::ERROR);
     }
 }
 
@@ -36,8 +38,8 @@ std::unique_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(con
 }
 
 void log_parsed_results(const http::Request& request) {
-    LOG("DEBUG", "ParserMW", "PARSED RESULTS\n\tMethod: %s\n\tEndpoint: %s\n\tBody: %s", 
-    request.method.c_str(), request.endpoint.c_str(), request.body.c_str());
+    LOG("DEBUG", "ParserMW", "PARSED RESULTS\n\tMethod: %s\n\tEndpoint: %s\n\tBody: %s\nHeaders Size: %d", 
+    request.method.c_str(), request.endpoint.c_str(), request.body.c_str(), static_cast<int>(request.headers.size()));
 
     for(const auto& [key, val]: request.headers) {
         LOG("DEBUG", "ParserMW Header Found", "%s: %s", key.c_str(), val.c_str()); 
@@ -45,7 +47,6 @@ void log_parsed_results(const http::Request& request) {
 }
 
 asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
-
     std::vector<char> buffer(HEADER_SIZE);
     auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer.data(), buffer.size());
     if(ec) {
@@ -54,9 +55,10 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
                 http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->getIP()));
     }
 
+    LOG("DEBUG", "ParserMW", "REQUEST BUFFER: %s", buffer.data());
+
     http::code code;
     http::Request request;
-    http::Response* response = txn->getResponse();
     if((code = http::extract_method(buffer, request.method)) != http::code::OK || (code = http::extract_endpoint(buffer, request.endpoint)) != http::code::OK || 
        (code = http::extract_body(buffer, request.body)) != http::code::OK || (code = http::extract_headers(buffer, request.headers)) != http::code::OK) {
     
@@ -65,13 +67,6 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
         txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
     }
     
-    // Should move into GET parser, POST parser etc
-    std::string content_type;
-    if((code = http::determine_content_type(request.endpoint, content_type)) != http::code::OK) {
-    throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
-        txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
-    }    
-
     log_parsed_results(request);
     txn->setRequest(std::move(request));
     co_await next();

@@ -22,17 +22,6 @@ std::string url_decode(std::string&& buf)
     return decoded_buf;
 }
 
-void http::clean_buffer(std::vector<char>& buffer)
-{
-    for(int i = 0; i < buffer.size(); i++)
-    {
-        if(buffer[i] == '\r' || buffer[i] == '\n')
-        {
-            buffer[i] = '*';
-        }
-    }
-}
-
 std::string http::trim_to_lower(std::string_view& str_param) {
     size_t first = str_param.find_first_not_of(" \t\n\r");
     if (first == std::string_view::npos) 
@@ -254,18 +243,38 @@ http::code http::extract_method(const std::vector<char>& buffer, std::string& me
     return http::code::OK;
 }
 
-http::code http::extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers) {
-    std::size_t pos = 0, end = 0;
+http::code http::extract_headers(const std::vector<char>& buffer,
+                          std::unordered_map<std::string, std::string>& headers)
+{
     std::string_view request(buffer.data(), buffer.size());
     const std::string_view line_end = "\r\n";
     const std::string_view header_splitter = ": ";
 
     std::size_t headers_end = request.find("\r\n\r\n");
     if (headers_end == std::string_view::npos) {
-        return http::code::Bad_Request; 
+        return http::code::Bad_Request;
     }
 
-    while ((end = request.find(line_end, pos)) != std::string_view::npos) {
+    std::size_t pos = 0;
+    std::size_t end_of_request_line = request.find(line_end, pos);
+    if (end_of_request_line == std::string_view::npos) {
+        return http::code::Bad_Request;
+    }
+    
+    pos = end_of_request_line + line_end.size();
+    if (pos >= headers_end) {
+        return http::code::OK; 
+    }
+
+    while (true) {
+        if (pos >= headers_end) {
+            break;
+        }
+        std::size_t end = request.find(line_end, pos);
+        if (end == std::string_view::npos) {
+            return http::code::Bad_Request;
+        }
+
         std::string_view line = request.substr(pos, end - pos);
         if (line.empty()) {
             break;
@@ -278,12 +287,9 @@ http::code http::extract_headers(const std::vector<char>& buffer, std::unordered
 
         std::string key = std::string(line.substr(0, splitter_pos));
         std::string value = std::string(line.substr(splitter_pos + header_splitter.size()));
-        headers[std::move(key)] = std::move(value);
 
+        headers[std::move(key)] = std::move(value);
         pos = end + line_end.size();
-        if (pos >= headers_end) {
-            break;
-        }
     }
     return http::code::OK;
 }

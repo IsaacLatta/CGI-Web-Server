@@ -57,7 +57,6 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
 
 asio::awaitable<void> GetHandler::handle() {
     LOG("INFO", "Get Handler", "REQUEST: %s", buffer.data());
-    http::clean_buffer(buffer);
     std::string resource, content_type;
     
     auto config = cfg::Config::getInstance(); 

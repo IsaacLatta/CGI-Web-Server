@@ -13,7 +13,6 @@ asio::awaitable<void> Session::start() {
     LOG("DEBUG", "Session", "starting pipeline for client: %s", sock->getIP().c_str());
     Transaction txn(weak_from_this(), sock.get());
     buildPipeline();
-    std::cout <<"SIZE: " << pipeline.size() << "\n";
     co_await runPipeline(&txn, 0); // call stack builds here
     sock->close();
     LOG("DEBUG", "Session", "session ended for client: %s", sock->getIP().c_str());
