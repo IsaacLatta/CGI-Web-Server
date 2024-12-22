@@ -3,13 +3,12 @@
 
 
 asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
-    asio::posix::stream_descriptor file_desc(co_await asio::this_coro::executor, filefd);
-    
-    std::vector<char> buffer(BUFFER_SIZE);
+    std::array<char, BUFFER_SIZE> buffer;
+    memset(buffer.data(), '\0', BUFFER_SIZE);
     TransferState state{.total_bytes = file_len};
     while (state.bytes_sent < file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
-        ssize_t bytes_to_write = ::read(filefd, buffer.data(), bytes_to_read);
+        ssize_t bytes_to_write = read(filefd, buffer.data(), bytes_to_read);
         if (bytes_to_write == 0) {
             LOG("WARN", "Get Handler", "EOF reached prematurely while sending resource");
             break;
@@ -19,7 +18,9 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
             throw http::HTTPException(http::code::Internal_Server_Error, "Failed reading file");
         }
 
-        state.retry_count = 1;
+        LOG("DEBUG", "GetHandler", "Chunk read: %zd bytes [progress %ld/%ld]", bytes_to_write, state.bytes_sent, file_len);
+
+        state.retry_count = 1;  
         std::size_t total_bytes_written = 0;
         while (total_bytes_written < bytes_to_write) {
             auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_to_write - total_bytes_written);
@@ -37,11 +38,14 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
                 co_await timer.async_wait(asio::use_awaitable);
                 continue;
             }
+
+            LOG("DEBUG", "GetHandler", "Wrote %zd bytes out of %zd this chunk", bytes_written, bytes_to_read);
+
             total_bytes_written += bytes_written;
             state.retry_count = 0;
         }
 
-        state.bytes_sent += total_bytes_written;
+        state.bytes_sent += bytes_to_write;
     }
     
     close(filefd);
@@ -82,6 +86,7 @@ asio::awaitable<void> GetHandler::handle() {
         auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
         
         if (!error) {
+            LOG("DEBUG", "GetHandler", "Header sent, sending resource: %s ...", request->endpoint.c_str());
             co_await sendResource(filefd, file_len);
             co_return;
         }

@@ -37,5 +37,4 @@ asio::awaitable<void> Session::runPipeline(Transaction* txn, std::size_t index) 
         co_await runPipeline(txn, index + 1);
     };
     co_await mw->process(txn, next_func);
-    LOG("DEBUG", "MW", "processed: %d", static_cast<int>(index));
 }

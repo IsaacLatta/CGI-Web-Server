@@ -69,7 +69,7 @@ class HeadHandler: public MethodHandler
     asio::awaitable<void> handle() override;
 
     private:
-    std::string buildHeader(int filefd, const std::string& content_type, long& file_len);
+    std::string buildResponse();
 
     private:
 };

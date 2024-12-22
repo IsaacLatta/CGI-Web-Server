@@ -49,7 +49,6 @@ namespace http
 
     std::string get_status_msg(code http_code);
 
-// Optionally add a file descriptor for body
     class Response {
         public:
         code status{code::OK};
@@ -78,7 +77,7 @@ namespace http
             for(auto& [key, value] : headers) {
                 built_response += key + ": " + value + "\r\n";
             }
-            built_response = built_response + "\r\n\r\n";
+            built_response = built_response + "\r\n";
             return built_response;
         }
     };
@@ -114,10 +113,6 @@ namespace http
             return it->second;
         }
     };
-
-    
-
-    //code verify_token(const std::vector<char>& buffer, const std::string& role);
 
     code extract_method(const std::vector<char>& buffer, std::string& method);
     code extract_token(const std::vector<char>& buffer, std::string& token);

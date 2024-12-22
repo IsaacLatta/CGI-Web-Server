@@ -38,19 +38,15 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
                 http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->getIP()));
     }
 
-    LOG("DEBUG", "ParserMW", "REQUEST BUFFER: %s", buffer.data());
-
     http::code code;
     http::Request request;
     if((code = http::extract_method(buffer, request.method)) != http::code::OK || (code = http::extract_endpoint(buffer, request.endpoint)) != http::code::OK || 
        (code = http::extract_body(buffer, request.body)) != http::code::OK || (code = http::extract_headers(buffer, request.headers)) != http::code::OK) {
     
-        log_parsed_results(request);
         throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
         txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
     }
     
-    log_parsed_results(request);
     txn->setRequest(std::move(request));
     co_await next();
 }
