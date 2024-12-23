@@ -35,7 +35,8 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
 asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
     http::json args;
     http::code code;
-    if((code = http::build_json(nbuffer, args)) != http::code::OK) {
+    std::vector<char> buffer;
+    if((code = http::build_json(buffer, args)) != http::code::OK) {
         throw http::HTTPException(code, "Failed to build json array");
     }
 
@@ -73,18 +74,15 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
 
 asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& reader) {
     asio::error_code read_ec;
-    nbuffer.resize(BUFFER_SIZE);
+    std::vector<char> buffer(BUFFER_SIZE);
     bool first_read = true;
     std::size_t bytes_read, bytes_to_write, bytes_written(0);
     do {
-        std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(nbuffer.data(), nbuffer.size()), asio::as_tuple(asio::use_awaitable));
+        std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
         if(first_read) {
-            this->response_header = http::extract_header_line(nbuffer);
+            this->response_header = http::extract_header_line(buffer);
             first_read = false;
-            if(active_route->is_authenticator) {
-                // extract the role
-                // generate the token
-            }
+            // in the Authenticator on the pass back we should parse this header to see if the user is authenticated, generate the token if so
         }
         
         if(read_ec && read_ec != asio::error::eof) {
@@ -95,9 +93,9 @@ asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& 
         
         bytes_to_write = bytes_read;
         while(bytes_written < bytes_read) {
-            auto [write_ec, bytes] = co_await sock->co_write(nbuffer.data() + bytes_written, bytes_to_write - bytes_written);
+            auto [write_ec, bytes] = co_await sock->co_write(buffer.data() + bytes_written, bytes_to_write - bytes_written);
             if (write_ec == asio::error::connection_reset || write_ec == asio::error::broken_pipe || write_ec == asio::error::eof) {
-                //co_return http::error(http::code::Client_Closed_Request, "Connection reset by client");
+                throw http::HTTPException(http::code::Client_Closed_Request, "Connection reset by client");
             }
             
             if(write_ec) {
@@ -114,26 +112,10 @@ asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& 
 
 void PostHandler::handleEmptyScript() {
     http::json response_body;
-    std::string token = "", response = "HTTP/1.1 200 OK\r\n";
-    if (active_route->is_authenticator)
-    {
-        LOG("INFO", "POST handler", "authenticating user");
-        auto tokenBuilder = jwt::create();
-        token = tokenBuilder
-                    .set_issuer(config->getServerName())
-                    .set_subject("auth-token")
-                    .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
-                    .set_expires_at(DEFAULT_EXPIRATION)
-                    .sign(jwt::algorithm::hs256{config->getSecret()});
-        response_body["token"] = token;
-    }
-    else {
-        response_body["message"] = "Endpoint active, no script set";
-    }
-
-    response += std::format("Connection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}\r\n", (response_body.dump().length() + 2), response_body.dump());
-    LOG("INFO", "Response", "%s", response.c_str());
-    sock->write(response.data(), response.length());
+    std::string token = "";
+    
+    response->setStatus(http::code::OK);
+    response->addHeader("Connection", "close");
 }
 
 asio::awaitable<void> PostHandler::handle() {

@@ -30,8 +30,10 @@ void log_parsed_results(const http::Request& request) {
 }
 
 asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
-    std::vector<char> buffer(HEADER_SIZE);
-    auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer.data(), buffer.size());
+    auto buffer =  txn->getBuffer();
+    auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
+    txn->getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
+
     if(ec) {
         throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
                 http::HTTPException(http::code::Client_Closed_Request, std::format("Failed to read request from client: {}", txn->sock->getIP())) :
@@ -40,8 +42,8 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
 
     http::code code;
     http::Request request;
-    if((code = http::extract_method(buffer, request.method)) != http::code::OK || (code = http::extract_endpoint(buffer, request.endpoint)) != http::code::OK || 
-       (code = http::extract_body(buffer, request.body)) != http::code::OK || (code = http::extract_headers(buffer, request.headers)) != http::code::OK) {
+    if((code = http::extract_method(*buffer, request.method)) != http::code::OK || (code = http::extract_endpoint(*buffer, request.endpoint)) != http::code::OK || 
+       (code = http::extract_body(*buffer, request.body)) != http::code::OK || (code = http::extract_headers(*buffer, request.headers)) != http::code::OK) {
     
         throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
         txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
@@ -53,21 +55,21 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
 
 asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
     logger::Entry* entry = txn->getLogEntry();
-    LOG("DEBUG", "LoggingMW", "processed");
-    if(forward) {
-        const std::vector<char>* buffer = txn->getBuffer();
-        entry->user_agent = logger::get_user_agent(buffer->data(), buffer->size());
-        entry->request = logger::get_header_line(buffer->data(), buffer->size());
-        entry->RTT_start_time = std::chrono::system_clock::now();
-        entry->client_addr = txn->getSocket()->getIP();
-        forward = false;
-        co_await next();
-        co_return;
-    }
+    LOG("DEBUG", "LoggingMW", "processing forward");
+    entry->Latency_start_time = std::chrono::system_clock::now();
+    entry->RTT_start_time = std::chrono::system_clock::now();
+    entry->RTT_start_time = std::chrono::system_clock::now();
+    entry->client_addr = txn->getSocket()->getIP();
+    
+    co_await next();
+    LOG("DEBUG", "LoggingMW", "processing backward");
 
+    const std::vector<char>* buffer = txn->getBuffer();
+    entry->user_agent = logger::get_user_agent(buffer->data(), buffer->size());
+    entry->request = logger::get_header_line(buffer->data(), buffer->size());
     entry->bytes = txn->getBytes();
-    entry->response = txn->getResponse()->getStr();
-    entry->end_time = std::chrono::system_clock::now();
+    entry->response = txn->getResponse()->status_msg;
+    entry->RTT_end_time = std::chrono::system_clock::now();
     logger::log_session(*entry, "INFO");
 }
 
@@ -99,6 +101,26 @@ asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next n
         throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
     }    
 }
+
+
+/*
+    if (active_route->is_authenticator)
+    {
+        LOG("INFO", "POST handler", "authenticating user");
+        auto tokenBuilder = jwt::create();
+        token = tokenBuilder
+                    .set_issuer(config->getServerName())
+                    .set_subject("auth-token")
+                    .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
+                    .set_expires_at(DEFAULT_EXPIRATION)
+                    .sign(jwt::algorithm::hs256{config->getSecret()});
+        response_body["token"] = token;
+    }
+    else {
+        response_body["message"] = "Endpoint active, no script set";
+    }
+    */
+
 
 asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next next) {
     LOG("DEBUG", "AuthenticatorMW", "processed");

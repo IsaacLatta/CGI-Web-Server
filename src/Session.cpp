@@ -19,8 +19,8 @@ asio::awaitable<void> Session::start() {
 }
 
 void Session::buildPipeline() {
-    pipeline.push_back(std::make_unique<ErrorHandlerMiddleware>());
     pipeline.push_back(std::make_unique<LoggingMiddleware>());
+    pipeline.push_back(std::make_unique<ErrorHandlerMiddleware>());
     pipeline.push_back(std::make_unique<ParserMiddleware>());
     pipeline.push_back(std::make_unique<AuthenticatorMiddleware>());
     pipeline.push_back(std::make_unique<RequestHandlerMiddleware>());

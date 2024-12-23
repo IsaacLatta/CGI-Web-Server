@@ -46,7 +46,6 @@ class MethodHandler
     Socket* sock;
     http::Request* request;
     http::Response* response;
-    std::vector<char> nbuffer;
     const cfg::Config* config;
 };
 

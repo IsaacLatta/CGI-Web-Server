@@ -56,9 +56,10 @@ namespace logger
         std::string request{""};
         std::string response{""};
         std::string client_addr{""};
-        std::chrono::time_point<std::chrono::system_clock> start_time;
+        std::chrono::time_point<std::chrono::system_clock> Latency_start_time;
+        std::chrono::time_point<std::chrono::system_clock> Latency_end_time;
         std::chrono::time_point<std::chrono::system_clock> RTT_start_time;
-        std::chrono::time_point<std::chrono::system_clock> end_time;
+        std::chrono::time_point<std::chrono::system_clock> RTT_end_time;
     };
 
     std::string get_user_agent(const char* buffer, std::size_t size);

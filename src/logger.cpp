@@ -95,8 +95,8 @@ std::string create_log(const logger::Entry& info, std::string_view type) {
     std::string time = "[" + get_time() + "] ";
     std::string client = " [client " + info.client_addr + "] "; 
     std::string request = "\"" + info.request + "\" ";
-    std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.start_time, info.end_time)) 
-                                 + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.end_time)) + " ms";
+    std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.Latency_start_time, info.Latency_end_time)) 
+                                 + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.RTT_end_time)) + " ms";
     if(info.bytes != 0) {
         latency_RTT_size += " Size: " + format_bytes(info.bytes); 
     }

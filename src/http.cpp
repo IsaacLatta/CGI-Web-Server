@@ -195,6 +195,7 @@ http::json http::parse_url_form(const std::string& body) {
 http::code http::build_json(const std::vector<char>& buffer, http::json& json_array) {
     http::code code;
     std::string body, content_type;
+
     if((code = http::extract_body(buffer, body)) != http::code::OK || (code = http::find_content_type(buffer, content_type)) != http::code::OK) {
         return code;
     }
