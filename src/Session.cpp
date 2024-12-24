@@ -1,7 +1,6 @@
 #include "Session.h"
 
 asio::awaitable<void> Session::start() {
-    auto self = shared_from_this();
     
     sock->storeIP();
     asio::error_code error = co_await sock->co_handshake();
@@ -11,7 +10,7 @@ asio::awaitable<void> Session::start() {
     }
     
     LOG("DEBUG", "Session", "starting pipeline for client: %s", sock->getIP().c_str());
-    Transaction txn(weak_from_this(), sock.get());
+    Transaction txn(sock.get());
     buildPipeline();
     co_await runPipeline(&txn, 0); // call stack builds here
     sock->close();

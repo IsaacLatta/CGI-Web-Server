@@ -5,18 +5,19 @@ asio::awaitable<void> ErrorHandlerMiddleware::process(Transaction* txn, Next nex
     try {
         LOG("DEBUG", "ErrorHandlerMW", "processed");
         co_await next();
+        if(txn->finish) {
+            co_await txn->finish();
+        }
     }
     catch (const http::HTTPException& http_error) {
-        txn->log_entry.response = http_error.getResponse()->getStr();
-        txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
+        txn->response = std::move(*http_error.getResponse());
+        txn->sock->write(txn->response.status_msg.data(), txn->response.status_msg.length());
         LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
-        logger::log_session(txn->log_entry, logger::ERROR);
     }
     catch (const std::exception& error) {
-        txn->log_entry.response = http::get_status_msg(http::code::Internal_Server_Error);
-        txn->sock->write(txn->log_entry.response.data(), txn->log_entry.response.size());
+        txn->response = std::move(http::Response(http::code::Internal_Server_Error));
+        txn->sock->write(txn->response.status_msg.data(), txn->response.status_msg.length());
         LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
-        logger::log_session(txn->log_entry, logger::ERROR);
     }
 }
 
@@ -67,34 +68,32 @@ asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
     const std::vector<char>* buffer = txn->getBuffer();
     entry->user_agent = logger::get_user_agent(buffer->data(), buffer->size());
     entry->request = logger::get_header_line(buffer->data(), buffer->size());
-    entry->bytes = txn->getBytes();
     entry->response = txn->getResponse()->status_msg;
     entry->RTT_end_time = std::chrono::system_clock::now();
     logger::log_session(*entry, "INFO");
 }
 
-std::unique_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(Transaction* txn) {
+std::shared_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(Transaction* txn) {
     http::Request* request = txn->getRequest();
     if(request->method == http::method::GET) {
         LOG("INFO", "Request Handler", "GET request detected");
-        return std::make_unique<GetHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
+        return std::make_shared<GetHandler>(txn); 
     }
     if(request->method == http::method::HEAD) {
         LOG("INFO", "Request Handler", "HEAD request detected");
-        return std::make_unique<HeadHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse()); 
+        return std::make_shared<HeadHandler>(txn); 
     }
     if(request->method == http::method::POST) {
         LOG("INFO", "Request Handler", "POST request detected");
-        return std::make_unique<PostHandler>(txn->getSocket(), txn->getRequest(), txn->getResponse());
+        return std::make_shared<PostHandler>(txn);
     }
     return nullptr;
 }
 
 asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next next) {
-    LOG("DEBUG", "RequestHandlerMW", "processed");
-    
     if(auto handler = createMethodHandler(txn)) {
         co_await handler->handle();
+        LOG("DEBUG", "RequestHandlerMW", "processed");
         co_await next();
     }
     else {

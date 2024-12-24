@@ -16,6 +16,7 @@
 #include "Socket.h"
 #include "config.h"
 #include "http.h"
+#include "Transaction.h"
 
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
 #define BUFFER_SIZE 262144
@@ -33,16 +34,20 @@ struct TransferState {
     static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
 };
 
-class MethodHandler
+class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 {
     public:
-    MethodHandler(Socket* sock, http::Request* request, http::Response* response) : 
-                sock(sock), request(request), response(response), config(cfg::Config::getInstance()) {};
+    // MethodHandler(Socket* sock, http::Request* request, http::Response* response) : 
+                // sock(sock), request(request), response(response), config(cfg::Config::getInstance()) {};
+    MethodHandler(Transaction* txn) : 
+                txn(txn), sock(txn->getSocket()), request(txn->getRequest()), response(txn->getResponse()), config(cfg::Config::getInstance()) {} 
+    
     virtual ~MethodHandler() = default;
 
     virtual asio::awaitable<void> handle() = 0;
 
     protected:
+    Transaction* txn;
     Socket* sock;
     http::Request* request;
     http::Response* response;
@@ -52,18 +57,20 @@ class MethodHandler
 class GetHandler: public MethodHandler
 {
     public:
-    GetHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {};
+    // GetHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {};
+    GetHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
-    
-    private:
-    asio::awaitable<void> sendResource(int filefd, long file_len);
+
+    asio::awaitable<void> writeHeader();
+    asio::awaitable<void> writeResource(int filefd, long file_len);
 };
 
 class HeadHandler: public MethodHandler
 {
     public:
-    HeadHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response){};
+    // HeadHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response){};
+    HeadHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
 
@@ -76,7 +83,8 @@ class HeadHandler: public MethodHandler
 class PostHandler: public MethodHandler 
 {
     public:
-    PostHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {total_bytes = 0;};
+    // PostHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {total_bytes = 0;};
+    PostHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
 

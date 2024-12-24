@@ -2,7 +2,7 @@
 #include "Session.h"
 
 
-asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
+asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
     std::array<char, BUFFER_SIZE> buffer;
     memset(buffer.data(), '\0', BUFFER_SIZE);
     TransferState state{.total_bytes = file_len};
@@ -49,8 +49,30 @@ asio::awaitable<void> GetHandler::sendResource(int filefd, long file_len) {
     }
     
     close(filefd);
+    txn->addBytes(state.bytes_sent);
     LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, state.bytes_sent);
 }
+
+asio::awaitable<void> GetHandler::writeHeader() {
+    std::string response_header = response->build();
+    
+    TransferState state;
+    asio::error_code error;
+    while(state.retry_count < TransferState::MAX_RETRIES) {
+        auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
+        
+        if (!error) {
+            co_return;    
+        }
+        
+        state.retry_count++;
+        asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
+        co_await timer.async_wait(asio::use_awaitable);
+    }
+    throw http::HTTPException(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", 
+        request->endpoint, sock->getIP(), response_header, error.value(), error.message()));
+}
+
 
 asio::awaitable<void> GetHandler::handle() {    
     int filefd =  open(request->endpoint.c_str(), O_RDONLY);
@@ -73,28 +95,21 @@ asio::awaitable<void> GetHandler::handle() {
     }
 
     response->setStatus(http::code::OK);
+    response->addHeader("Host", config->getServerName());
     response->addHeader("Connection", "close");
     response->addHeader("Content-Type", content_type);
     response->addHeader("Content-Length", std::to_string(file_len));
-    std::string response_header = response->build();
 
-    LOG("DEBUG", "GetHandler", "RESPONSE HEADER: %s", response_header.data());
+    // co_await writeHeader();
+    // co_await writeResource(filefd, file_len);
+    
+    LOG("DEBUG", "GetHandler", "Finished processing GET request, assigning lambda finisher");
 
-    asio::error_code error;
-    TransferState state;
-    while(state.retry_count < TransferState::MAX_RETRIES) {
-        auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
-        
-        if (!error) {
-            LOG("DEBUG", "GetHandler", "Header sent, sending resource: %s ...", request->endpoint.c_str());
-            co_await sendResource(filefd, file_len);
-            co_return;
-        }
-
-        state.retry_count++;
-        asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
-        co_await timer.async_wait(asio::use_awaitable);
-    }
-    throw http::HTTPException(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", 
-          request->endpoint, sock->getIP(), response_header, error.value(), error.message()));
+    auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());
+    txn->finish = [self, filefd, file_len]() -> asio::awaitable<void> {
+        co_await self->writeHeader();
+        co_await self->writeResource(filefd, file_len);
+    };
+    LOG("DEBUG", "GetHandler", "Lambda finisher assigned");
+    co_return;
 }

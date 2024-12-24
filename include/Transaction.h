@@ -3,32 +3,26 @@
 
 #include "http.h"
 #include "logger.h"
-#include "MethodHandler.h"
 #include <vector>
 
 class Session;
 class Socket;
 
+
 struct Transaction {
-    std::weak_ptr<Session> session;
     Socket* sock;
     std::vector<char> buffer;
+    std::function<asio::awaitable<void>()> finish;
     http::Request request;
     http::Response response;
     logger::Entry log_entry;
-    unsigned long bytes = 0;
 
-    Transaction(std::weak_ptr<Session> session, Socket* sock, std::vector<char>&& buffer)
-        : session(std::move(session)), sock(sock), buffer(std::move(buffer)) {}
+    Transaction(Socket* sock): sock(sock), buffer(BUFSIZ), finish(nullptr) {}
 
-    Transaction(std::weak_ptr<Session> session, Socket* sock)
-        : session(std::move(session)), sock(sock), buffer(HEADER_SIZE) {}
-
-    void addBytes(long additional_bytes) { bytes += additional_bytes; }
-    void setBuffer(std::vector<char>&& new_buffer) { buffer = std::move(new_buffer); }
+    void addBytes(long additional_bytes) {log_entry.bytes += additional_bytes;}
+    void setBuffer(std::vector<char>&& new_buffer) {buffer = std::move(new_buffer);}
     void setRequest(http::Request&& new_request) {request = std::move(new_request);}
 
-    unsigned long getBytes() const {return bytes;}
     std::vector<char>* getBuffer() {return &buffer;}
     http::Response* getResponse() {return &response;}
     logger::Entry* getLogEntry() {return &log_entry;}

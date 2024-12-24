@@ -15,7 +15,7 @@
 #include "config.h"
 #include "Middleware.h"
 
-class Session : public std::enable_shared_from_this<Session>
+class Session
 {
     public:
     Session(std::unique_ptr<Socket>&& sock) : sock(std::move(sock)){};
