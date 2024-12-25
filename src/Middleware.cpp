@@ -101,37 +101,34 @@ asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next n
     }    
 }
 
-
-/*
-    if (active_route->is_authenticator)
-    {
-        LOG("INFO", "POST handler", "authenticating user");
-        auto tokenBuilder = jwt::create();
-        token = tokenBuilder
-                    .set_issuer(config->getServerName())
-                    .set_subject("auth-token")
-                    .set_payload_claim("role", jwt::claim(cfg::getRoleHash(active_route->role)))
-                    .set_expires_at(DEFAULT_EXPIRATION)
-                    .sign(jwt::algorithm::hs256{config->getSecret()});
-        response_body["token"] = token;
-    }
-    else {
-        response_body["message"] = "Endpoint active, no script set";
-    }
-    */
-
-
 asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next next) {
     LOG("DEBUG", "AuthenticatorMW", "processed");
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
 
     const cfg::Route* route = config->findRoute(request->endpoint);
-    if(route && route->is_protected) {
-        // Authenticate
+    if(!route) {
+        request->endpoint = "public/" + request->endpoint;
         co_await next();
         co_return;
     }
-    request->endpoint = "public/" + request->endpoint;
+    if(route->is_protected) {
+        // validate the token
+    }
+
+    request->route = route;
     co_await next();
+    auto response = txn->getResponse();
+    
+    if(route->is_authenticator) { 
+        if(!http::is_success_code(response->status)) {
+            throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), response->status));
+        }
+        
+        auto token_builder = jwt::create();
+        std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
+                            .set_payload_claim("role", jwt::claim(cfg::getRoleHash(route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
+        response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
+        LOG("DEBUG", "AuthenticatorMW", "Cookie: %s", token.c_str());
+    }
 }

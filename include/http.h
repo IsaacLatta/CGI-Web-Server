@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include "json.hpp"
 #include <jwt-cpp/jwt.h>
+#include "config.h"
 
 namespace http
 {
@@ -100,6 +101,7 @@ namespace http
     struct Request {
         std::string method;
         std::string endpoint;
+        const cfg::Route* route{nullptr}; 
         std::unordered_map<std::string, std::string> headers;
         std::string body;
 
@@ -113,6 +115,8 @@ namespace http
             return it->second;
         }
     };
+
+    bool is_success_code(http::code status) noexcept;
 
     code extract_method(const std::vector<char>& buffer, std::string& method);
     code extract_token(const std::vector<char>& buffer, std::string& token);

@@ -6,6 +6,7 @@
 #include <exception>
 #include "Transaction.h"
 #include "MethodHandler.h"
+#include "config.h"
 
 class Session;
 
@@ -14,8 +15,11 @@ using Next = std::function<asio::awaitable<void>()>;
 class Middleware
 {
     public:
+    Middleware(): config(cfg::Config::getInstance()) {}
     virtual asio::awaitable<void> process(Transaction* txn, Next next) = 0;
     virtual ~Middleware() = default;
+    protected:
+    const cfg::Config* config;
 };
 
 class ErrorHandlerMiddleware: public Middleware 

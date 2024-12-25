@@ -119,9 +119,14 @@ void PostHandler::handleEmptyScript() {
 }
 
 asio::awaitable<void> PostHandler::handle() {
+    if(request->route == nullptr) {
+        throw http::HTTPException(http::code::Bad_Request, std::format("No POST route found for endpoint: {}", request->endpoint));
+    }
+    
     int pid, status;
     auto reader = runScript(&pid, &status);
     co_await sendResponse(reader);
     waitpid(pid, &status, 0);
+    co_return;
 }
 
