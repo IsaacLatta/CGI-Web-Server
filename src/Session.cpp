@@ -12,7 +12,7 @@ asio::awaitable<void> Session::start() {
     LOG("DEBUG", "Session", "starting pipeline for client: %s", sock->getIP().c_str());
     Transaction txn(sock.get());
     buildPipeline();
-    co_await runPipeline(&txn, 0); // call stack builds here
+    co_await runPipeline(&txn, 0); 
     sock->close();
     LOG("DEBUG", "Session", "session ended for client: %s", sock->getIP().c_str());
 }

@@ -59,11 +59,11 @@ static http::code check_ext(const std::string& extension, std::string& content_t
     }
     return http::code::Forbidden;
 }
-bool is_success_code(http::code status) noexcept {
+bool http::is_success_code(http::code status) noexcept {
     return (status >= http::code::OK && status < http::code::Bad_Request);
 }
 
-std::string get_status_msg(http::code http_code) {
+std::string http::get_status_msg(http::code http_code) {
     switch (http_code) {
     case http::code::OK:
         return "HTTP/1.1 200 OK";

@@ -100,9 +100,6 @@ asio::awaitable<void> GetHandler::handle() {
     response->addHeader("Content-Type", content_type);
     response->addHeader("Content-Length", std::to_string(file_len));
 
-    // co_await writeHeader();
-    // co_await writeResource(filefd, file_len);
-    
     LOG("DEBUG", "GetHandler", "Finished processing GET request, assigning lambda finisher");
 
     auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());

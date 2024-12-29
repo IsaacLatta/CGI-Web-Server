@@ -122,7 +122,7 @@ asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next ne
     
     if(route->is_authenticator) { 
         if(!http::is_success_code(response->status)) {
-            throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), response->status));
+            throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
         }
         
         auto token_builder = jwt::create();

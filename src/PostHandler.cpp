@@ -82,7 +82,6 @@ asio::awaitable<void> PostHandler::sendResponse(asio::posix::stream_descriptor& 
         if(first_read) {
             this->response_header = http::extract_header_line(buffer);
             first_read = false;
-            // in the Authenticator on the pass back we should parse this header to see if the user is authenticated, generate the token if so
         }
         
         if(read_ec && read_ec != asio::error::eof) {

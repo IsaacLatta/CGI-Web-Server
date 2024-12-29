@@ -18,7 +18,6 @@ struct Transaction {
     logger::Entry log_entry;
 
     Transaction(Socket* sock): sock(sock), buffer(BUFSIZ), finish(nullptr) {}
-
     void addBytes(long additional_bytes) {log_entry.bytes += additional_bytes;}
     void setBuffer(std::vector<char>&& new_buffer) {buffer = std::move(new_buffer);}
     void setRequest(http::Request&& new_request) {request = std::move(new_request);}

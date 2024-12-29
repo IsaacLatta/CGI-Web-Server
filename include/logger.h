@@ -45,14 +45,13 @@
 
 
 namespace logger 
-{
-
+{ 
     constexpr std::string_view ERROR = "ERROR";
     constexpr std::string_view INFO = "INFO";
 
     struct Entry {
         unsigned long bytes{0};
-        std::string user_agent{""};
+        std::string user_agent{""}; 
         std::string request{""};
         std::string response{""};
         std::string client_addr{""};
