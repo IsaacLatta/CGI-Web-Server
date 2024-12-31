@@ -1,7 +1,9 @@
 #include "Middleware.h"
 #include "Session.h"
 
-asio::awaitable<void> ErrorHandlerMiddleware::process(Transaction* txn, Next next) {
+using namespace mw;
+
+asio::awaitable<void> ErrorHandler::process(Transaction* txn, Next next) {
     try {
         LOG("DEBUG", "ErrorHandlerMW", "processed");
         co_await next();
@@ -30,7 +32,7 @@ void log_parsed_results(const http::Request& request) {
     }
 }
 
-asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
+asio::awaitable<void> Parser::process(Transaction* txn, Next next) {
     auto buffer =  txn->getBuffer();
     auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
     txn->getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
@@ -54,7 +56,7 @@ asio::awaitable<void> ParserMiddleware::process(Transaction* txn, Next next) {
     co_await next();
 }
 
-asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
+asio::awaitable<void> Logger::process(Transaction* txn, Next next) {
     logger::Entry* entry = txn->getLogEntry();
     LOG("DEBUG", "LoggingMW", "processing forward");
     entry->Latency_start_time = std::chrono::system_clock::now();
@@ -73,7 +75,7 @@ asio::awaitable<void> LoggingMiddleware::process(Transaction* txn, Next next) {
     logger::log_session(*entry, "INFO");
 }
 
-std::shared_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(Transaction* txn) {
+std::shared_ptr<MethodHandler> RequestHandler::createMethodHandler(Transaction* txn) {
     http::Request* request = txn->getRequest();
     if(request->method == http::method::GET) {
         LOG("INFO", "Request Handler", "GET request detected");
@@ -90,7 +92,7 @@ std::shared_ptr<MethodHandler> RequestHandlerMiddleware::createMethodHandler(Tra
     return nullptr;
 }
 
-asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next next) {
+asio::awaitable<void> RequestHandler::process(Transaction* txn, Next next) {
     if(auto handler = createMethodHandler(txn)) {
         co_await handler->handle();
         LOG("DEBUG", "RequestHandlerMW", "processed");
@@ -101,7 +103,41 @@ asio::awaitable<void> RequestHandlerMiddleware::process(Transaction* txn, Next n
     }    
 }
 
-asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next next) {
+void Authenticator::validate(Transaction* txn, const cfg::Route* route) {
+    auto request = txn->getRequest();
+
+    if(!route->is_protected) {
+        return;
+    }
+
+    std::string cookie, token;
+    if ((cookie = request->getHeader("Cookie")).empty() || (token = http::extract_jwt_from_cookie(cookie)).empty()) {
+        throw http::HTTPException(http::code::Unauthorized, "Missing or invalid authentication token");
+    }
+
+    try {
+        auto decoded_token = jwt::decode(token);
+        auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{config->getSecret()}).with_issuer(config->getServerName());
+        verifier.verify(decoded_token);
+
+        if(decoded_token.has_expires_at() && std::chrono::system_clock::now() > decoded_token.get_expires_at()) {
+            throw http::HTTPException(http::code::Unauthorized, "Expired token");
+        }
+
+        auto role_claim = decoded_token.get_payload_claim("role");
+
+        if (route->role != cfg::getRoleHash(role_claim.as_string())) {
+                throw http::HTTPException(http::code::Forbidden, "Insufficient permissions");
+        }
+    } catch (const std::exception& error) {
+        throw http::HTTPException(http::code::Unauthorized, 
+        std::format("[client {}] Invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
+    }
+
+
+}
+
+asio::awaitable<void> Authenticator::process(Transaction* txn, Next next) {
     LOG("DEBUG", "AuthenticatorMW", "processed");
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
@@ -112,10 +148,8 @@ asio::awaitable<void> AuthenticatorMiddleware::process(Transaction* txn, Next ne
         co_await next();
         co_return;
     }
-    if(route->is_protected) {
-        // validate the token
-    }
 
+    validate(txn, route);
     request->route = route;
     co_await next();
     auto response = txn->getResponse();

@@ -28,7 +28,7 @@ class Session
     asio::awaitable<void> runPipeline(Transaction* txn, std::size_t index);
 
     private:
-    std::vector<std::unique_ptr<Middleware>> pipeline;
+    std::vector<std::unique_ptr<mw::Middleware>> pipeline;
     std::unique_ptr<Socket> sock;
 };
 

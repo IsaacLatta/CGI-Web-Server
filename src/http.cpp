@@ -1,7 +1,6 @@
 #include "http.h" 
 
-std::string url_decode(std::string&& buf)
-{
+std::string url_decode(std::string&& buf) {
     std::string decoded_buf;
     char hex_code[3] = {'\0'};
     for (int i = 0; i < buf.length(); i++)
@@ -20,6 +19,14 @@ std::string url_decode(std::string&& buf)
             decoded_buf += buf[i];
     }
     return decoded_buf;
+}
+
+std::string http::get_time_stamp() {
+    std::ostringstream oss;
+    auto now = std::time(nullptr);
+    std::tm tm = *std::gmtime(&now);
+    oss << std::put_time(&tm, "%a, %d %b %Y %H:%M:%S GMT");
+    return oss.str();
 }
 
 std::string http::trim_to_lower(std::string_view& str_param) {
@@ -156,7 +163,6 @@ http::code http::extract_body(const std::vector<char>& buffer, std::string& body
     body = std::string(header.substr(start + offset, end - (start + offset)));
     return http::code::OK;
 }
-
 
 http::code http::find_content_type(const std::vector<char>& buffer, std::string& content_type) {
     std::string_view header(buffer.data(), buffer.size());
@@ -296,6 +302,17 @@ http::code http::extract_headers(const std::vector<char>& buffer,
         pos = end + line_end.size();
     }
     return http::code::OK;
+}
+
+std::string http::extract_jwt_from_cookie(const std::string& cookie) {
+    const std::string jwt_key = "jwt=";
+    size_t start = cookie.find(jwt_key);
+    if (start == std::string::npos) {
+        return "";
+    }
+    start += jwt_key.size(); 
+    size_t end = cookie.find(";", start);
+    return cookie.substr(start, end - start); 
 }
 
 http::code http::extract_token(const std::vector<char>& buffer, std::string& token) {

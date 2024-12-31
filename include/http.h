@@ -49,6 +49,7 @@ namespace http
     }
 
     std::string get_status_msg(code http_code);
+    std::string get_time_stamp();
 
     class Response {
         public:
@@ -75,6 +76,8 @@ namespace http
 
         std::string build() {
             built_response = status_msg + "\r\n";
+            
+            headers["Date"] = get_time_stamp();
             for(auto& [key, value] : headers) {
                 built_response += key + ": " + value + "\r\n";
             }
@@ -122,6 +125,7 @@ namespace http
     code extract_token(const std::vector<char>& buffer, std::string& token);
     code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
     code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
+    std::string extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);

@@ -10,6 +10,8 @@
 
 class Session;
 
+namespace mw {
+
 using Next = std::function<asio::awaitable<void>()>;
 
 class Middleware
@@ -22,13 +24,13 @@ class Middleware
     const cfg::Config* config;
 };
 
-class ErrorHandlerMiddleware: public Middleware 
+class ErrorHandler: public Middleware 
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;  
 };
 
-class RequestHandlerMiddleware: public Middleware
+class RequestHandler: public Middleware
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
@@ -36,7 +38,7 @@ class RequestHandlerMiddleware: public Middleware
     std::shared_ptr<MethodHandler> createMethodHandler(Transaction* txn);
 };
 
-class LoggingMiddleware: public Middleware
+class Logger: public Middleware
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
@@ -44,19 +46,20 @@ class LoggingMiddleware: public Middleware
     bool forward{true};
 };
 
-class ParserMiddleware: public Middleware
+class Parser: public Middleware
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
 };
 
-class AuthenticatorMiddleware: public Middleware
+class Authenticator: public Middleware
 {
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
+    void validate(Transaction* txn, const cfg::Route* route);
 };
 
-
+};
 #endif

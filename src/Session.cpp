@@ -18,11 +18,11 @@ asio::awaitable<void> Session::start() {
 }
 
 void Session::buildPipeline() {
-    pipeline.push_back(std::make_unique<LoggingMiddleware>());
-    pipeline.push_back(std::make_unique<ErrorHandlerMiddleware>());
-    pipeline.push_back(std::make_unique<ParserMiddleware>());
-    pipeline.push_back(std::make_unique<AuthenticatorMiddleware>());
-    pipeline.push_back(std::make_unique<RequestHandlerMiddleware>());
+    pipeline.push_back(std::make_unique<mw::Logger>());
+    pipeline.push_back(std::make_unique<mw::ErrorHandler>());
+    pipeline.push_back(std::make_unique<mw::Parser>());
+    pipeline.push_back(std::make_unique<mw::Authenticator>());
+    pipeline.push_back(std::make_unique<mw::RequestHandler>());
 }
 
 asio::awaitable<void> Session::runPipeline(Transaction* txn, std::size_t index) {
@@ -31,8 +31,8 @@ asio::awaitable<void> Session::runPipeline(Transaction* txn, std::size_t index) 
         co_return;
     }
 
-    Middleware* mw = pipeline[index].get();
-    Next next_func = [this, txn, index] () -> asio::awaitable<void> {
+    mw::Middleware* mw = pipeline[index].get();
+    mw::Next next_func = [this, txn, index] () -> asio::awaitable<void> {
         co_await runPipeline(txn, index + 1);
     };
     co_await mw->process(txn, next_func);
