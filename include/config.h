@@ -11,12 +11,27 @@
 
 namespace cfg {
 
-constexpr std::string VIEWER = "viewer";
-constexpr std::string USER = "user";
-constexpr std::string ADMIN = "admin";
-constexpr std::string NO_HOST_NAME  = "";
-
 using Endpoint = std::string;
+
+struct Role {
+    std::string title;
+    std::vector<std::string> includes;
+
+    bool includesRole(const std::string& role) const {
+        return (title == role) || (std::find(includes.begin(), includes.end(), role) != includes.end());
+    }
+};
+
+std::string get_role_hash(std::string role_title);
+
+const std::string VIEWER_ROLE_HASH = get_role_hash("viewer");
+const std::string USER_ROLE_HASH = get_role_hash("user");
+const std::string ADMIN_ROLE_HASH = get_role_hash("admin");
+const Role VIEWER = {VIEWER_ROLE_HASH, {}};
+const Role USER = {USER_ROLE_HASH, {VIEWER_ROLE_HASH}};
+const Role ADMIN = {ADMIN_ROLE_HASH, {USER_ROLE_HASH, VIEWER_ROLE_HASH}};
+
+const std::string NO_HOST_NAME  = "";
 
 struct SSLConfig {
     bool active;
@@ -29,11 +44,12 @@ struct Route {
     Endpoint endpoint{""};
     std::string script{""};
     bool is_protected{false};
-    std::string role{VIEWER};
+    std::string role;
     bool is_authenticator{false};
     Route() {}
 };
 
+using Roles = std::unordered_map<std::string, Role>;
 using Routes = std::unordered_map<Endpoint, Route>;
 
 class Config 
@@ -42,6 +58,7 @@ class Config
     static const Config* getInstance(const std::string& config_path = "");
     void initialize(const std::string& config_path);
 
+    const Role* findRole(const std::string& role_title) const;
     const Route* findRoute(const Endpoint& endpoint) const;
     const Routes* getRoutes() const {return &routes;}
     const std::string& getContentPath() const {return content_path;}
@@ -58,6 +75,7 @@ class Config
     Config(Config&) = delete;
     void operator=(Config&) = delete;
 
+    void loadRoles(tinyxml2::XMLDocument* doc);
     void loadSSL(tinyxml2::XMLDocument* doc);
     void loadHostIP();
     void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
@@ -66,6 +84,7 @@ class Config
     static Config INSTANCE;
     static std::once_flag initFlag;
     
+    Roles roles;
     Routes routes;
     SSLConfig ssl;
     std::string secret = "top-secret";
@@ -75,7 +94,6 @@ class Config
     int port;
 };
 
-std::string getRoleHash(const std::string& role);
 
 };
 #endif

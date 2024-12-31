@@ -125,16 +125,16 @@ void Authenticator::validate(Transaction* txn, const cfg::Route* route) {
         }
 
         auto role_claim = decoded_token.get_payload_claim("role");
-
-        if (route->role != cfg::getRoleHash(role_claim.as_string())) {
-                throw http::HTTPException(http::code::Forbidden, "Insufficient permissions");
+        const cfg::Role* role;
+        if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->role))) {
+            throw http::HTTPException(http::code::Forbidden, "Insufficient permissions");
         }
+
+        LOG("DEBUG", "Authenticator", "Cookie authenticated");
     } catch (const std::exception& error) {
         throw http::HTTPException(http::code::Unauthorized, 
         std::format("[client {}] Invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
     }
-
-
 }
 
 asio::awaitable<void> Authenticator::process(Transaction* txn, Next next) {
@@ -161,7 +161,7 @@ asio::awaitable<void> Authenticator::process(Transaction* txn, Next next) {
         
         auto token_builder = jwt::create();
         std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
-                            .set_payload_claim("role", jwt::claim(cfg::getRoleHash(route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
+                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
         response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
         LOG("DEBUG", "AuthenticatorMW", "Cookie: %s", token.c_str());
     }

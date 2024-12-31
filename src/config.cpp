@@ -32,10 +32,13 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         route.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
         route.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(route.is_protected) {
-            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : USER; // default to user for protected routes
+            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : "";
+            if (route.role.empty()) {
+                // should exit
+            }
         }
         else {
-            route.role = VIEWER;
+            route.role = VIEWER_ROLE_HASH;
         }
         route.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
@@ -47,6 +50,14 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         }
         route_el = route_el->NextSiblingElement("Route");
     }
+}
+
+const Role* Config::findRole(const std::string& role) const {
+    auto it = roles.find(role);
+    if(it == roles.end()) {
+        return nullptr;
+    }
+    return &it->second;
 }
 
 const Route* Config::findRoute(const Endpoint& endpoint) const {
@@ -66,6 +77,68 @@ void Config::printRoutes() const {
         std::cout << "  Role: " << route.role << "\n";
         std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
         std::cout << "\n";
+    }
+}
+
+void display_role(cfg::Role* role) {
+    std::cout << "Title: " << role->title << "\n";
+    for(const auto& include: role->includes) {
+        std::cout << "  Include: " << include << "\n";
+    }
+    std::cout << "\n";
+}
+
+void Config::loadRoles(tinyxml2::XMLDocument* doc) {
+    roles[ADMIN_ROLE_HASH] = ADMIN;
+    roles[USER_ROLE_HASH] = USER;
+    roles[VIEWER_ROLE_HASH] = VIEWER;
+
+    tinyxml2::XMLElement* role_config = doc->FirstChildElement("ServerConfig")->FirstChildElement("Roles");
+    if (!role_config) {
+        return; 
+    }
+
+    std::vector<Role*> full_include_roles;
+    tinyxml2::XMLElement* role_el = role_config->FirstChildElement("Role");
+    while (role_el) {
+        bool add_to_full_include_roles = false;
+
+        const char* title_attr = role_el->Attribute("title");
+        if (!title_attr || std::string(title_attr).empty()) {
+            // Could generate random name or call EXIT_FATAL
+        }
+
+        std::string role_title = title_attr;
+        Role role{get_role_hash(role_title), {}};
+
+        tinyxml2::XMLElement* include_el = role_el->FirstChildElement("Includes");
+        while (include_el) {
+            const char* include_role = include_el->GetText();
+            if (include_role && std::string(include_role) == "*") {
+                add_to_full_include_roles = true;
+                break; 
+            } else if (include_role) {
+                role.includes.push_back(get_role_hash(include_role));
+            }
+            include_el = include_el->NextSiblingElement("Includes");
+        }
+
+        roles[role.title] = role;
+       
+        if (add_to_full_include_roles) {
+            full_include_roles.push_back(&roles[role.title]);
+        }
+        role_el = role_el->NextSiblingElement("Role");
+    }
+
+    for (auto role : full_include_roles) {
+        for (const auto& [title, role_obj] : roles) {
+            
+            role->includes.push_back(title);
+        }
+    }
+    for (auto [title, role]: roles) {
+        display_role(&role);
     }
 }
 
@@ -101,12 +174,13 @@ void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;
 
+    loadRoles(&doc);
     loadSSL(&doc);
     loadRoutes(&doc, content_path);
     loadHostIP();
 }
 
-std::string cfg::getRoleHash(const std::string& role) {
+std::string cfg::get_role_hash(std::string role) {
     return role;
 }
 
