@@ -40,7 +40,6 @@ std::string http::trim_to_lower(std::string_view& str_param) {
     return result;
 }
 
-
 std::string http::trim_to_upper(std::string_view& str_param) {
     size_t first = str_param.find_first_not_of(" \t\n\r");
     if (first == std::string_view::npos) 
@@ -52,8 +51,7 @@ std::string http::trim_to_upper(std::string_view& str_param) {
     return result;
 }
 
-static http::code check_ext(const std::string& extension, std::string& content_type)
-{
+static http::code check_ext(const std::string& extension, std::string& content_type) {
     std::vector<std::pair<std::string, std::string>> valid_exts = { {".html", "text/html"}, {".css", "text/css"}, 
         {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"}, {".ico", "image/ico"},
         {".gif", "image/gif"}, {".pdf", "application/pdf"}, {".txt", "text/plain"} };
@@ -313,6 +311,28 @@ std::string http::extract_jwt_from_cookie(const std::string& cookie) {
     start += jwt_key.size(); 
     size_t end = cookie.find(";", start);
     return cookie.substr(start, end - start); 
+}
+
+http::code http::extract_status_code(const std::vector<char>& buffer) {
+    std::string_view response(buffer.begin(), buffer.end());
+
+    size_t version_end = response.find(' ');
+    if (version_end == std::string::npos) {
+        return http::code::Bad_Request;
+    }
+
+    size_t status_code_start = version_end + 1;
+    size_t status_code_end = response.find(' ', status_code_start);
+    if (status_code_end == std::string::npos) {
+        return http::code::Bad_Gateway;
+    }
+
+    std::string status_code_str = (std::string)response.substr(status_code_start, status_code_end - status_code_start);
+    try {
+        return static_cast<http::code>(std::stoi(status_code_str)); 
+    } catch (const std::exception&) {
+        return http::code::Bad_Gateway;
+    }
 }
 
 http::code http::extract_token(const std::vector<char>& buffer, std::string& token) {

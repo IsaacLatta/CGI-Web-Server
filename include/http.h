@@ -55,6 +55,7 @@ namespace http
         public:
         code status{code::OK};
         std::string status_msg{get_status_msg(code::OK)};
+        std::string body{""};
         std::unordered_map<std::string, std::string> headers;
         std::string built_response{""};
 
@@ -77,12 +78,16 @@ namespace http
         std::string build() {
             built_response = status_msg + "\r\n";
             
+            std::string server_name = cfg::Config::getInstance()->getServerName();
+            if(!server_name.empty()) {
+                headers["Host"] = server_name;
+            }
+
             headers["Date"] = get_time_stamp();
             for(auto& [key, value] : headers) {
                 built_response += key + ": " + value + "\r\n";
             }
-            built_response = built_response + "\r\n";
-            return built_response;
+            return built_response + "\r\n" + body;
         }
     };
 
@@ -125,6 +130,7 @@ namespace http
     code extract_token(const std::vector<char>& buffer, std::string& token);
     code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
     code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
+    code extract_status_code(const std::vector<char>& buffer);
     std::string extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
