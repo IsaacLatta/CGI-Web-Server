@@ -35,8 +35,7 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
 asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
     http::json args;
     http::code code;
-    std::vector<char> buffer;
-    if((code = http::build_json(buffer, args)) != http::code::OK) {
+    if((code = http::build_json(*(txn->getBuffer()), args)) != http::code::OK) {
         throw http::HTTPException(code, "Failed to build json array");
     }
 
