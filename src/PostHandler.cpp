@@ -85,7 +85,10 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
     }
 
     response->status_msg = http::extract_header_line(buffer);
-    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || http::extract_body(buffer, response->body) != http::code::OK) {
+    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || 
+        http::extract_body(buffer, response->body) != http::code::OK || 
+        http::extract_headers(buffer, response->headers) != http::code::OK) {
+
         throw http::HTTPException(http::code::Bad_Gateway, 
         std::format("Failed to parse response from script={}, endpoint={}", request->route->script, request->route->endpoint));
     }
@@ -105,9 +108,6 @@ asio::awaitable<void> PostHandler::handle() {
         co_await readResponse(reader);
         waitpid(pid, &status, 0);
     }
-    // else {
-        // response->setStatus(http::code::OK);
-    // }
 
     response->addHeader("Connection", "close");
     txn->finish = [self = shared_from_this(), txn = this->txn]() -> asio::awaitable<void> {

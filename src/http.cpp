@@ -251,9 +251,7 @@ http::code http::extract_method(const std::vector<char>& buffer, std::string& me
     return http::code::OK;
 }
 
-http::code http::extract_headers(const std::vector<char>& buffer,
-                          std::unordered_map<std::string, std::string>& headers)
-{
+http::code http::extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers) {
     std::string_view request(buffer.data(), buffer.size());
     const std::string_view line_end = "\r\n";
     const std::string_view header_splitter = ": ";
