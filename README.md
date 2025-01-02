@@ -18,14 +18,18 @@ The project is a work in progress, there are many features/limitations I intend 
 ## Requirements
 
 - **Operating System**: Linux (required for syscall usage).
-- **Build System**: CMake.
+- **Build System**: [CMake.](https://cmake.org/download/)
+    - Install via your package manager:
+    ```bash
+    sudo apt install cmake
+    ```
 - **Libraries**:
   - Asio (header-only, included in the `third_party` folder).
   - jwt-cpp (included in the `third_party` folder).
   - TinyXML2 (included in the `third_party` folder).
   - OpenSSL (likely included on most linux machines).
 
-All dependencies are included in the `third_party` folder; no external installations are required.
+All dependencies(aside from cmake) are included in the `third_party` folder; no external installations are required.
 
 ## Building the Project
 
@@ -101,7 +105,7 @@ All dependencies are included in the `third_party` folder; no external installat
         <Route method="GET" endpoint="/public" protected="false"/>
     </Routes>
 </ServerConfig>
-    ```
+```
 
 ### Role Permissions
 
@@ -135,7 +139,7 @@ All dependencies are included in the `third_party` folder; no external installat
 ### Script Configuration
 
 - The server expects the following of the script:
-    - A valid HTTP status line:
+    - A valid HTTP status line, example:
     ```http
     HTTP/1.1 200 OK
     HTTP/1.1 403 Forbidden
@@ -180,18 +184,20 @@ All dependencies are included in the `third_party` folder; no external installat
 - HTTP request parsing is tenuous.
 
 ## To Do
-1. POST Request
-    - Add support for resource uploads, as well as task submission, e.g.) streaming
-2. PUT Request
-    - Allow upload of resource
-3. OPTIONS Request
-    - Allow preflight for resoruce creation (use with POST)
-4. CONNECT Support
-    - For tunneling (HTTPS)
-5. Default endpoints
-    - Endpoints for health or status metrics, e.g.) /health, /status
-6. Add rate limiting, especially for POST
+
+1. POST Request.
+    - Add support for resource uploads, as well as task submission, e.g.) streaming.
+2. PUT Request.
+    - Allow upload of resource.
+3. OPTIONS Request.
+    - Allow preflight for resoruce creation (use with POST).
+4. CONNECT Support.
+    - For tunneling (HTTPS).
+5. Default endpoints.
+    - Endpoints for health or status metrics, e.g.) /health, /status.
+6. Add rate limiting, especially for POST.
 7. Add example files config, static gifs, scripts etc for example usage.
-8. Address the limitations
+8. Add documentation to the code base.
+8. Address the limitations.
 
 
