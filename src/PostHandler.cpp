@@ -98,7 +98,7 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
 
 asio::awaitable<void> PostHandler::handle() {
     if(request->route == nullptr) {
-        throw http::HTTPException(http::code::Bad_Request, std::format("No POST route found for endpoint: {}", request->endpoint));
+        throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint));
     }
     
     if(!request->route->script.empty()) {

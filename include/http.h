@@ -1,4 +1,4 @@
-#ifndef HTTP_H
+    #ifndef HTTP_H
 #define HTTP_H
 
 
@@ -47,6 +47,30 @@ namespace http
         constexpr std::string_view POST = "POST";
         constexpr std::string_view NOT_FOUND = "";
     }
+
+    const std::vector<std::pair<std::string, std::string>> FILE_EXTENSIONS = {
+        // HTML, CSS, JS
+        {".html", "text/html"},
+        {".css",  "text/css"},
+        {".js",   "application/javascript"},
+
+        // Images
+        {".png",  "image/png"},
+        {".jpg",  "image/jpeg"},
+        {".gif",  "image/gif"},
+        {".ico",  "image/ico"},
+        {".svg",  "image/svg+xml"},
+
+        // Documents / other
+        {".pdf",  "application/pdf"},
+        {".txt",  "text/plain"},
+
+        // Fonts
+        {".woff",  "font/woff"},
+        {".woff2", "font/woff2"},
+        {".ttf",   "font/ttf"},
+        {".otf",   "font/otf"}
+    };
 
     std::string get_status_msg(code http_code);
     std::string get_time_stamp();

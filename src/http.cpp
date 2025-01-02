@@ -51,21 +51,24 @@ std::string http::trim_to_upper(std::string_view& str_param) {
     return result;
 }
 
-static http::code check_ext(const std::string& extension, std::string& content_type) {
-    std::vector<std::pair<std::string, std::string>> valid_exts = { {".html", "text/html"}, {".css", "text/css"}, 
-        {".js", "application/javascript"}, {".png", "image/png"}, {".jpg", "image/jpeg"}, {".ico", "image/ico"},
-        {".gif", "image/gif"}, {".pdf", "application/pdf"}, {".txt", "text/plain"} };
-    
-    for(auto& ext : valid_exts) {
-        if(extension == ext.first) {
+bool http::is_success_code(http::code status) noexcept {
+    return (status >= http::code::OK && status < http::code::Bad_Request);
+}
+
+http::code http::determine_content_type(const std::string& resource, std::string& content_type) {
+    std::size_t start = resource.rfind('.');
+    if (start == std::string::npos) {
+        return http::code::Forbidden;
+    }
+
+    std::string extension = resource.substr(start);
+    for (const auto &ext : http::FILE_EXTENSIONS) {
+        if (extension == ext.first) {
             content_type = ext.second;
             return http::code::OK;
         }
     }
     return http::code::Forbidden;
-}
-bool http::is_success_code(http::code status) noexcept {
-    return (status >= http::code::OK && status < http::code::Bad_Request);
 }
 
 std::string http::get_status_msg(http::code http_code) {
@@ -107,18 +110,6 @@ std::string http::get_status_msg(http::code http_code) {
     default:
         return "HTTP/1.1 500 Internal Server Error"; 
     }
-}
-
-http::code http::determine_content_type(const std::string& resource, std::string& content_type) {
-    std::size_t start;
-    std::string extension;
-    if((start = resource.find(".")) == std::string::npos)
-    {
-        return http::code::Forbidden;
-    }
-    extension = resource.substr(start, resource.length() - start);
-
-    return check_ext(extension, content_type);
 }
 
 std::string http::extract_header_line(const std::vector<char>& buffer) {
