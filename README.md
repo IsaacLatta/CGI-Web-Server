@@ -101,8 +101,8 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <Routes>
         <!-- POST route for admin login, creates admin cookie -->
         <Route method="POST" endpoint="/login" script="scripts/login.py" role="admin"/>
-        <!-- Public GET route with protection -->
-        <Route method="GET" endpoint="/status" protected="true" role="admin"/>
+        <!-- GET route with protection -->
+        <Route method="GET" endpoint="/admin" protected="true" role="admin"/>
     </Routes>
 </ServerConfig>
 
