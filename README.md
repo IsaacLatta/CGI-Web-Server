@@ -105,7 +105,6 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
         <Route method="GET" endpoint="/public" protected="false"/>
     </Routes>
 </ServerConfig>
-```
 
 ### Role Permissions
 
