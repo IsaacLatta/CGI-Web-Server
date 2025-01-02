@@ -100,7 +100,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <!-- Route definitions -->
     <Routes>
         <!-- POST route for user login, requires 'viewer' role -->
-        <Route method="POST" endpoint="/login" script="scripts/login.py" protected="true" role="viewer"/>
+        <Route method="POST" endpoint="/login" script="scripts/login.py" role="viewer"/>
         <!-- Public GET route with no protection -->
         <Route method="GET" endpoint="/public" protected="false"/>
     </Routes>
