@@ -66,6 +66,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 - Example xml configuration: 
    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
    <ServerConfig>
     <!-- Specifies the directory containing static web files -->
     <WebDirectory>/var/www/html</WebDirectory>
