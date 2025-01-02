@@ -3,7 +3,7 @@
 
 using namespace mw;
 
-asio::awaitable<void> ErrorHandler::process(Transaction* txn, Next next) {
+asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
         LOG("DEBUG", "ErrorHandlerMW", "processed");
         co_await next();
@@ -32,7 +32,7 @@ void log_parsed_results(const http::Request& request) {
     }
 }
 
-asio::awaitable<void> Parser::process(Transaction* txn, Next next) {
+asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     auto buffer =  txn->getBuffer();
     auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
     txn->getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
@@ -56,7 +56,7 @@ asio::awaitable<void> Parser::process(Transaction* txn, Next next) {
     co_await next();
 }
 
-asio::awaitable<void> Logger::process(Transaction* txn, Next next) {
+asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     logger::Entry* entry = txn->getLogEntry();
     LOG("DEBUG", "LoggingMW", "processing forward");
     entry->Latency_start_time = std::chrono::system_clock::now();
@@ -75,7 +75,7 @@ asio::awaitable<void> Logger::process(Transaction* txn, Next next) {
     logger::log_session(*entry, "INFO");
 }
 
-std::shared_ptr<MethodHandler> RequestHandler::createMethodHandler(Transaction* txn) {
+std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
     http::Request* request = txn->getRequest();
     if(request->method == http::method::GET) {
         LOG("INFO", "Request Handler", "GET request detected");
@@ -92,7 +92,7 @@ std::shared_ptr<MethodHandler> RequestHandler::createMethodHandler(Transaction* 
     return nullptr;
 }
 
-asio::awaitable<void> RequestHandler::process(Transaction* txn, Next next) {
+asio::awaitable<void> mw::RequestHandler::process(Transaction* txn, Next next) {
     if(auto handler = createMethodHandler(txn)) {
         co_await handler->handle();
         LOG("DEBUG", "RequestHandlerMW", "processed");
@@ -103,7 +103,7 @@ asio::awaitable<void> RequestHandler::process(Transaction* txn, Next next) {
     }    
 }
 
-void Authenticator::validate(Transaction* txn, const cfg::Route* route) {
+void mw::Authenticator::validate(Transaction* txn, const cfg::Route* route) {
     auto request = txn->getRequest();
 
     if(!route->is_protected) {
@@ -137,7 +137,7 @@ void Authenticator::validate(Transaction* txn, const cfg::Route* route) {
     }
 }
 
-asio::awaitable<void> Authenticator::process(Transaction* txn, Next next) {
+asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     LOG("DEBUG", "AuthenticatorMW", "processed");
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
