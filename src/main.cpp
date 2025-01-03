@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     const cfg::Config* config = cfg::Config::getInstance(argv[1]);
     
     LOG("INFO", "configuration loaded, serving from", "%s", config->getContentPath().c_str());
-    logger::log_message("STATUS", "Server", std::format("configuration loaded from file: {}", argv[1]));
+    logger::log_message(logger::STATUS, "Server", std::format("configuration loaded from file: {}", argv[1]));
     config->printRoutes();
 
     try {

@@ -31,7 +31,7 @@ const Role VIEWER = {VIEWER_ROLE_HASH, {}};
 const Role USER = {USER_ROLE_HASH, {VIEWER_ROLE_HASH}};
 const Role ADMIN = {ADMIN_ROLE_HASH, {USER_ROLE_HASH, VIEWER_ROLE_HASH}};
 
-const std::string NO_HOST_NAME  = "";
+const std::string NO_HOST_NAME  = "server";
 
 struct SSLConfig {
     bool active;

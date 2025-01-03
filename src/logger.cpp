@@ -1,4 +1,5 @@
 #include "logger.h"
+#include "config.h"
 
 std::string get_response(const std::string& response_header) {
     std::size_t pos = response_header.find("\r\n");
@@ -138,18 +139,18 @@ void logger::log_session(const logger::Entry& info, std::string_view level) {
     log_file << log_msg;
 }
 
-void logger::log_message(std::string level, std::string&& context, std::string&& msg) {
+void logger::log_message(std::string_view level, std::string&& context, std::string&& msg) {
+    std::string level_str(level);
     std::fstream log_file;
-    std::string file_name = "log/web-" + get_date(get_time()) + ".log";
+    std::string file_name = "log/" + cfg::Config::getInstance()->getServerName() + "-" + get_date(get_time()) + ".log";
     log_file.open(file_name, std::fstream::app);
     if(!log_file.is_open()) {
         return;
     }
-
-    level += " ";
+    level_str += " ";
     std::string curr_time = "[" + get_time() +"] ";
     context = "[" + context + "] ";
-    std::string log_msg = curr_time + level + context + msg + "\n";
+    std::string log_msg = curr_time + level_str + context + msg + "\n";
     LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
     log_file << log_msg;
 }

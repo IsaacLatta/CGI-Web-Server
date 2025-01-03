@@ -163,9 +163,9 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ### Logging
 
-- The server creates log files, prefixed by the date in the **log** directory:
+- The server creates log files, prefixed by the name of the server and the date in the **log** directory:
 ```bash
-/var/www/html/log/web-YYYY-MM-DD.log
+/var/www/html/log/MyWebServer-YYYY-MM-DD.log
 ```
 - The logs are formatted with readability in mind, mirroring those of reputable web servers:
 ```bash

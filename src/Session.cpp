@@ -1,7 +1,6 @@
 #include "Session.h"
 
 asio::awaitable<void> Session::start() {
-    
     sock->storeIP();
     asio::error_code error = co_await sock->co_handshake();
     if(error) {

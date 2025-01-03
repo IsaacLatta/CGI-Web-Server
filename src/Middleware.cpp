@@ -5,7 +5,6 @@ using namespace mw;
 
 asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
-        LOG("DEBUG", "ErrorHandlerMW", "processed");
         co_await next();
         if(txn->finish) {
             co_await txn->finish();
@@ -50,7 +49,6 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
 
 asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     logger::Entry* entry = txn->getLogEntry();
-    LOG("DEBUG", "LoggingMW", "processing forward");
     entry->Latency_start_time = std::chrono::system_clock::now();
     entry->RTT_start_time = std::chrono::system_clock::now();
     entry->client_addr = txn->getSocket()->getIP();
@@ -68,15 +66,12 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
 std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
     http::Request* request = txn->getRequest();
     if(request->method == http::method::GET) {
-        LOG("INFO", "Request Handler", "GET request detected");
         return std::make_shared<GetHandler>(txn); 
     }
     if(request->method == http::method::HEAD) {
-        LOG("INFO", "Request Handler", "HEAD request detected");
         return std::make_shared<HeadHandler>(txn); 
     }
     if(request->method == http::method::POST) {
-        LOG("INFO", "Request Handler", "POST request detected");
         return std::make_shared<PostHandler>(txn);
     }
     return nullptr;
@@ -85,7 +80,6 @@ std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transacti
 asio::awaitable<void> mw::RequestHandler::process(Transaction* txn, Next next) {
     if(auto handler = createMethodHandler(txn)) {
         co_await handler->handle();
-        LOG("DEBUG", "RequestHandlerMW", "processed");
         co_await next();
     }
     else {
@@ -117,10 +111,8 @@ void mw::Authenticator::validate(Transaction* txn, const cfg::Route* route) {
         auto role_claim = decoded_token.get_payload_claim("role");
         const cfg::Role* role;
         if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->role))) {
-            throw http::HTTPException(http::code::Forbidden, "Insufficient permissions");
+            throw http::HTTPException(http::code::Unauthorized, "Insufficient permissions");
         }
-
-        LOG("DEBUG", "Authenticator", "Cookie authenticated");
     } catch (const std::exception& error) {
         throw http::HTTPException(http::code::Unauthorized, 
         std::format("[client {}] Invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
@@ -128,7 +120,6 @@ void mw::Authenticator::validate(Transaction* txn, const cfg::Route* route) {
 }
 
 asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
-    LOG("DEBUG", "AuthenticatorMW", "processed");
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
    
@@ -150,6 +141,5 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
         std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
                             .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
         response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
-        LOG("DEBUG", "AuthenticatorMW", "Cookie: %s", token.c_str());
     }
 }

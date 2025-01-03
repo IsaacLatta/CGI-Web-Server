@@ -48,6 +48,7 @@ namespace logger
 { 
     constexpr std::string_view ERROR = "ERROR";
     constexpr std::string_view INFO = "INFO";
+    constexpr std::string_view STATUS = "STATUS";
 
     struct Entry {
         unsigned long bytes{0};
@@ -64,7 +65,7 @@ namespace logger
     std::string get_user_agent(const char* buffer, std::size_t size);
     std::string get_header_line(const char* buffer, std::size_t size);
     void log_session(const Entry& info, std::string_view level);
-    void log_message(std::string level, std::string&& context, std::string&& msg);
+    void log_message(std::string_view level, std::string&& context, std::string&& msg);
 };
 
 #define EXIT_FATAL(tag, error_code, error_msg, format, ...) do { \
