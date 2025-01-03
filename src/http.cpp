@@ -118,7 +118,7 @@ std::string http::extract_header_line(const std::vector<char>& buffer) {
     if((end = response.find("\r\n")) == std::string::npos) {
         return "";
     }
-    return (std::string)(response.substr(0, end + 2));
+    return (std::string)(response.substr(0, end));
 }
 
 http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource) {

@@ -23,15 +23,6 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     }
 }
 
-void log_parsed_results(const http::Request& request) {
-    LOG("DEBUG", "ParserMW", "PARSED RESULTS\n\tMethod: %s\n\tEndpoint: %s\n\tBody: %s\nHeaders Size: %d", 
-    request.method.c_str(), request.endpoint.c_str(), request.body.c_str(), static_cast<int>(request.headers.size()));
-
-    for(const auto& [key, val]: request.headers) {
-        std::cout << "\tPARSED HEADER -> " << key << ": " << val << "\n";
-    }
-}
-
 asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     auto buffer =  txn->getBuffer();
     auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
@@ -51,6 +42,7 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
         throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
         txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
     }
+    request.route = config->findRoute(request.endpoint);
     
     txn->setRequest(std::move(request));
     co_await next();
@@ -61,11 +53,9 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     LOG("DEBUG", "LoggingMW", "processing forward");
     entry->Latency_start_time = std::chrono::system_clock::now();
     entry->RTT_start_time = std::chrono::system_clock::now();
-    entry->RTT_start_time = std::chrono::system_clock::now();
     entry->client_addr = txn->getSocket()->getIP();
     
     co_await next();
-    LOG("DEBUG", "LoggingMW", "processing backward");
 
     const std::vector<char>* buffer = txn->getBuffer();
     entry->user_agent = logger::get_user_agent(buffer->data(), buffer->size());
@@ -141,27 +131,24 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     LOG("DEBUG", "AuthenticatorMW", "processed");
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
-
-    const cfg::Route* route = config->findRoute(request->endpoint);
-    if(!route) {
-        request->endpoint = "public/" + request->endpoint;
+   
+    if(!request->route || !request->route->is_protected) {
         co_await next();
         co_return;
     }
 
-    validate(txn, route);
-    request->route = route;
+    validate(txn, request->route);
     co_await next();
     auto response = txn->getResponse();
     
-    if(route->is_authenticator) { 
+    if(request->route->is_authenticator) { 
         if(!http::is_success_code(response->status)) {
             throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
         }
         
         auto token_builder = jwt::create();
         std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
-                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
+                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
         response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
         LOG("DEBUG", "AuthenticatorMW", "Cookie: %s", token.c_str());
     }

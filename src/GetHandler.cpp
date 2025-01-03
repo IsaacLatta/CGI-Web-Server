@@ -75,6 +75,10 @@ asio::awaitable<void> GetHandler::writeHeader() {
 
 
 asio::awaitable<void> GetHandler::handle() {    
+    if(!request->route || !request->route->is_protected) {
+        request->endpoint = "public/" + request->endpoint;
+    }
+    
     int filefd =  open(request->endpoint.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 

@@ -82,6 +82,7 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
         std::format("Failed to read response from subprocess={} endpoint={} asio::error={}, ({})", 
         request->route->script, request->route->endpoint, read_ec.value(), read_ec.message()));
     }
+    buffer.resize(bytes_read);
 
     response->status_msg = http::extract_header_line(buffer);
     if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || 
