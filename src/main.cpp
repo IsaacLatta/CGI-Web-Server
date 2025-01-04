@@ -27,6 +27,7 @@ int main(int argc, char** argv)
     
     LOG("INFO", "configuration loaded, serving from", "%s", config->getContentPath().c_str());
     logger::log_message(logger::STATUS, "Server", std::format("configuration loaded from file: {}", argv[1]));
+    logger::log_message(logger::STATUS, "Server", std::format("serving from: {}", config->getContentPath()));
     config->printRoutes();
 
     try {

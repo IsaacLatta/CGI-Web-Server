@@ -105,7 +105,8 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
 
         const char* title_attr = role_el->Attribute("title");
         if (!title_attr || std::string(title_attr).empty()) {
-            // Could generate random name or call EXIT_FATAL
+            logger::log_message(logger::FATAL, "Server", std::format("parsed role missing title, exiting pid={}", getpid()));
+            EXIT_FATAL("FATAL", 0, "XML Error", "role missing title, exiting pid=%d", getpid());
         }
 
         std::string role_title = title_attr;
@@ -133,7 +134,6 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
 
     for (auto role : full_include_roles) {
         for (const auto& [title, role_obj] : roles) {
-            
             role->includes.push_back(title);
         }
     }
@@ -162,7 +162,6 @@ void Config::initialize(const std::string& config_path) {
         EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to chdir to web directory path: %s", content_path.c_str());
     }
 
-    logger::log_message("STATUS", "Server", "initialiizing ...");
     tinyxml2::XMLElement* host = doc.FirstChildElement("ServerConfig")->FirstChildElement("Host");
     if(host) {
         host_name = host->GetText();
@@ -170,6 +169,7 @@ void Config::initialize(const std::string& config_path) {
     else {
         host_name = cfg::NO_HOST_NAME;
     }
+    logger::log_message("STATUS", "Server", "initialiizing ...");
 
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;

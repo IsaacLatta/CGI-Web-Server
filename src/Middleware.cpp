@@ -26,6 +26,7 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     auto buffer =  txn->getBuffer();
     auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
     txn->getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
+    buffer->resize(bytes);
 
     if(ec) {
         throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
