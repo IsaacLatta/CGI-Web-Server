@@ -46,8 +46,23 @@ asio::awaitable<void> Server::run() {
 }
 
 void Server::start() {
+    std::vector<std::thread> threads;
+    std::size_t thread_count = std::thread::hardware_concurrency();
+    if(!thread_count) {
+        thread_count = 8;
+    }
+    threads.reserve(thread_count - 1);
+
     asio::co_spawn(_io_context, run(), asio::detached);
+
+    for(std::size_t i = 0; i < thread_count - 2; ++i) {
+        threads.emplace_back([this](){_io_context.run();});
+    }
     _io_context.run();
+
+    for(auto& thread: threads) {
+        thread.join();
+    }
 }
 
 bool Server::isError(const asio::error_code& error) {
