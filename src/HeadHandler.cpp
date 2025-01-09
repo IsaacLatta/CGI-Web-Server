@@ -1,7 +1,7 @@
 #include "MethodHandler.h"
 #include "Session.h"
 
-std::string HeadHandler::buildResponse() {
+void HeadHandler::buildResponse() {
     int filefd =  open(request->endpoint.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 
@@ -26,25 +26,32 @@ std::string HeadHandler::buildResponse() {
     response->addHeader("Connection", "close");
     response->addHeader("Content-Type", content_type);
     response->addHeader("Content-Length", std::to_string(file_len));
-    return response->build();
 }
 
 asio::awaitable<void> HeadHandler::handle() {    
-    std::string response_header = buildResponse();
-
-    TransferState state;
-    asio::error_code error;
-    while(state.retry_count < TransferState::MAX_RETRIES) {
-        auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
-        
-        if (!error) {
-            co_return;
-        }
-
-        state.retry_count++;
-        asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
-        co_await timer.async_wait(asio::use_awaitable);
+    if(!request->route || !request->route->is_protected) {
+        request->endpoint = "public/" + request->endpoint;
     }
-    throw http::HTTPException(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", 
-          request->endpoint, sock->getIP(), response_header, error.value(), error.message()));
+    
+    buildResponse();
+    txn->finish = [self = shared_from_this(), txn = this->txn]() ->asio::awaitable<void> {
+        std::string response_header = txn->getResponse()->build();
+        auto sock = txn->getSocket();
+        TransferState state;
+        asio::error_code error;
+        while(state.retry_count < TransferState::MAX_RETRIES) {
+            auto [error, bytes_written] = co_await sock->co_write(response_header.data(), response_header.length());
+            
+            if (!error) {
+                co_return;
+            }
+
+            state.retry_count++;
+            asio::steady_timer timer = asio::steady_timer(co_await asio::this_coro::executor, TransferState::RETRY_DELAY * state.retry_count);
+            co_await timer.async_wait(asio::use_awaitable);
+        }
+        throw http::HTTPException(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", 
+            txn->request.endpoint, sock->getIP(), response_header, error.value(), error.message()));
+    };
+    co_return;
 }

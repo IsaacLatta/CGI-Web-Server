@@ -75,7 +75,7 @@ class HeadHandler: public MethodHandler
     asio::awaitable<void> handle() override;
 
     private:
-    std::string buildResponse();
+    void buildResponse();
 
     private:
 };
