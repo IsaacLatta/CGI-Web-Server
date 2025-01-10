@@ -2,8 +2,14 @@
 
 ## Overview
 
-This project is a CGI-based web server written in C++. It is designed to handle HTTP requests and execute scripts for dynamic content generation. The server supports essential HTTP methods like GET and POST and is structured to allow easy addition of new methods and middlewares.
+This is a custom-built CGI web server designed to serve dynamic and static content efficiently via configurable endpoint scripts. It currently powers my personal website, [lattadata.com](https://lattadata.com), which is hosted on my home server.
 
+## Demo: Live Website
+Visit my personal website: lattadata.com
+
+### Web Content Repository
+
+To explore the HTML, CSS, JavaScript, XML configuration file, and Python scripts powering the website, check out the web content repository: [My Website](https://github.com/IsaacLatta/My-Website).
 The project is a work in progress, there are many features/limitations I intend on developing/addressing, some of which are mentioned here in the README, others in the main.cpp file. The current implementation serves as prototype for a configurable, role permission based cgi-like web server.
 
 ## Features
