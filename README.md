@@ -5,7 +5,7 @@
 This is a custom-built CGI web server designed to serve dynamic and static content efficiently via configurable endpoint scripts. It currently powers my personal website, [lattadata.com](https://lattadata.com), which is hosted on my home server.
 
 ## Demo: Live Website
-Visit my personal website: lattadata.com
+Visit my personal website:  [lattadata.com](https://lattadata.com)
 
 ### Web Content Repository
 
