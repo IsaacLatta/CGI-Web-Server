@@ -12,14 +12,17 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     }
     catch (const http::HTTPException& http_error) {
         txn->response = std::move(*http_error.getResponse());
-        txn->sock->write(txn->response.status_msg.data(), txn->response.status_msg.length());
+        std::string response = txn->response.build();
+        txn->sock->write(response.data(), response.length());
         LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
     }
     catch (const std::exception& error) {
         txn->response = std::move(http::Response(http::code::Internal_Server_Error));
-        txn->sock->write(txn->response.status_msg.data(), txn->response.status_msg.length());
+        std::string response = txn->response.build();
+        txn->sock->write(response.data(), response.length());
         LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
     }
+    co_return;
 }
 
 asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {

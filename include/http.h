@@ -101,11 +101,6 @@ namespace http
 
         std::string build() {
             built_response = status_msg + "\r\n";
-            
-            std::string server_name = cfg::Config::getInstance()->getServerName();
-            if(!server_name.empty()) {
-                headers["Host"] = server_name;
-            }
 
             headers["Date"] = get_time_stamp();
             for(auto& [key, value] : headers) {
@@ -118,7 +113,13 @@ namespace http
     class HTTPException : public std::exception {
         public:
 
-            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {response.build();}
+            HTTPException() {}
+
+            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {
+                response.addHeader("Connection", "close");
+                response.addHeader("Content-Length", "0"); 
+                response.build();
+            }
 
             const Response* getResponse() const {return &response;}
 
