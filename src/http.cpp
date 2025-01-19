@@ -85,6 +85,8 @@ std::string http::get_status_msg(http::code http_code) {
         return "HTTP/1.1 301 Moved Permanently";
     case http::code::Found:
         return "HTTP/1.1 302 Found";
+    case http::code::See_Other:
+        return "HTTP/1.1 303 See Other";
     case http::code::Not_Modified:
         return "HTTP/1.1 304 Not Modified";
     case http::code::Bad_Request:

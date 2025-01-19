@@ -1,0 +1,7 @@
+/home/isaac/Projects/Web-Server/CMakeFiles/WebServer.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/edit_cache.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/rebuild_cache.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/list_install_components.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/install.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/install/local.dir
+/home/isaac/Projects/Web-Server/CMakeFiles/install/strip.dir

@@ -147,3 +147,4 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
         response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
     }
 }
+ 

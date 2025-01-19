@@ -28,6 +28,7 @@ namespace http
         No_Content = 204,
         Moved_Permanently = 301,
         Found = 302,
+        See_Other = 303,
         Not_Modified = 304,
         Bad_Request = 400,
         Unauthorized = 401,
