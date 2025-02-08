@@ -184,7 +184,6 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ## Limitations
 
-- The server does not allow a single endpoint to support multiple request methods.
 - An authenticator endpoint is always unprotected and different role authentication requires different auth endpoints.
 - POST request support is limited, no task submission, file uploads etc.
 - HTTP request parsing is tenuous.
