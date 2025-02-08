@@ -29,6 +29,12 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
                 throw http::HTTPException(http::code::Client_Closed_Request, "Connection reset by client");
             }
 
+            if(ec && state.retry_count > TransferState::MAX_RETRIES) {
+                close(filefd);
+                throw http::HTTPException(http::code::Internal_Server_Error, 
+                std::format("Max retries reached serving resource {} to client {}", request->endpoint, sock->getIP()));
+            }
+
             if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
                 LOG("WARN", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
                 state.retry_count++;
