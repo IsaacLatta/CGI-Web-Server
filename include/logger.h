@@ -47,6 +47,7 @@
 namespace logger 
 { 
     constexpr std::string_view ERROR = "ERROR";
+    constexpr std::string_view WARN = "WARNING";
     constexpr std::string_view INFO = "INFO";
     constexpr std::string_view STATUS = "STATUS";
     constexpr std::string_view FATAL = "FATAL";

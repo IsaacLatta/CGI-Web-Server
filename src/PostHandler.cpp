@@ -101,8 +101,6 @@ asio::awaitable<void> PostHandler::handle() {
     if(request->route == nullptr) {
         throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint));
     }
-    
-    std::cout << "DEBUG" << "REQUEST BODY\nSIZE: " << request->body.size() << "\n" << request->body << "\n";
 
     if(!request->route->script.empty()) {
         int pid, status;

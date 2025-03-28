@@ -75,7 +75,7 @@ bool Server::isError(const asio::error_code& error) {
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         error.value() == asio::error::access_denied || error.value() == asio::error::address_in_use)
     {
-        logger::log_message("FATAL", "Server", std::format("{} ({}): exiting pid={}", error.message(), error.value(), getpid()));
+        logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", error.message(), error.value(), getpid()));
         EXIT_FATAL("server", error.value(), error.message().c_str(), "");
     }
 
@@ -85,7 +85,7 @@ bool Server::isError(const asio::error_code& error) {
     {
         this->_retries++;
         std::size_t backoff_time_ms = DEFAULT_BACKOFF_MS * _retries; 
-        logger::log_message("WARN", "Server", std::format("{} ({}): backing off for {} ms", error.message(), error.value(), backoff_time_ms));
+        logger::log_message(logger::WARN, "Server", std::format("{} ({}): backing off for {} ms", error.message(), error.value(), backoff_time_ms));
         sleep(backoff_time_ms);
     }
 

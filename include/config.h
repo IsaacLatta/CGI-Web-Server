@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
+#include <format>
 
 #include "logger.h"
 
@@ -79,6 +80,8 @@ class Config
     void loadSSL(tinyxml2::XMLDocument* doc);
     void loadHostIP();
     void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
+    void loadJWTSecret(tinyxml2::XMLDocument* doc);
+
 
     private:
     static Config INSTANCE;
