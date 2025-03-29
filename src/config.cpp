@@ -183,6 +183,14 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     }
 }
 
+void Config::generateJWTSecret(tinyxml2::XMLElement* secret_elem) {
+    std::size_t secret_len = cfg::DEFAULT_JWT_SIZE;
+    if(!secret_elem->Attribute("enable")) {
+        logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
+        return;
+    }
+}
+
 void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     tinyxml2::XMLElement* jwt_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("JWT");
     if(!jwt_elem) {
@@ -190,23 +198,24 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     }
     
     tinyxml2::XMLElement* secret_elem;
-    if((secret_elem = jwt_elem->FirstChildElement("SecretFile"))) { // String secret
+    if((secret_elem = jwt_elem->FirstChildElement("SecretFile"))) { 
         loadJWTSecretFromFile(secret_elem); 
         return;
     }
 
-    secret_elem = jwt_elem->FirstChildElement("Secret");
-    if(!secret_elem) {
-        logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        EXIT_FATAL("loading server configuration", 0, "secret not found", "must provide a valid secret for JWT");  
+    if((secret_elem = jwt_elem->FirstChildElement("Secret"))) {
+        this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
+        if(this->secret.empty()) {
+            logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
+            EXIT_FATAL("loading server configuration", 0, "secret string is empty", "must provide a valid secret for JWT");  
+        }
         return;
     }
-    
-    this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
-    if(this->secret.empty()) {
-        logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        EXIT_FATAL("loading server configuration", 0, "secret string is empty", "must provide a valid secret for JWT");  
+
+    if(!(secret_elem = jwt_elem->FirstChildElement("GenerateSecret"))) {
+        logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
     }
+    generateJWTSecret(secret_elem);
 }
 
 void Config::initialize(const std::string& config_path) {
@@ -218,16 +227,16 @@ void Config::initialize(const std::string& config_path) {
     }
 
     tinyxml2::XMLElement* web_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("WebDirectory");
-    if(web_dir) {
-        content_path = web_dir->GetText();
+    if(web_dir && web_dir->GetText()) {
+        this->content_path = web_dir->GetText();
     }
     else {
+        logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
         EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
     }
 
-    loadJWTSecret(&doc);
-
     if(chdir(content_path.c_str()) < 0) {
+        logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
         EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to chdir to web directory path: %s", content_path.c_str());
     }
 
@@ -238,7 +247,16 @@ void Config::initialize(const std::string& config_path) {
     else {
         host_name = cfg::NO_HOST_NAME;
     }
-    logger::log_message("STATUS", "Server", "initialiizing ...");
+
+    tinyxml2::XMLElement* log_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("LogDirectory");
+    if(log_dir && log_dir->GetText()) {
+        this->log_path = log_dir->GetText();
+    }
+
+    logger::log_message("STATUS", "Server", std::format("{} initialiizing ...", this->host_name));
+
+    loadJWTSecret(&doc);
+    std::cout << "SECRET: " << secret << "\n";
 
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;

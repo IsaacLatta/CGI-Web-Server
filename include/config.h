@@ -33,6 +33,7 @@ const Role USER = {USER_ROLE_HASH, {VIEWER_ROLE_HASH}};
 const Role ADMIN = {ADMIN_ROLE_HASH, {USER_ROLE_HASH, VIEWER_ROLE_HASH}};
 
 const std::string NO_HOST_NAME  = "server";
+const size_t DEFAULT_JWT_SIZE = 64;
 
 struct SSLConfig {
     bool active;
@@ -63,6 +64,7 @@ class Config
     const Route* findRoute(const Endpoint& endpoint) const;
     const Routes* getRoutes() const {return &routes;}
     const std::string& getContentPath() const {return content_path;}
+    const std::string getLogPath() const {return log_path;}
     const std::string getSecret() const {return secret;}
     const std::string getServerName() const {return host_name;}
     const SSLConfig* getSSL() const {return &ssl;}
@@ -82,6 +84,7 @@ class Config
     void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
     void loadJWTSecret(tinyxml2::XMLDocument* doc);
     void loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem);
+    void generateJWTSecret(tinyxml2::XMLElement* secret_elem);
 
     private:
     static Config INSTANCE;
@@ -90,10 +93,11 @@ class Config
     Roles roles;
     Routes routes;
     SSLConfig ssl;
-    std::string secret = "top-secret";
+    std::string secret;
     std::string content_path;
     std::string host_name;
     std::string host_address;
+    std::string log_path = "";
     int port;
 };
 

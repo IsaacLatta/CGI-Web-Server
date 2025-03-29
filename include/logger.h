@@ -12,6 +12,8 @@
 #include <fstream>
 #include <format>
 #include <unistd.h>
+#include <limits.h>
+#include <filesystem>
 
 #define LOG(type, tag, format, ...) do { \
     time_t now = time(0); \

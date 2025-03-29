@@ -127,10 +127,24 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
     return std::string(header.substr(0, end));
 }
 
+std::string get_file_name() {
+    std::string log_dir = "log";
+    static const std::string& server_name = cfg::Config::getInstance()->getServerName();
+    static const std::string& config_log_path = cfg::Config::getInstance()->getLogPath();
+    if(!config_log_path.empty()) {
+        char resolved[PATH_MAX];
+        if(realpath(config_log_path.c_str(), resolved)) {
+            log_dir = resolved;
+        }
+    }
+    std::filesystem::create_directories(log_dir);
+    std::string res_path = log_dir + "/" + server_name + "-" + get_date(get_time()) + ".log";
+    return res_path;
+}
+
 void logger::log_session(const logger::Entry& info, std::string_view level) {
     std::fstream log_file;
-    std::string file_name = "log/web-" + get_date(get_time()) + ".log";
-    log_file.open(file_name, std::fstream::app);
+    log_file.open(get_file_name(), std::fstream::app);
     if(!log_file.is_open()) {
         return;
     }
@@ -142,8 +156,7 @@ void logger::log_session(const logger::Entry& info, std::string_view level) {
 void logger::log_message(std::string_view level, std::string&& context, std::string&& msg) {
     std::string level_str(level);
     std::fstream log_file;
-    std::string file_name = "log/" + cfg::Config::getInstance()->getServerName() + "-" + get_date(get_time()) + ".log";
-    log_file.open(file_name, std::fstream::app);
+    log_file.open(get_file_name(), std::fstream::app);
     if(!log_file.is_open()) {
         return;
     }
