@@ -81,7 +81,7 @@ class Config
     void loadHostIP();
     void loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path);
     void loadJWTSecret(tinyxml2::XMLDocument* doc);
-
+    void loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem);
 
     private:
     static Config INSTANCE;
