@@ -156,7 +156,7 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
             EXIT_FATAL("loading server configuration", 0, "secret not found", "must provide a valid secret for JWT");  
             return;
         }
-        std::cout << "JWT SECRET STRING ELEMENT FOUND\n";
+        
         this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
         if(this->secret.empty()) {
             logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
