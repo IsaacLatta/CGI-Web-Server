@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <format>
+#include <openssl/rand.h>
 
 #include "logger.h"
 
@@ -33,7 +34,7 @@ const Role USER = {USER_ROLE_HASH, {VIEWER_ROLE_HASH}};
 const Role ADMIN = {ADMIN_ROLE_HASH, {USER_ROLE_HASH, VIEWER_ROLE_HASH}};
 
 const std::string NO_HOST_NAME  = "server";
-const size_t DEFAULT_JWT_SIZE = 64;
+const size_t DEFAULT_JWT_SECRET_SIZE = 64;
 
 struct SSLConfig {
     bool active;

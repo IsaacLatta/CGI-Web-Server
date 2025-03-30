@@ -183,12 +183,36 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     }
 }
 
+static std::string convert_to_hex(const unsigned char* buffer, std::size_t buf_len) {
+    std::ostringstream oss;
+    for(std::size_t i = 0; i < buf_len; ++i) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
+    }
+    return oss.str();
+}
+
+static std::string generate_rand_secret(std::size_t len) {
+    std::vector<unsigned char> buffer(len);
+    if(RAND_bytes(buffer.data(), static_cast<int>(len)) != 1) {
+        logger::log_message(logger::FATAL, "Server", "failed to generate JWT secret");
+        EXIT_FATAL("loading server configuration", 0, "random generation error", "failed to generate JWT secret");
+    } 
+    return convert_to_hex(buffer.data(), buffer.size());
+}
+
 void Config::generateJWTSecret(tinyxml2::XMLElement* secret_elem) {
-    std::size_t secret_len = cfg::DEFAULT_JWT_SIZE;
-    if(!secret_elem->Attribute("enable")) {
-        logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
+    std::size_t secret_len = cfg::DEFAULT_JWT_SECRET_SIZE;
+    if(!secret_elem->Attribute("enable") || std::strcmp(secret_elem->Attribute("enable"), "true")) {
+        logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: generate jwt secret is disabled");
         return;
     }
+
+    tinyxml2::XMLElement* len_elem;
+    if((len_elem = secret_elem->FirstChildElement("Length")) && len_elem->GetText()) {
+        secret_len = std::stoi(len_elem->GetText()); 
+    }
+
+    this->secret = generate_rand_secret(secret_len);
 }
 
 void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
@@ -206,16 +230,18 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     if((secret_elem = jwt_elem->FirstChildElement("Secret"))) {
         this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
         if(this->secret.empty()) {
-            logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
+            logger::log_message(logger::FATAL, "Server", std::format("{}: exiting pid={}", "secret string is empty", getpid()));
             EXIT_FATAL("loading server configuration", 0, "secret string is empty", "must provide a valid secret for JWT");  
-        }
+        } 
         return;
     }
 
-    if(!(secret_elem = jwt_elem->FirstChildElement("GenerateSecret"))) {
-        logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
+    if((secret_elem = jwt_elem->FirstChildElement("GenerateSecret"))) {
+        generateJWTSecret(secret_elem);
+        return;
     }
-    generateJWTSecret(secret_elem);
+    
+    logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
 }
 
 void Config::initialize(const std::string& config_path) {
@@ -231,12 +257,12 @@ void Config::initialize(const std::string& config_path) {
         this->content_path = web_dir->GetText();
     }
     else {
-        logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
+        logger::log_message(logger::FATAL, "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
         EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
     }
 
     if(chdir(content_path.c_str()) < 0) {
-        logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
+        logger::log_message(logger::FATAL, "Server", std::format("Configuration Failed [error={} {}]", errno, strerror(errno)));
         EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to chdir to web directory path: %s", content_path.c_str());
     }
 
@@ -253,10 +279,9 @@ void Config::initialize(const std::string& config_path) {
         this->log_path = log_dir->GetText();
     }
 
-    logger::log_message("STATUS", "Server", std::format("{} initialiizing ...", this->host_name));
+    logger::log_message(logger::STATUS, "Server", std::format("{} initialiizing ...", this->host_name));
 
     loadJWTSecret(&doc);
-    std::cout << "SECRET: " << secret << "\n";
 
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;
@@ -279,13 +304,13 @@ void cfg::Config::loadSSL(tinyxml2::XMLDocument* doc) {
     ssl.active = true;
     tinyxml2::XMLElement* cert = ssl_config->FirstChildElement("Certificate");
     if(!cert) {
-        logger::log_message("FATAL", "Server", std::format("certificate not found: exiting pid={}", getpid()));
+        logger::log_message(logger::FATAL, "Server", std::format("certificate not found: exiting pid={}", getpid()));
         EXIT_FATAL("loading server configuration", 0, "Certificate Not Found", "please provide a valid certificate");
     }
     ssl.certificate_path = cert->GetText();
     tinyxml2::XMLElement* key = ssl_config->FirstChildElement("PrivateKey");
     if(!key) {
-        logger::log_message("FATAL", "Server", std::format("private key not found: exiting pid={}", getpid()));
+        logger::log_message(logger::FATAL, "Server", std::format("private key not found: exiting pid={}", getpid()));
         EXIT_FATAL("loading server configuration", 0, "Private Key Not Found", "please provide a valid key");
     }
     ssl.key_path = key->GetText();
