@@ -173,7 +173,7 @@ static std::string level_to_str(logger::level level) {
 // }
 
 logger::FileSink::FileSink(const std::string& path, const std::string& server_name) 
-    : path(path), server_name(server_name), fd(-1), date_today(get_date()) 
+    :fd(-1), date_today(get_date()), path(path), server_name(server_name)  
 {
     openFile();
 }
@@ -193,7 +193,7 @@ void logger::FileSink::rotateFile() {
 
 void logger::FileSink::openFile() {
     file_name = path + "/" + server_name + "-" + get_date() + ".log";
-    if ((fd = fd = ::open(file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644))  < 0) {
+    if ((fd = ::open(file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644))  < 0) {
         perror("openFile failed");
     }
     date_today = get_date();

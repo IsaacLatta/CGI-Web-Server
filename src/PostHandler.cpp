@@ -58,8 +58,8 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
         throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to launch subprocess {} with posix_spawn, endpoint: {}, errno={} ({})", request->route->script, request->route->endpoint, errno, strerror(errno)));  
     } 
 
-    // LOG("POST Handler", "INFO", "Endpoint=%s, executing %s (pid = %d) with status %d ...", request->route->endpoint.c_str(), request->route->script.c_str(), *pid, *status);
-    
+    DEBUG("POST Handler", "endpoint[%s], extecuting %s [pid %s] with status %d", request->route->endpoint.c_str(), request->route->script.c_str(), *pid, *status);
+
     ssize_t bytes;
     if ((bytes = write(stdin_pipe[1], args.dump().c_str(), args.dump().length())) < 0) {
         close(stdout_pipe[0]);
@@ -94,7 +94,7 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
     }
     txn->addBytes(bytes_read);
 
-    // LOG("DEBUG", "PostHandler", "Parsed script: status=%d, header=%s", static_cast<int>(response->status), response->status_msg.c_str());
+    DEBUG("POST Handler", "Parsed script: status=%d, header=%s", static_cast<int>(response->status), response->status_msg.c_str());
 }
 
 asio::awaitable<void> PostHandler::handle() {

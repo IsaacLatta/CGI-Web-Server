@@ -10,15 +10,13 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
         ssize_t bytes_to_write = read(filefd, buffer.data(), bytes_to_read);
         if (bytes_to_write == 0) {
-            // LOG("WARN", "Get Handler", "EOF reached prematurely while sending resource");
+            DEBUG("GET Handler", "EOF reached prematurely while sending resource[%s]", request->endpoint.c_str());
             break;
         }
         if(bytes_to_write < 0) {
             close(filefd);
             throw http::HTTPException(http::code::Internal_Server_Error, "Failed reading file");
         }
-
-        // LOG("DEBUG", "GetHandler", "Chunk read: %zd bytes [progress %ld/%ld]", bytes_to_write, state.bytes_sent, file_len);
 
         state.retry_count = 1;  
         std::size_t total_bytes_written = 0;
@@ -36,7 +34,7 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
             }
 
             if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
-                // LOG("WARN", "Get Handler", "Retry %d of %d for sending resource", state.retry_count, TransferState::MAX_RETRIES);
+                DEBUG("GET Handler", "Retry %d/%d sending resource[%s]", state.retry_count, TransferState::MAX_RETRIES, request->endpoint.c_str());
                 state.retry_count++;
 
                 asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -44,8 +42,6 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
                 co_await timer.async_wait(asio::use_awaitable);
                 continue;
             }
-
-            // LOG("DEBUG", "GetHandler", "Wrote %zd bytes out of %zd this chunk", bytes_written, bytes_to_read);
 
             total_bytes_written += bytes_written;
             state.retry_count = 0;
@@ -56,7 +52,6 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
     
     close(filefd);
     txn->addBytes(state.bytes_sent);
-    // LOG("INFO", "Get Handler", "Finished sending file, file size: %ld, bytes sent: %ld", file_len, state.bytes_sent);
 }
 
 asio::awaitable<void> GetHandler::writeHeader() {
@@ -105,18 +100,14 @@ asio::awaitable<void> GetHandler::handle() {
     }
 
     response->setStatus(http::code::OK);
-    response->addHeader("Host", config->getServerName());
     response->addHeader("Connection", "close");
     response->addHeader("Content-Type", content_type);
     response->addHeader("Content-Length", std::to_string(file_len));
-
-    // LOG("DEBUG", "GetHandler", "Finished processing GET request, assigning lambda finisher");
 
     auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());
     txn->finish = [self, filefd, file_len]() -> asio::awaitable<void> {
         co_await self->writeHeader();
         co_await self->writeResource(filefd, file_len);
     };
-    // LOG("DEBUG", "GetHandler", "Lambda finisher assigned");
     co_return;
 }

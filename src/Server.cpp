@@ -30,8 +30,7 @@ void Server::loadCertificate() {
 }
 
 asio::awaitable<void> Server::run() {
-    // logger::log_message("STATUS", "Server", std::format("{} is running on [{} {}:{}] pid={}", _config->getServerName(), asio::ip::host_name(), _config->getHostIP(), _config->getPort(), getpid()));
-
+    STATUS("Server", "%s is running on [%s %s:%d] pid=%ld", _config->getServerName().c_str(), asio::ip::host_name().c_str(), _config->getHostIP().c_str(), _config->getPort(), getpid());
     std::error_code ec;
     while(true) {
         auto session = std::make_shared<Session>(createSocket());
@@ -46,13 +45,13 @@ asio::awaitable<void> Server::run() {
 }
 
 void Server::start() {
-    /* This thread, 1 Logger thread, the rest of the threads are workers*/
+    /* This thread, 1 logger thread, the rest of the threads are workers*/
     std::vector<std::thread> threads;
     std::size_t thread_count = std::thread::hardware_concurrency();
     if(!thread_count) {
         thread_count = 8;
     }
-    threads.reserve(thread_count - 2);
+    threads.reserve(thread_count - 2); // -1 for this, -1 for the logger = -2
 
     asio::co_spawn(_io_context, run(), asio::detached);
 
@@ -72,12 +71,11 @@ bool Server::isError(const asio::error_code& error) {
         return false;
     }
 
-    // ERROR("server async_accept", error.value(), error.message().c_str(), "");
+    DEBUG("Server", "async accept: error=%d %s", error.value(), error.message().c_str());
     if(_retries > MAX_RETRIES || error.value() == asio::error::bad_descriptor || 
         error.value() == asio::error::access_denied || error.value() == asio::error::address_in_use)
     {
-        // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", error.message(), error.value(), getpid()));
-        // EXIT_FATAL("server", error.value(), error.message().c_str(), "");
+        FATAL("Server", "error=%d %s", error.value(), error.message().c_str());
     }
 
     if(error.value() == asio::error::would_block || error.value() == asio::error::try_again || error.value() == asio::error::network_unreachable ||
@@ -86,7 +84,7 @@ bool Server::isError(const asio::error_code& error) {
     {
         this->_retries++;
         std::size_t backoff_time_ms = DEFAULT_BACKOFF_MS * _retries; 
-        // logger::log_message(logger::WARN, "Server", std::format("{} ({}): backing off for {} ms", error.message(), error.value(), backoff_time_ms));
+        WARN("Server", "error=%d %s, backing off for %ld ms", error.value(), error.message().c_str(), backoff_time_ms);
         sleep(backoff_time_ms);
     }
 

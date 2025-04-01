@@ -34,7 +34,8 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         if(route.is_protected) {
             route.role = route_el->Attribute("role") ? route_el->Attribute("role") : "";
             if (route.role.empty()) {
-                // should exit
+                WARN("Server", "protected route[%s %s] is missing role attribute, defaulting to ADMIN", route.method.c_str(), route.endpoint.c_str());
+                route.role = ADMIN_ROLE_HASH;
             }
         }
         else {
@@ -46,7 +47,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
                 routes[route.endpoint] = route;
             } 
         else {
-            // ERROR("loading config", 0, "incomplete route attribute", ""); 
+            ERROR("Server", "incomplete route attribute: parsed method[%s] and endpoint[%s], both required", route.method.c_str(), route.endpoint.c_str());
         }
         route_el = route_el->NextSiblingElement("Route");
     }
@@ -105,8 +106,7 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
 
         const char* title_attr = role_el->Attribute("title");
         if (!title_attr || std::string(title_attr).empty()) {
-            // logger::log_message(logger::FATAL, "Server", std::format("parsed role missing title, exiting pid={}", getpid()));
-            // EXIT_FATAL("FATAL", 0, "XML Error", "role missing title, exiting pid=%d", getpid());
+            FATAL("Server", "xml error: role is missing title");
         }
 
         std::string role_title = title_attr;
@@ -146,15 +146,13 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     std::string file_path = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText(); // Let errno handle it
     int filefd = open(file_path.c_str(), O_RDONLY);
     if(filefd < 0) {
-        // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        // EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to open secret file: %s", file_path.c_str());
+        FATAL("Server", "failed to open jwt secret file[%s], errno=%d %s", file_path.c_str(), errno, strerror(errno));
     }
     
     struct stat file_stat;
     if(fstat(filefd, &file_stat) < 0) {
         close(filefd);
-        // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        // EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to stat secret file: %s", file_path.c_str());
+        FATAL("Server", "failed to stat jwt secret file[%s], errno=%d %s", file_path.c_str(), errno, strerror(errno));
     }
     this->secret.resize(file_stat.st_size);
 
@@ -162,8 +160,7 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     while(bytes_read < file_stat.st_size) {
         if((bytes = read(filefd, this->secret.data() + bytes_read, file_stat.st_size - bytes_read))  < 0) {
             close(filefd);
-            // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-            // EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to read secret file: %s", file_path.c_str());
+            FATAL("Server", "failed to read jwt secret file[%s], errno=%d %s", file_path.c_str(), errno, strerror(errno));
         }
         if(bytes == 0) {
             break;
@@ -173,13 +170,11 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     close(filefd);
 
     if(bytes_read != file_stat.st_size) {
-        // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        // EXIT_FATAL("loading server configuration", 0, "secret file read incomplete", "read %zd of %ld bytes", bytes_read, file_stat.st_size);  
+        FATAL("Server", "jwt secret file[%s] read incomplete, %zd/%ld bytes read", file_path.c_str(), bytes_read, file_stat.st_size);
     }
 
     if(this->secret.empty() || file_stat.st_size == 0) {
-        // logger::log_message(logger::FATAL, "Server", std::format("{} ({}): exiting pid={}", strerror(errno), errno, getpid()));
-        // EXIT_FATAL("loading server configuration", 0, "secret file is empty", "must provide a valid secret for JWT");  
+        FATAL("Server", "invalid jwt secret file[%s], file may be empty", file_path.c_str());
     }
 }
 
@@ -194,16 +189,15 @@ static std::string convert_to_hex(const unsigned char* buffer, std::size_t buf_l
 static std::string generate_rand_secret(std::size_t len) {
     std::vector<unsigned char> buffer(len);
     if(RAND_bytes(buffer.data(), static_cast<int>(len)) != 1) {
-        // logger::log_message(logger::FATAL, "Server", "failed to generate JWT secret");
-        // EXIT_FATAL("loading server configuration", 0, "random generation error", "failed to generate JWT secret");
-    } 
+        FATAL("Server", "failed to generate jwt secret");
+    }
     return convert_to_hex(buffer.data(), buffer.size());
 }
 
 void Config::generateJWTSecret(tinyxml2::XMLElement* secret_elem) {
     std::size_t secret_len = cfg::DEFAULT_JWT_SECRET_SIZE;
     if(!secret_elem->Attribute("enable") || std::strcmp(secret_elem->Attribute("enable"), "true")) {
-        // logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: generate jwt secret is disabled");
+        WARN("Server", "ignoring JWT configuration: generate jwt secret is disabled");
         return;
     }
 
@@ -230,8 +224,7 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     if((secret_elem = jwt_elem->FirstChildElement("Secret"))) {
         this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
         if(this->secret.empty()) {
-            // logger::log_message(logger::FATAL, "Server", std::format("{}: exiting pid={}", "secret string is empty", getpid()));
-            // EXIT_FATAL("loading server configuration", 0, "secret string is empty", "must provide a valid secret for JWT");  
+            FATAL("Server", "loading configuration: jwt secret string is invalid");
         } 
         return;
     }
@@ -241,15 +234,28 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
         return;
     }
     
-    // logger::log_message(logger::WARN, "Server", "ignoring JWT configuration: no options set");
+    WARN("Server", "ignoring jwt configuration: no options set");
+}
+
+static std::string resolve_log_path(const std::string& path) {
+    std::string log_dir = "log";
+    char resolved[PATH_MAX];
+    if(realpath(path.c_str(), resolved)) {
+        log_dir = resolved;
+    }
+    std::filesystem::create_directories(log_dir);
+    return log_dir;
 }
 
 void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLDocument doc;
     
+    auto logger = logger::Logger::getInstance();
+    logger->addSink(std::move(std::make_unique<logger::ConsoleSink>()));
+    logger->start();
+
     if(doc.LoadFile(config_path.c_str()) != tinyxml2::XML_SUCCESS) {
-        // logger::log_message("FATAL", "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
-        // EXIT_FATAL("loading server configuration", static_cast<int>(doc.ErrorID()), doc.ErrorStr(), "failed to load config file: %s", config_path.c_str());
+        FATAL("Server", "loading configuration failed [error=%d %s]", static_cast<int>(doc.ErrorID()), doc.ErrorStr());
     }
 
     tinyxml2::XMLElement* web_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("WebDirectory");
@@ -257,13 +263,11 @@ void Config::initialize(const std::string& config_path) {
         this->content_path = web_dir->GetText();
     }
     else {
-        // logger::log_message(logger::FATAL, "Server", std::format("Configuration Failed [error={} {}]", static_cast<int>(doc.ErrorID()), doc.ErrorStr()));
-        // EXIT_FATAL("loading server configuration", 0, "no web directory path", "please provide a path to serve from");
+        FATAL("Server", "loading configuration failed: no web directory to serve from");
     }
 
     if(chdir(content_path.c_str()) < 0) {
-        // logger::log_message(logger::FATAL, "Server", std::format("Configuration Failed [error={} {}]", errno, strerror(errno)));
-        // EXIT_FATAL("loading server configuration", errno, strerror(errno), "failed to chdir to web directory path: %s", content_path.c_str());
+        FATAL("Server", "failed to chdir to web directory(%s): [error=%d %s]", content_path.c_str(), errno, strerror(errno));
     }
 
     tinyxml2::XMLElement* host = doc.FirstChildElement("ServerConfig")->FirstChildElement("Host");
@@ -276,10 +280,12 @@ void Config::initialize(const std::string& config_path) {
 
     tinyxml2::XMLElement* log_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("LogDirectory");
     if(log_dir && log_dir->GetText()) {
-        this->log_path = log_dir->GetText();
+        this->log_path = resolve_log_path(log_dir->GetText());
+    } 
+    else {
+        this->log_path = resolve_log_path("./log");
     }
-
-    // logger::log_message(logger::STATUS, "Server", std::format("{} initialiizing ...", this->host_name));
+    logger->addSink(std::move(std::make_unique<logger::FileSink>(log_path, host_name)));
 
     loadJWTSecret(&doc);
 
@@ -304,14 +310,12 @@ void cfg::Config::loadSSL(tinyxml2::XMLDocument* doc) {
     ssl.active = true;
     tinyxml2::XMLElement* cert = ssl_config->FirstChildElement("Certificate");
     if(!cert) {
-        // logger::log_message(logger::FATAL, "Server", std::format("certificate not found: exiting pid={}", getpid()));
-        // EXIT_FATAL("loading server configuration", 0, "Certificate Not Found", "please provide a valid certificate");
+        FATAL("Server", "loading configuration: ssl certificate not found");
     }
     ssl.certificate_path = cert->GetText();
     tinyxml2::XMLElement* key = ssl_config->FirstChildElement("PrivateKey");
     if(!key) {
-        // logger::log_message(logger::FATAL, "Server", std::format("private key not found: exiting pid={}", getpid()));
-        // EXIT_FATAL("loading server configuration", 0, "Private Key Not Found", "please provide a valid key");
+        FATAL("Server", "loading configuration: private key not found");
     }
     ssl.key_path = key->GetText();
     port = port == 80 ? 443 : port;

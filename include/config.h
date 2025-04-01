@@ -9,7 +9,7 @@
 #include <format>
 #include <openssl/rand.h>
 
-#include "logger.h"
+#include "logger_macros.h"
 
 namespace cfg {
 

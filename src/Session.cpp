@@ -3,18 +3,15 @@
 asio::awaitable<void> Session::start() {
     sock->storeIP();
     asio::error_code error = co_await sock->co_handshake();
-    if (error)
-    {
-        // ERROR("co_handshake", error.value(), error.message().c_str() , "session failed to start");
+    if (error) {
+        DEBUG("Session", "handshake failed, error=%d %s", error.value(), error.message().c_str());
         co_return;
     }
 
-    // LOG("DEBUG", "Session", "starting pipeline for client: %s", sock->getIP().c_str());
     Transaction txn(sock.get());
     buildPipeline();
     co_await runPipeline(&txn, 0);
     sock->close();
-    // LOG("DEBUG", "Session", "session ended for client: %s", sock->getIP().c_str());
 }
 
 void Session::buildPipeline()
