@@ -21,14 +21,21 @@
 
 namespace logger 
 { 
+    std::string fmt_msg(const char* fmt, ...);
+    std::string get_user_agent(const char* buffer, std::size_t size);
+    std::string get_header_line(const char* buffer, std::size_t size);
+
     constexpr std::size_t MAX_SINKS = 1024;
     constexpr std::size_t LOG_BUFFER_SIZE = 1024;
 
     enum class level {
-        Trace, Debug, Info, Warn, Error, Fatal 
+        Trace, Debug, Info, Warn, Error, Fatal, Status 
     };
 
     struct Entry {
+        int line;
+        const char* file;
+        const char* function;
         logger::level level;
         std::string message;
         virtual std::string build() = 0;
@@ -51,9 +58,6 @@ namespace logger
         std::chrono::time_point<std::chrono::system_clock> RTT_end_time;
         std::string build() override;
     };
-
-    std::string get_user_agent(const char* buffer, std::size_t size);
-    std::string get_header_line(const char* buffer, std::size_t size);
 
     class Sink
     {

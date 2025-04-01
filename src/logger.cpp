@@ -94,6 +94,19 @@ std::string get_browser(const std::string user_agent) {
     return result;
 }
 
+std::string logger::fmt_msg(const char* fmt, ...) {
+    constexpr size_t BUFF_SIZE = 512; // Shoudnt ever need more than this
+    char buf[BUFF_SIZE];
+     va_list args;
+    va_start(args, fmt);
+    int size = std::vsnprintf(buf, BUFF_SIZE, fmt, args);
+    va_end(args);
+    if (size >= 0 && static_cast<size_t>(size) < BUFF_SIZE) {
+        return std::string(buf, size);
+    }
+    return "";
+}
+
 std::string create_log(const logger::SessionEntry& info, std::string_view type) {
     std::string time = "[" + get_time() + "] ";
     std::string client = " [client " + info.client_addr + "] "; 
@@ -152,6 +165,7 @@ static std::string level_to_str(logger::level level) {
         case level::Warn: return "WARN";
         case level::Error: return "ERROR";
         case level::Fatal: return "FATAL";
+        case level::Status: return "STATUS";
         default: return "";
     }
 }
