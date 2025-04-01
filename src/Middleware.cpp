@@ -8,19 +8,21 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
         co_await next();
         if(txn->finish) {
             co_await txn->finish();
+        } else {
+            TRACE("Error Handler", "no lambda finisher assigned for transaction");
         }
     }
     catch (const http::HTTPException& http_error) {
         txn->response = std::move(*http_error.getResponse());
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        // LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
+        DEBUG("Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
     }
     catch (const std::exception& error) {
         txn->response = std::move(http::Response(http::code::Internal_Server_Error));
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        // LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
+        DEBUG("Error Handler", "std exception: %s", error.what());
     }
     co_return;
 }

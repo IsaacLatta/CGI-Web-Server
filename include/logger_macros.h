@@ -13,10 +13,12 @@
             auto entry = std::make_unique<logger::InlineEntry>();         \
             entry->level = lvl;                                            \
             entry->message = logger::fmt_msg(fmt, ##__VA_ARGS__);          \
-            entry->context = ctx;                                          \
-            entry->function = __func__;                                    \
-            entry->line = __LINE__;                                        \
-            entry->file = __FILE__;                                        \
+            entry->context = ctx; \
+            if(lvl != logger::level::Status && lvl != logger::level::Info) { \
+                entry->function = __func__;  \
+                entry->line = __LINE__;  \
+                entry->file = __FILE__; \
+            }  \
             logger::Logger::getInstance()->push(std::move(entry));         \
         }                                                                \
     } while (0)
@@ -27,7 +29,13 @@
 #define WARN(ctx, fmt, ...)   _LOG_INLINE(logger::level::Warn,  ctx, fmt, ##__VA_ARGS__)
 #define ERROR(ctx, fmt, ...)  _LOG_INLINE(logger::level::Error, ctx, fmt, ##__VA_ARGS__)
 #define STATUS(ctx, fmt, ...)  _LOG_INLINE(logger::level::Status, ctx, fmt, ##__VA_ARGS__)
-#define FATAL(ctx, fmt, ...)  _LOG_INLINE(logger::level::Fatal, ctx, fmt, ##__VA_ARGS__)
+
+#define FATAL(ctx, fmt, ...) \
+    do { \
+        _LOG_INLINE(logger::level::Fatal, ctx, \
+            fmt ", exiting pid=%d", ##__VA_ARGS__, getpid()); \
+        exit(EXIT_FAILURE); \
+    } while(0)
 
 #define LOG_SESSION(entry) \
     do { \

@@ -3,18 +3,18 @@
 
 using namespace logger;
 
-std::string get_response(const std::string& response_header) {
-    std::size_t pos = response_header.find("\r\n");
-    if(pos == std::string::npos)
-        return "";
-    return response_header.substr(0, pos);
-}
+// std::string get_response(const std::string& response_header) {
+//     std::size_t pos = response_header.find("\r\n");
+//     if(pos == std::string::npos)
+//         return "";
+//     return response_header.substr(0, pos);
+// }
 
-int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_time, const std::chrono::time_point<std::chrono::system_clock>& end_time) {
+static int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_time, const std::chrono::time_point<std::chrono::system_clock>& end_time) {
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 }
 
-std::string format_bytes(long bytes) {
+static std::string format_bytes(long bytes) {
     if(bytes == 1) return " byte"; 
 
     std::string units[] = {" bytes", " KB", " MB", " GB", " TB"};
@@ -42,7 +42,7 @@ static std::string get_date() {
     return fmt_time.substr(0, fmt_time.find(" "));
 }
 
-void trim_user_agent(std::string& user_agent) {
+static void trim_user_agent(std::string& user_agent) {
     std::string user_agent_label = "User-Agent: ";
     if (user_agent.find(user_agent_label) == 0) 
     {
@@ -50,7 +50,7 @@ void trim_user_agent(std::string& user_agent) {
     }
 }
 
-std::string get_identifier(const std::string& user_agent) {
+static std::string get_identifier(const std::string& user_agent) {
     std::string result;
     std::size_t identifier_end = user_agent.find("(");
     if (identifier_end != std::string::npos) 
@@ -60,7 +60,7 @@ std::string get_identifier(const std::string& user_agent) {
     return result;
 }
 
-std::string get_os(const std::string& user_agent) {
+static std::string get_os(const std::string& user_agent) {
     std::string result;
     std::size_t os_start = user_agent.find("(");
     std::size_t os_end = user_agent.find(")", os_start);
@@ -73,7 +73,7 @@ std::string get_os(const std::string& user_agent) {
     return result;
 }
 
-std::string get_browser(const std::string user_agent) {   
+static std::string get_browser(const std::string user_agent) {   
     std::string result = "";
     std::size_t browser_start = std::string::npos;
     std::string browser_info;
@@ -108,19 +108,19 @@ std::string logger::fmt_msg(const char* fmt, ...) {
     return "";
 }
 
-std::string create_log(const logger::SessionEntry& info, std::string_view type) {
-    std::string time = "[" + get_time() + "] ";
-    std::string client = " [client " + info.client_addr + "] "; 
-    std::string request = "\"" + info.request + "\" ";
-    std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.Latency_start_time, info.Latency_end_time)) 
-                                 + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.RTT_end_time)) + " ms";
-    if(info.bytes != 0) {
-        latency_RTT_size += " Size: " + format_bytes(info.bytes); 
-    }
-    latency_RTT_size += "] ";
+// std::string create_log(const logger::SessionEntry& info, std::string_view type) {
+//     std::string time = "[" + get_time() + "] ";
+//     std::string client = " [client " + info.client_addr + "] "; 
+//     std::string request = "\"" + info.request + "\" ";
+//     std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.Latency_start_time, info.Latency_end_time)) 
+//                                  + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.RTT_end_time)) + " ms";
+//     if(info.bytes != 0) {
+//         latency_RTT_size += " Size: " + format_bytes(info.bytes); 
+//     }
+//     latency_RTT_size += "] ";
     
-    return time + std::string(type) + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
-}
+//     return time + std::string(type) + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
+// }
 
 std::string logger::get_user_agent(const char* buffer, std::size_t size) {
     std::size_t ua_start, ua_end;
@@ -155,22 +155,6 @@ static std::string level_to_str(logger::level level) {
         default: return "";
     }
 }
-
-// static const std::string& server_name = cfg::Config::getInstance()->getServerName();
-// static const std::string& config_log_path = cfg::Config::getInstance()->getLogPath();
-
-// std::string get_file_name() {
-//     std::string log_dir = "log";
-//         if(!config_log_path.empty()) {
-//         char resolved[PATH_MAX];
-//         if(realpath(config_log_path.c_str(), resolved)) {
-//             log_dir = resolved;
-//         }
-//     }
-//     std::filesystem::create_directories(log_dir);
-//     std::string res_path = log_dir + "/" + server_name + "-" + get_date(get_time()) + ".log";
-//     return res_path;
-// }
 
 logger::FileSink::FileSink(const std::string& path, const std::string& server_name) 
     :fd(-1), date_today(get_date()), path(path), server_name(server_name)  
@@ -219,8 +203,10 @@ std::string InlineEntry::build() {
     std::string level_str = level_to_str(level) + " ";
     std::string curr_time = "[" + get_time() +"] ";
     context = "[" + context + "] ";
-    return curr_time + level_str + context + message + 
-            " (" + std::string(file) + ":" + std::to_string(line) + ", " + std::string(function) + ")\n";
+    std::string res = curr_time + level_str + context + message;
+    res += (level != logger::level::Status && level != logger::level::Info) ?
+            " (" + std::string(file) + ":" + std::to_string(line) + ", " + std::string(function) + ")" : "";
+    return res + "\n";
 }
 
 std::string SessionEntry::build() {

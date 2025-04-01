@@ -109,6 +109,8 @@ namespace http
             }
             return built_response + "\r\n" + body;
         }
+
+        http::code getStatus() const {return status;}
     };
 
     class HTTPException : public std::exception {
