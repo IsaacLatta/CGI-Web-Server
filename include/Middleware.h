@@ -7,6 +7,7 @@
 #include "Transaction.h"
 #include "MethodHandler.h"
 #include "config.h"
+#include "logger_macros.h"
 
 class Session;
 

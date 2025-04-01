@@ -28,4 +28,10 @@
 #define ERROR(ctx, fmt, ...)  _LOG_INLINE(logger::level::Error, ctx, fmt, ##__VA_ARGS__)
 #define FATAL(ctx, fmt, ...)  _LOG_INLINE(logger::level::Fatal, ctx, fmt, ##__VA_ARGS__)
 
+#define LOG_SESSION(entry) \
+    do { \
+        auto entry_ptr = std::make_unique<logger::SessionEntry>(entry); \
+        logger::Logger::getInstance()->push(std::move(entry_ptr)); \
+    } while(0) 
+
 #endif

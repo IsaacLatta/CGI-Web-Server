@@ -64,7 +64,8 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     entry->request = logger::get_header_line(buffer->data(), buffer->size());
     entry->response = txn->getResponse()->status_msg;
     entry->RTT_end_time = std::chrono::system_clock::now();
-    // logger::log_session(*entry, std::string(http::is_success_code(txn->getResponse()->status) ? logger::INFO : logger::ERROR));
+    entry->level = http::is_success_code(txn->getResponse()->status) ? logger::level::Info : logger::level::Error;
+    LOG_SESSION(std::move(txn->log_entry));
 }
 
 std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
