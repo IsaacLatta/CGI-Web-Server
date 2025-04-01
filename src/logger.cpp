@@ -95,9 +95,9 @@ std::string get_browser(const std::string user_agent) {
 }
 
 std::string logger::fmt_msg(const char* fmt, ...) {
-    constexpr size_t BUFF_SIZE = 512; // Shoudnt ever need more than this
+    constexpr size_t BUFF_SIZE = 256; // shoudnt ever need more than this
     char buf[BUFF_SIZE];
-     va_list args;
+    va_list args;
     va_start(args, fmt);
     int size = std::vsnprintf(buf, BUFF_SIZE, fmt, args);
     va_end(args);
@@ -174,7 +174,8 @@ std::string InlineEntry::build() {
     std::string level_str = level_to_str(level) + " ";
     std::string curr_time = "[" + get_time() +"] ";
     context = "[" + context + "] ";
-    return curr_time + level_str + context + message + "\n";
+    return curr_time + level_str + context + message + 
+            " (" + std::string(file) + ":" + std::to_string(line) + ", " + std::string(function) + ")\n";
 }
 
 std::string SessionEntry::build() {
@@ -212,40 +213,63 @@ void Logger::push(std::unique_ptr<logger::Entry>&& entry) {
     log_buffer[index] = std::move(entry);
 }
 
-bool Logger::pop(std::unique_ptr<logger::Entry>& entry) {
+std::unique_ptr<logger::Entry> Logger::pop() {
     std::size_t curr_tail = tail.load(std::memory_order_relaxed);
     std::size_t curr_head = head.load(std::memory_order_acquire);
 
     std::size_t entries_not_flushed = curr_head - curr_tail;
-    if(entries_not_flushed >= logger::LOG_BUFFER_SIZE) { // Buffer overun, drop old entries
+    if(entries_not_flushed >= logger::LOG_BUFFER_SIZE) { // buffer overun, drop old entries
         tail.store(curr_head - logger::LOG_BUFFER_SIZE + 1, std::memory_order_relaxed);
+        curr_tail = tail.load(std::memory_order_relaxed);
     }
 
     if(curr_tail >= curr_head) {
-        return false; // no logs to write
+        return nullptr; // no logs to write
     }
-
-    entry = std::move(log_buffer[curr_tail % logger::LOG_BUFFER_SIZE]);
     tail.fetch_add(1, std::memory_order_release);
-    return true;
+    return std::move(log_buffer[curr_tail % logger::LOG_BUFFER_SIZE]);
 }
 
-void Logger::flush(std::unique_ptr<logger::Entry>& entry) {
-    std::string log = entry->build();
+void Logger::flush() {
+    std::string logs = "";
+    for(int i = 0; i < entries; ++i) {
+        logs += batch[i]->build();
+    }   
     for(int i = 0; i < sink_count; ++i) {
         if(sinks[i] != nullptr) {
-            sinks[i]->write(log);
+            sinks[i]->write(logs);
         }
+    }
+    entries = 0;
+}
+
+void Logger::processBatch() {
+    bool timeout = (std::chrono::steady_clock::now() - last_flush) >= logger::BATCH_TIMEOUT;
+    if (entries > 0 && timeout) {
+        flush();
+        last_flush = std::chrono::steady_clock::now();
+    }
+    
+    auto entry = pop();
+    if(entry == nullptr) {
+        return;
+    }
+
+    batch[entries] = std::move(entry);
+    entries++;
+    if (entries >= logger::ENTRY_BATCH_SIZE) {
+        flush();
+        last_flush = std::chrono::steady_clock::now();
     }
 }
 
 void Logger::run() {
-    while(running.load(std::memory_order_acquire)) {
-        std::unique_ptr<logger::Entry> entry;
-        while(this->pop(entry)) {
-            flush(entry);
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    while (running.load(std::memory_order_acquire)) {
+        processBatch();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    if(entries > 0) {
+        flush();
     }
 }
 

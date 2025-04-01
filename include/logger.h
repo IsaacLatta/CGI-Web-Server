@@ -27,6 +27,8 @@ namespace logger
 
     constexpr std::size_t MAX_SINKS = 1024;
     constexpr std::size_t LOG_BUFFER_SIZE = 1024;
+    constexpr std::size_t ENTRY_BATCH_SIZE = 10;
+    constexpr auto BATCH_TIMEOUT = std::chrono::milliseconds(10);
 
     enum class level {
         Trace, Debug, Info, Warn, Error, Fatal, Status 
@@ -88,9 +90,14 @@ namespace logger
         std::atomic<std::size_t> head{0};
         std::atomic<std::size_t> tail{0};
     
+        std::size_t entries{0};
+        std::chrono::time_point<std::chrono::steady_clock> last_flush{std::chrono::steady_clock::now()};
+        std::array<std::unique_ptr<logger::Entry>, ENTRY_BATCH_SIZE> batch;
+
         std::atomic<bool> running;
         std::thread worker_handle;
         std::atomic<logger::level> log_threshold;
+
         private: 
         ~Logger();
         Logger() {};
@@ -98,8 +105,9 @@ namespace logger
         void operator=(Logger&) = delete;
 
         void run();
-        bool pop(std::unique_ptr<logger::Entry>& entry);
-        void flush(std::unique_ptr<logger::Entry>& entry); 
+        void processBatch();
+        std::unique_ptr<logger::Entry> pop();
+        void flush(); 
     };
 
 };

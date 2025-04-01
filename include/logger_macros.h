@@ -26,6 +26,7 @@
 #define INFO(ctx, fmt, ...)   _LOG_INLINE(logger::level::Info,  ctx, fmt, ##__VA_ARGS__)
 #define WARN(ctx, fmt, ...)   _LOG_INLINE(logger::level::Warn,  ctx, fmt, ##__VA_ARGS__)
 #define ERROR(ctx, fmt, ...)  _LOG_INLINE(logger::level::Error, ctx, fmt, ##__VA_ARGS__)
+#define STATUS(ctx, fmt, ...)  _LOG_INLINE(logger::level::Status, ctx, fmt, ##__VA_ARGS__)
 #define FATAL(ctx, fmt, ...)  _LOG_INLINE(logger::level::Fatal, ctx, fmt, ##__VA_ARGS__)
 
 #define LOG_SESSION(entry) \
