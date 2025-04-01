@@ -27,7 +27,7 @@ std::string format_bytes(long bytes) {
     return std::to_string(static_cast<int>(double_bytes)) + units[i];
 }
 
-std::string get_time() {
+static std::string get_time() {
     auto now = std::chrono::system_clock::now();
     std::time_t time = std::chrono::system_clock::to_time_t(now);
     std::tm local_time = *std::localtime(&time);
@@ -37,7 +37,8 @@ std::string get_time() {
     return oss.str();
 }
 
-std::string get_date(std::string fmt_time) {
+static std::string get_date() {
+    std::string fmt_time = get_time();
     return fmt_time.substr(0, fmt_time.find(" "));
 }
 
@@ -142,21 +143,6 @@ std::string logger::get_header_line(const char* buffer, std::size_t size) {
     return std::string(header.substr(0, end));
 }
 
-std::string get_file_name() {
-    std::string log_dir = "log";
-    static const std::string& server_name = cfg::Config::getInstance()->getServerName();
-    static const std::string& config_log_path = cfg::Config::getInstance()->getLogPath();
-    if(!config_log_path.empty()) {
-        char resolved[PATH_MAX];
-        if(realpath(config_log_path.c_str(), resolved)) {
-            log_dir = resolved;
-        }
-    }
-    std::filesystem::create_directories(log_dir);
-    std::string res_path = log_dir + "/" + server_name + "-" + get_date(get_time()) + ".log";
-    return res_path;
-}
-
 static std::string level_to_str(logger::level level) {
     switch(level) {
         case level::Trace: return "TRACE";
@@ -167,6 +153,65 @@ static std::string level_to_str(logger::level level) {
         case level::Fatal: return "FATAL";
         case level::Status: return "STATUS";
         default: return "";
+    }
+}
+
+// static const std::string& server_name = cfg::Config::getInstance()->getServerName();
+// static const std::string& config_log_path = cfg::Config::getInstance()->getLogPath();
+
+// std::string get_file_name() {
+//     std::string log_dir = "log";
+//         if(!config_log_path.empty()) {
+//         char resolved[PATH_MAX];
+//         if(realpath(config_log_path.c_str(), resolved)) {
+//             log_dir = resolved;
+//         }
+//     }
+//     std::filesystem::create_directories(log_dir);
+//     std::string res_path = log_dir + "/" + server_name + "-" + get_date(get_time()) + ".log";
+//     return res_path;
+// }
+
+logger::FileSink::FileSink(const std::string& path, const std::string& server_name) 
+    : path(path), server_name(server_name), fd(-1), date_today(get_date()) 
+{
+    openFile();
+}
+
+logger::FileSink::~FileSink() {
+    if(fd != -1) {
+        ::close(fd);
+    }
+}
+
+void logger::FileSink::rotateFile() {
+    if(fd != -1) {
+        ::close(fd);
+    }
+    openFile();
+}
+
+void logger::FileSink::openFile() {
+    file_name = path + "/" + server_name + "-" + get_date() + ".log";
+    if ((fd = fd = ::open(file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644))  < 0) {
+        perror("openFile failed");
+    }
+    date_today = get_date();
+}
+
+void logger::FileSink::write(const std::string& log_msg) {
+    if(date_today != get_date()) {
+        rotateFile();
+    }
+    
+    std::size_t bytes_written = 0, msg_size = log_msg.length();
+    while(bytes_written < msg_size) {
+        ssize_t bytes = ::write(fd, log_msg.c_str() + bytes_written, msg_size - bytes_written);
+        if(bytes < 0) {
+            perror("write failed");
+            break; 
+        }
+        bytes_written += bytes;
     }
 }
 
@@ -278,16 +323,25 @@ void Logger::start() {
     this->worker_handle = std::thread(&logger::Logger::run, this);
 }
 
-void ConsoleSink::write(const std::string& log_msg) {
-    std::cout << log_msg;
-}
-
 Logger::~Logger() {
     running.store(false, std::memory_order_release);
     if(worker_handle.joinable()) {
         worker_handle.join();
     }
 }
+
+void ConsoleSink::write(const std::string& log_msg) {
+    std::size_t msg_len = log_msg.length(), bytes_written = 0;
+    while(bytes_written < msg_len) {
+        ssize_t bytes = ::write(STDOUT_FILENO, log_msg.c_str() + bytes_written, msg_len - bytes_written);
+        if(bytes < 0) {
+            perror("write error: console sink");
+            break;
+        }
+        bytes_written += bytes;
+    }
+}
+
 
 
 
