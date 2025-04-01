@@ -19,15 +19,15 @@
 int main(int argc, char** argv)
 {
     if(argc < 2 && argv[1] == nullptr) {
-        LOG("ERROR", "no configuration path", "must provide a path to load configuration from.");
+        // LOG("ERROR", "no configuration path", "must provide a path to load configuration from.");
         return 0;
     }
 
     const cfg::Config* config = cfg::Config::getInstance(argv[1]);
     
-    LOG("INFO", "configuration loaded, serving from", "%s", config->getContentPath().c_str());
-    logger::log_message(logger::STATUS, "Server", std::format("configuration loaded from file: {}", argv[1]));
-    logger::log_message(logger::STATUS, "Server", std::format("serving from: {}", config->getContentPath()));
+    // LOG("INFO", "configuration loaded, serving from", "%s", config->getContentPath().c_str());
+    // logger::log_message(logger::STATUS, "Server", std::format("configuration loaded from file: {}", argv[1]));
+    // logger::log_message(logger::STATUS, "Server", std::format("serving from: {}", config->getContentPath()));
     config->printRoutes();
 
     try {

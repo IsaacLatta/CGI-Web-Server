@@ -14,47 +14,32 @@
 #include <unistd.h>
 #include <limits.h>
 #include <filesystem>
-
-#define LOG(type, tag, format, ...) do { \
-    time_t now = time(0); \
-    struct tm* timeinfo = localtime(&now); \
-    char timeStr[25]; \
-    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
-    const char* filename = strrchr(__FILE__, '/'); \
-    filename = filename ? filename + 1 : __FILE__; \
-    printf("[%s %s:%d] %s %s: " format "\n", \
-        timeStr, filename, __LINE__, type, tag, ##__VA_ARGS__); \
-} while(0)
-
-#define DEBUG(tag, format, ...) do { \
-    LOG("DEBUG", tag, format, ##__VA_ARGS__); \
-} while(0)
-
-#define LOG_ERROR(level, tag, error_code, error_msg, format, ...) do { \
-    time_t now = time(0); \
-    struct tm* timeinfo = localtime(&now); \
-    char timeStr[25]; \
-    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
-    const char* filename = strrchr(__FILE__, '/'); \
-    filename = filename ? filename + 1 : __FILE__; \
-    printf("[%s %s:%d] %s %s: (Error Code: %d => %s) " format "\n", \
-        timeStr, filename, __LINE__, level, tag, error_code, error_msg, ##__VA_ARGS__); \
-} while(0)
-
-#define ERROR(tag, error_code, error_msg, format, ...) do { \
-    LOG_ERROR("ERROR", tag, error_code, error_msg, format, ##__VA_ARGS__); \
-} while(0)
-
+#include <thread>
+#include <atomic>
+#include <memory>
+#include <array>
 
 namespace logger 
 { 
-    constexpr std::string_view ERROR = "ERROR";
-    constexpr std::string_view WARN = "WARNING";
-    constexpr std::string_view INFO = "INFO";
-    constexpr std::string_view STATUS = "STATUS";
-    constexpr std::string_view FATAL = "FATAL";
+    constexpr std::size_t MAX_SINKS = 1024;
+    constexpr std::size_t LOG_BUFFER_SIZE = 1024;
+
+    enum class level {
+        Trace, Debug, Info, Warn, Error, Fatal 
+    };
 
     struct Entry {
+        logger::level level;
+        std::string message;
+        virtual std::string build() = 0;
+    };
+
+    struct InlineEntry: public Entry {
+        std::string context;
+        std::string build() override;
+    };
+
+    struct SessionEntry : public Entry {
         unsigned long bytes{0};
         std::string user_agent{""}; 
         std::string request{""};
@@ -64,25 +49,57 @@ namespace logger
         std::chrono::time_point<std::chrono::system_clock> Latency_end_time;
         std::chrono::time_point<std::chrono::system_clock> RTT_start_time;
         std::chrono::time_point<std::chrono::system_clock> RTT_end_time;
+        std::string build() override;
     };
 
     std::string get_user_agent(const char* buffer, std::size_t size);
     std::string get_header_line(const char* buffer, std::size_t size);
-    void log_session(const Entry& info, std::string_view level);
-    void log_message(std::string_view level, std::string&& context, std::string&& msg);
+
+    class Sink
+    {
+        public:
+        virtual void write(const std::string& log_msg) = 0;
+        virtual ~Sink() = default;
+    };
+
+    class ConsoleSink: public Sink
+    {
+        void write(const std::string& log_msg) override;
+    };
+
+    class Logger {
+        public:
+        static Logger* getInstance();
+        void addSink(std::unique_ptr<Sink>&& sink);
+        void push(std::unique_ptr<logger::Entry>&& entry);
+        void start();
+
+        private:
+        static Logger INSTANCE;
+
+        std::array<std::unique_ptr<Sink>, MAX_SINKS> sinks;
+        std::size_t sink_count{0};
+
+        std::array<std::unique_ptr<logger::Entry>, logger::LOG_BUFFER_SIZE> log_buffer;
+        std::atomic<std::size_t> head{0};
+        std::atomic<std::size_t> tail{0};
+    
+        std::atomic<bool> running;
+        std::thread worker_handle;
+        std::atomic<logger::level> log_threshold;
+        private: 
+        ~Logger();
+        Logger() {};
+        Logger(const Logger&) = delete;
+        void operator=(Logger&) = delete;
+
+        void run();
+        bool pop(std::unique_ptr<logger::Entry>& entry);
+        void flush(std::unique_ptr<logger::Entry>& entry); 
+    };
+
 };
 
-#define EXIT_FATAL(tag, error_code, error_msg, format, ...) do { \
-    time_t now = time(0); \
-    struct tm* timeinfo = localtime(&now); \
-    char timeStr[25]; \
-    strftime(timeStr, sizeof(timeStr), "%a %b %d %H:%M:%S %Y", timeinfo); \
-    const char* filename = strrchr(__FILE__, '/'); \
-    filename = filename ? filename + 1 : __FILE__; \
-    fprintf(stderr, "[%s %s:%d] FATAL %s: (%s: %d) " format ", exiting pid=%d\n", \
-        timeStr, filename, __LINE__, tag, error_msg, error_code, ##__VA_ARGS__, getpid()); \
-    exit(EXIT_FAILURE); \
-} while (0)
 
 
 #endif

@@ -15,7 +15,7 @@ struct Transaction {
     std::function<asio::awaitable<void>()> finish;
     http::Request request;
     http::Response response;
-    logger::Entry log_entry;
+    logger::SessionEntry log_entry;
 
     Transaction(Socket* sock): sock(sock), buffer(BUFSIZ), finish(nullptr) {}
     void addBytes(long additional_bytes) {log_entry.bytes += additional_bytes;}
@@ -24,7 +24,7 @@ struct Transaction {
 
     std::vector<char>* getBuffer() {return &buffer;}
     http::Response* getResponse() {return &response;}
-    logger::Entry* getLogEntry() {return &log_entry;}
+    logger::SessionEntry* getLogEntry() {return &log_entry;}
     Socket* getSocket() {return sock;}
     http::Request* getRequest() {return &request;}
 };

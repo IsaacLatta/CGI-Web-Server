@@ -1,6 +1,8 @@
 #include "logger.h"
 #include "config.h"
 
+using namespace logger;
+
 std::string get_response(const std::string& response_header) {
     std::size_t pos = response_header.find("\r\n");
     if(pos == std::string::npos)
@@ -13,7 +15,7 @@ int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_
 }
 
 std::string format_bytes(long bytes) {
-    if(bytes == 1) return " byte"; // Hello World
+    if(bytes == 1) return " byte"; 
 
     std::string units[] = {" bytes", " KB", " MB", " GB", " TB"};
     int i = 0;
@@ -92,7 +94,7 @@ std::string get_browser(const std::string user_agent) {
     return result;
 }
 
-std::string create_log(const logger::Entry& info, std::string_view type) {
+std::string create_log(const logger::SessionEntry& info, std::string_view type) {
     std::string time = "[" + get_time() + "] ";
     std::string client = " [client " + info.client_addr + "] "; 
     std::string request = "\"" + info.request + "\" ";
@@ -142,28 +144,112 @@ std::string get_file_name() {
     return res_path;
 }
 
-void logger::log_session(const logger::Entry& info, std::string_view level) {
-    std::fstream log_file;
-    log_file.open(get_file_name(), std::fstream::app);
-    if(!log_file.is_open()) {
-        return;
+static std::string level_to_str(logger::level level) {
+    switch(level) {
+        case level::Trace: return "TRACE";
+        case level::Debug: return "DEBUG";
+        case level::Info: return "INFO";
+        case level::Warn: return "WARN";
+        case level::Error: return "ERROR";
+        case level::Fatal: return "FATAL";
+        default: return "";
     }
-    std::string log_msg = create_log(info, level);
-    LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
-    log_file << log_msg;
 }
 
-void logger::log_message(std::string_view level, std::string&& context, std::string&& msg) {
-    std::string level_str(level);
-    std::fstream log_file;
-    log_file.open(get_file_name(), std::fstream::app);
-    if(!log_file.is_open()) {
-        return;
-    }
-    level_str += " ";
+std::string InlineEntry::build() {
+    std::string level_str = level_to_str(level) + " ";
     std::string curr_time = "[" + get_time() +"] ";
     context = "[" + context + "] ";
-    std::string log_msg = curr_time + level_str + context + msg + "\n";
-    LOG("INFO", "LOG MESSAGE", "\n%s", log_msg.c_str());
-    log_file << log_msg;
+    return curr_time + level_str + context + message + "\n";
 }
+
+std::string SessionEntry::build() {
+    std::string time = "[" + get_time() + "] ";
+    std::string client = " [client " + client_addr + "] "; 
+    std::string request_str = "\"" + request + "\" ";
+    std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(Latency_start_time, Latency_end_time)) 
+                                 + " ms RTT: "  + std::to_string(duration_ms(RTT_start_time, RTT_end_time)) + " ms";
+    if(bytes != 0) {
+        latency_RTT_size += " Size: " + format_bytes(bytes); 
+    }
+    latency_RTT_size += "] ";
+    
+    return time + level_to_str(level) + client + request_str + user_agent + latency_RTT_size + response + "\n";
+}
+
+Logger Logger::INSTANCE;
+
+logger::Logger* logger::Logger::getInstance() {
+    return &Logger::INSTANCE;
+}
+
+void Logger::addSink(std::unique_ptr<Sink>&& sink) {
+    if(sink_count >= logger::MAX_SINKS) {
+        return;
+    }
+    
+    sinks[sink_count] = std::move(sink);
+    sink_count++;
+}
+
+void Logger::push(std::unique_ptr<logger::Entry>&& entry) {
+    std::size_t pos = head.fetch_add(1, std::memory_order_release);
+    std::size_t index = pos % logger::LOG_BUFFER_SIZE; 
+    log_buffer[index] = std::move(entry);
+}
+
+bool Logger::pop(std::unique_ptr<logger::Entry>& entry) {
+    std::size_t curr_tail = tail.load(std::memory_order_relaxed);
+    std::size_t curr_head = head.load(std::memory_order_acquire);
+
+    std::size_t entries_not_flushed = curr_head - curr_tail;
+    if(entries_not_flushed >= logger::LOG_BUFFER_SIZE) { // Buffer overun, drop old entries
+        tail.store(curr_head - logger::LOG_BUFFER_SIZE + 1, std::memory_order_relaxed);
+    }
+
+    if(curr_tail >= curr_head) {
+        return false; // no logs to write
+    }
+
+    entry = std::move(log_buffer[curr_tail % logger::LOG_BUFFER_SIZE]);
+    tail.fetch_add(1, std::memory_order_release);
+    return true;
+}
+
+void Logger::flush(std::unique_ptr<logger::Entry>& entry) {
+    std::string log = entry->build();
+    for(int i = 0; i < sink_count; ++i) {
+        if(sinks[i] != nullptr) {
+            sinks[i]->write(log);
+        }
+    }
+}
+
+void Logger::run() {
+    while(running.load(std::memory_order_acquire)) {
+        std::unique_ptr<logger::Entry> entry;
+        while(this->pop(entry)) {
+            flush(entry);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
+void Logger::start() {
+    this->running = true;
+    this->worker_handle = std::thread(&logger::Logger::run, this);
+}
+
+void ConsoleSink::write(const std::string& log_msg) {
+    std::cout << log_msg;
+}
+
+Logger::~Logger() {
+    running.store(false, std::memory_order_release);
+    if(worker_handle.joinable()) {
+        worker_handle.join();
+    }
+}
+
+
+

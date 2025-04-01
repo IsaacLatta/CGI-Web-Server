@@ -14,13 +14,13 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
         txn->response = std::move(*http_error.getResponse());
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
+        // LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", http_error.what());
     }
     catch (const std::exception& error) {
         txn->response = std::move(http::Response(http::code::Internal_Server_Error));
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
+        // LOG("ERROR", "Error Handler", "ERROR MESSAGE: %s", error.what());
     }
     co_return;
 }
@@ -52,7 +52,7 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
 }
 
 asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
-    logger::Entry* entry = txn->getLogEntry();
+    logger::SessionEntry* entry = txn->getLogEntry();
     entry->Latency_start_time = std::chrono::system_clock::now();
     entry->RTT_start_time = std::chrono::system_clock::now();
     entry->client_addr = txn->getSocket()->getIP();
@@ -64,7 +64,7 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     entry->request = logger::get_header_line(buffer->data(), buffer->size());
     entry->response = txn->getResponse()->status_msg;
     entry->RTT_end_time = std::chrono::system_clock::now();
-    logger::log_session(*entry, std::string(http::is_success_code(txn->getResponse()->status) ? logger::INFO : logger::ERROR));
+    // logger::log_session(*entry, std::string(http::is_success_code(txn->getResponse()->status) ? logger::INFO : logger::ERROR));
 }
 
 std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
