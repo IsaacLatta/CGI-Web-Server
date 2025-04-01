@@ -18,10 +18,12 @@
 #include <atomic>
 #include <memory>
 #include <array>
+#include <execinfo.h>
 
 namespace logger 
 { 
     std::string fmt_msg(const char* fmt, ...);
+    std::string get_stack_trace();
     std::string get_user_agent(const char* buffer, std::size_t size);
     std::string get_header_line(const char* buffer, std::size_t size);
 
@@ -99,6 +101,7 @@ namespace logger
         void addSink(std::unique_ptr<Sink>&& sink);
         void push(std::unique_ptr<logger::Entry>&& entry);
         void start();
+        void stopAndFlush();
 
         private:
         static Logger INSTANCE;

@@ -33,7 +33,9 @@
 #define FATAL(ctx, fmt, ...) \
     do { \
         _LOG_INLINE(logger::level::Fatal, ctx, \
-            fmt ", exiting pid=%d", ##__VA_ARGS__, getpid()); \
+            fmt ", exiting pid=%d\nSTACK TRACE:\n%s", ##__VA_ARGS__, \
+            getpid(), logger::get_stack_trace().c_str()); \
+        logger::Logger::getInstance()->stopAndFlush(); \
         exit(EXIT_FAILURE); \
     } while(0)
 

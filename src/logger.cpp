@@ -3,13 +3,6 @@
 
 using namespace logger;
 
-// std::string get_response(const std::string& response_header) {
-//     std::size_t pos = response_header.find("\r\n");
-//     if(pos == std::string::npos)
-//         return "";
-//     return response_header.substr(0, pos);
-// }
-
 static int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_time, const std::chrono::time_point<std::chrono::system_clock>& end_time) {
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 }
@@ -108,19 +101,23 @@ std::string logger::fmt_msg(const char* fmt, ...) {
     return "";
 }
 
-// std::string create_log(const logger::SessionEntry& info, std::string_view type) {
-//     std::string time = "[" + get_time() + "] ";
-//     std::string client = " [client " + info.client_addr + "] "; 
-//     std::string request = "\"" + info.request + "\" ";
-//     std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(info.Latency_start_time, info.Latency_end_time)) 
-//                                  + " ms RTT: "  + std::to_string(duration_ms(info.RTT_start_time, info.RTT_end_time)) + " ms";
-//     if(info.bytes != 0) {
-//         latency_RTT_size += " Size: " + format_bytes(info.bytes); 
-//     }
-//     latency_RTT_size += "] ";
-    
-//     return time + std::string(type) + client + request + info.user_agent + latency_RTT_size + info.response + "\n";
-// }
+std::string logger::get_stack_trace() {
+    const int max_frames = 64;
+    void* addr_list[max_frames + 1];
+
+    int addr_len = backtrace(addr_list, sizeof(addr_list) / sizeof(void*));
+    if(!addr_len) {
+        return "<empty, possible corruption>\n";
+    }
+
+    char** symbol_list = backtrace_symbols(addr_list, addr_len);
+    std::ostringstream oss;
+    for(int i = 0; i < addr_len; ++i) {
+        oss << symbol_list[i] << "\n"; 
+    }
+    free(symbol_list);
+    return oss.str();
+}
 
 std::string logger::get_user_agent(const char* buffer, std::size_t size) {
     std::size_t ua_start, ua_end;
@@ -261,6 +258,26 @@ std::unique_ptr<logger::Entry> Logger::pop() {
     return std::move(log_buffer[curr_tail % logger::LOG_BUFFER_SIZE]);
 }
 
+void Logger::stopAndFlush() {
+    running.store(false, std::memory_order_release);
+    if(worker_handle.joinable()) {
+        worker_handle.join();
+    }
+    
+    if(entries > 0) { // flush the batch first
+        flush();
+    }
+
+    std::string log = "";
+    std::unique_ptr<logger::Entry> entry;
+    while((entry = pop()) != nullptr) {
+        log = entry->build();
+        for(int i = 0; i < sink_count; ++i) { // flush remaining one by one
+            sinks[i]->write(log);
+        }
+    }
+}
+
 void Logger::flush() {
     std::string logs = "";
     for(int i = 0; i < entries; ++i) {
@@ -310,10 +327,7 @@ void Logger::start() {
 }
 
 Logger::~Logger() {
-    running.store(false, std::memory_order_release);
-    if(worker_handle.joinable()) {
-        worker_handle.join();
-    }
+    stopAndFlush();
 }
 
 void ConsoleSink::write(const std::string& log_msg) {
