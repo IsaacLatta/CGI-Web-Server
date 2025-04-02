@@ -165,8 +165,11 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - **Secret String**:
     ```xml
     <Secret>top-secret-string</Secret>
+    ```
     - **Secret File**:
+    ```xml
     <SecretFile>/path/to/super/secret/file</SecretFile>
+    ```
     - **Generate Secret**:
     Must have the 'enable' option set to *"true"*.
     The Length(in bytes) is optional, if unspecified the default length is 64 bytes.
@@ -174,6 +177,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <GenerateSecret enable="true">
         <Length>128</Length>
     </GenerateSecret>
+    ```
 
 ### Server File Structure
 
