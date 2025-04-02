@@ -63,9 +63,11 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 - The server_config.xml file defines the server's behavior. Key sections include:
     - WebDirectory: Specifies the root directory for static files.
+    - LogDirectory: Optional directory used to house the log files.
     - Routes: Defines endpoints, HTTP methods, scripts, and permissions.
     - Roles: Specifies user roles and permissions.
     - SSL: Configures SSL settings, including certificate and key paths.
+    - JWT: Configures the JWT setting used for generating secrets.
 
 - Example xml configuration: 
    ```xml
@@ -73,6 +75,9 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
    <ServerConfig>
     <!-- Specifies the directory containing static web files -->
     <WebDirectory>/var/www/html</WebDirectory>
+
+    <!-- Optional directory where logs will be stored, will default to a log folder within the WebDirectory if none specified -->
+    <LogDirectory>/etc/MyWebServer/log</LogDirectory>
 
     <!-- The name of the server as seen by clients -->
     <Host>MyWebServer</Host>
@@ -153,6 +158,22 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - The server provides the arguments to the script over **stdin(fd 0)**, and expects the response over **stdout(fd 1)**.
     - The server provides the arguments as a json string.
 - The server expects the arguments from the client in the request body, and they may be of the type url-form or application/json.
+
+### JWT Configuration
+
+- The server has 3 configuration options for JWT secret creation.
+    - **Secret String**:
+    ```xml
+    <Secret>top-secret-string</Secret>
+    - **Secret File**:
+    <SecretFile>/path/to/super/secret/file</SecretFile>
+    - **Generate Secret**:
+    Must have the 'enable' option set to *"true"*.
+    The Length(in bytes) is optional, if unspecified the default length is 64 bytes.
+    ```xml
+    <GenerateSecret enable="true">
+        <Length>128</Length>
+    </GenerateSecret>
 
 ### Server File Structure
 
