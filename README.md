@@ -162,11 +162,11 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 ### JWT Configuration
 
 - The server has 3 configuration options for JWT secret creation.
-    - **Secret String**: The actual secret used for signing the JWT tokens
+    - **Secret String**: The actual secret used for signing the JWT tokens.
     ```xml
     <Secret>top-secret-string</Secret>
     ```
-    - **Secret File**: The file to load the JWT secret from
+    - **Secret File**: The file to load the JWT secret from.
     ```xml
     <SecretFile>/path/to/super/secret/file</SecretFile>
     ```
