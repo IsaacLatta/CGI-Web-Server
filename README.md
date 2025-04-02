@@ -171,8 +171,8 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <SecretFile>/path/to/super/secret/file</SecretFile>
     ```
     - **Generate Secret**: Generate a random, unique JWT secret at runtime.
-    Must have the 'enable' option set to *"true"*.
-    The Length(in bytes) is optional, if unspecified the default length is 64 bytes.
+        - Must have the 'enable' option set to *"true"*.
+        - The Length(in bytes) is optional, if unspecified the default length is 64 bytes.
     ```xml
     <GenerateSecret enable="true">
         <Length>128</Length>
