@@ -162,15 +162,15 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 ### JWT Configuration
 
 - The server has 3 configuration options for JWT secret creation.
-    - **Secret String**:
+    - **Secret String**: The actual secret used for signing the JWT tokens
     ```xml
     <Secret>top-secret-string</Secret>
     ```
-    - **Secret File**:
+    - **Secret File**: The file to load the JWT secret from
     ```xml
     <SecretFile>/path/to/super/secret/file</SecretFile>
     ```
-    - **Generate Secret**:
+    - **Generate Secret**: Generate a random, unique JWT secret at runtime.
     Must have the 'enable' option set to *"true"*.
     The Length(in bytes) is optional, if unspecified the default length is 64 bytes.
     ```xml
