@@ -8,7 +8,6 @@
 class Session;
 class Socket;
 
-
 struct Transaction {
     Socket* sock;
     std::vector<char> buffer;

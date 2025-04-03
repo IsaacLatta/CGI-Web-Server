@@ -39,15 +39,28 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
                 http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->getIP()));
     }
 
+    std::string query_str = "";
     http::code code;
     http::Request request;
-    if((code = http::extract_method(*buffer, request.method)) != http::code::OK || (code = http::extract_endpoint(*buffer, request.endpoint)) != http::code::OK || 
-       (code = http::extract_body(*buffer, request.body)) != http::code::OK || (code = http::extract_headers(*buffer, request.headers)) != http::code::OK) {
+    // http::extract_method(*buffer, request.method);
+    // http::extract_endpoint_and_query_str(*buffer, request.endpoint, &query_str);
+    // http::extract_body(*buffer, request.body);
+    // http::extract_headers(*buffer, request.headers);
+
+    // if(/*(code = http::extract_method(*buffer, request.method)) != http::code::OK ||*/ (code = http::extract_endpoint_and_query_str(*buffer, request.endpoint_url, &query_str)) != http::code::OK || 
+    //    (/*code = http::extract_body(*buffer, request.body)) != http::code::OK || (code = http::extract_headers(*buffer, request.headers)) != http::code::OK*/) {
     
-        throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
-        txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
-    }
-    request.route = config->findRoute(request.endpoint);
+    //     throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
+    //     txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
+    // }
+
+    http::extract_endpoint_and_query_str(*buffer, request.endpoint_url, &query_str);
+    request.headers = http::extract_headers(*buffer);
+    request.body = http::extract_body(*buffer);
+    request.method = http::extract_method(*buffer);
+    request.query_params = http::parse_url_form(query_str);
+    request.route = http::Router::getInstance()->getEndpoint(request.endpoint_url);
+    // request.route = config->findRoute(request.endpoint);
     
     txn->setRequest(std::move(request));
     co_await next();
@@ -71,16 +84,16 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
 }
 
 std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
-    http::Request* request = txn->getRequest();
-    if(request->method == http::method::GET) {
-        return std::make_shared<GetHandler>(txn); 
-    }
-    if(request->method == http::method::HEAD) {
-        return std::make_shared<HeadHandler>(txn); 
-    }
-    if(request->method == http::method::POST) {
-        return std::make_shared<PostHandler>(txn);
-    }
+    // http::Request* request = txn->getRequest();
+    // if(request->method == http::method::GET) {
+    //     return std::make_shared<GetHandler>(txn); 
+    // }
+    // if(request->method == http::method::HEAD) {
+    //     return std::make_shared<HeadHandler>(txn); 
+    // }
+    // if(request->method == http::method::POST) {
+    //     return std::make_shared<PostHandler>(txn);
+    // }
     return nullptr;
 }
 
@@ -94,10 +107,10 @@ asio::awaitable<void> mw::RequestHandler::process(Transaction* txn, Next next) {
     }    
 }
 
-void mw::Authenticator::validate(Transaction* txn, const cfg::Route* route) {
+void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) {
     auto request = txn->getRequest();
 
-    if(!route->is_protected) {
+    if(!route->isMethodProtected(request->method)) {
         return;
     }
 
@@ -117,7 +130,7 @@ void mw::Authenticator::validate(Transaction* txn, const cfg::Route* route) {
 
         auto role_claim = decoded_token.get_payload_claim("role");
         const cfg::Role* role;
-        if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->role))) {
+        if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->getAccessRole(request->method)))) {
             throw http::HTTPException(http::code::Unauthorized, "Insufficient permissions");
         }
     } catch (const std::exception& error) {
@@ -130,7 +143,7 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
    
-    if(!request->route || !request->route->is_protected) {
+    if(!request->route || !request->route->isMethodProtected(request->method)) {
         co_await next();
         co_return;
     }
@@ -139,14 +152,14 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     co_await next();
     auto response = txn->getResponse();
     
-    if(request->route->is_authenticator) { 
+    if(request->route->isMethodAuthenticator(request->method)) { 
         if(!http::is_success_code(response->status)) {
             throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
         }
         
         auto token_builder = jwt::create();
         std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
-                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->role))).sign(jwt::algorithm::hs256{config->getSecret()});
+                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->getAccessRole(request->method)))).sign(jwt::algorithm::hs256{config->getSecret()});
         response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
     }
 }

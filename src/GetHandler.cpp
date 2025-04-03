@@ -10,7 +10,7 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
         ssize_t bytes_to_write = read(filefd, buffer.data(), bytes_to_read);
         if (bytes_to_write == 0) {
-            DEBUG("GET Handler", "EOF reached prematurely while sending resource[%s]", request->endpoint.c_str());
+            DEBUG("GET Handler", "EOF reached prematurely while sending resource[%s]", request->endpoint_url.c_str());
             break;
         }
         if(bytes_to_write < 0) {
@@ -30,11 +30,11 @@ asio::awaitable<void> GetHandler::writeResource(int filefd, long file_len) {
             if(ec && state.retry_count > TransferState::MAX_RETRIES) {
                 close(filefd);
                 throw http::HTTPException(http::code::Internal_Server_Error, 
-                std::format("Max retries reached serving resource {} to client {}", request->endpoint, sock->getIP()));
+                std::format("Max retries reached serving resource {} to client {}", request->endpoint_url, sock->getIP()));
             }
 
             if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
-                DEBUG("GET Handler", "Retry %d/%d sending resource[%s]", state.retry_count, TransferState::MAX_RETRIES, request->endpoint.c_str());
+                DEBUG("GET Handler", "Retry %d/%d sending resource[%s]", state.retry_count, TransferState::MAX_RETRIES, request->endpoint_url.c_str());
                 state.retry_count++;
 
                 asio::steady_timer timer(co_await asio::this_coro::executor);
@@ -71,32 +71,32 @@ asio::awaitable<void> GetHandler::writeHeader() {
         co_await timer.async_wait(asio::use_awaitable);
     }
     throw http::HTTPException(http::code::Internal_Server_Error, std::format("MAX_RETRIES reached sending {} to {} with header {}\nERROR INFO: error={} ({})", 
-        request->endpoint, sock->getIP(), response_header, error.value(), error.message()));
+        request->endpoint_url, sock->getIP(), response_header, error.value(), error.message()));
 }
 
 
 asio::awaitable<void> GetHandler::handle() {    
-    if(!request->route || !request->route->is_protected) {
-        request->endpoint = "public/" + request->endpoint;
+    if(!request->route || !request->route->isMethodProtected(request->method)) {
+        request->endpoint_url = "public/" + request->endpoint_url;
     }
     
-    int filefd =  open(request->endpoint.c_str(), O_RDONLY);
+    int filefd =  open(request->endpoint_url.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 
-              std::format("Failed to open resource: {}, errno={} ({})", request->endpoint, errno, strerror(errno)));
+              std::format("Failed to open resource: {}, errno={} ({})", request->endpoint_url, errno, strerror(errno)));
     }
     
     long file_len;
     file_len = (long)lseek(filefd, (off_t)0, SEEK_END);
     if(file_len <= 0) {
         throw http::HTTPException(http::code::Not_Found, 
-              std::format("Failed to open endpoint={}, errno={} ({})", request->endpoint, errno, strerror(errno)));
+              std::format("Failed to open endpoint={}, errno={} ({})", request->endpoint_url, errno, strerror(errno)));
     }
     lseek(filefd, 0, SEEK_SET);
 
     std::string content_type;
-    if(http::determine_content_type(request->endpoint, content_type) != http::code::OK) {
-        throw http::HTTPException(http::code::Forbidden, std::format("Failed to extract content_type for endpoint={}", request->endpoint));
+    if(http::determine_content_type(request->endpoint_url, content_type) != http::code::OK) {
+        throw http::HTTPException(http::code::Forbidden, std::format("Failed to extract content_type for endpoint={}", request->endpoint_url));
     }
 
     response->setStatus(http::code::OK);

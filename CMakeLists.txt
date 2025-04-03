@@ -22,7 +22,7 @@ target_include_directories(WebServer PRIVATE
     third_party/ASIO               # Asio library
     third_party/tinyxml2           # TinyXML2 library
     third_party/nlohmann           # nlohmann/json header-only library
-	third_party/jwt-cpp/include			   # jwt-cpp 
+	third_party/jwt-cpp/include	   # jwt-cpp 
 )
 
 # Link with OpenSSL libraries

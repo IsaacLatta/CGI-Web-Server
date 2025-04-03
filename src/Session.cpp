@@ -14,8 +14,7 @@ asio::awaitable<void> Session::start() {
     sock->close();
 }
 
-void Session::buildPipeline()
-{
+void Session::buildPipeline() {
     pipeline.push_back(std::make_unique<mw::Logger>());
     pipeline.push_back(std::make_unique<mw::ErrorHandler>());
     pipeline.push_back(std::make_unique<mw::Parser>());

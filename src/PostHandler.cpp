@@ -21,8 +21,8 @@ bool PostHandler::runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int*
         return false;
     }
 
-    char* argv[] = {const_cast<char*>(request->route->script.c_str()), (char*)0};
-    if((*status = posix_spawn(pid, request->route->script.c_str(), &actions, nullptr, argv, environ)) != 0) {
+    char* argv[] = {const_cast<char*>(request->route->getScript(request->method).c_str()), (char*)0};
+    if((*status = posix_spawn(pid, request->route->getScript(request->method).c_str(), &actions, nullptr, argv, environ)) != 0) {
         posix_spawn_file_actions_destroy(&actions);
         return false; 
     }
@@ -47,7 +47,8 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
         close(stdout_pipe[1]);
-        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to create pipes for subprocess {}, endpoint: {}, errno={} ({})", request->route->script, request->route->endpoint, errno, strerror(errno)));  
+        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to create pipes for subprocess {}, endpoint: {}, errno={} ({})", 
+        request->route->getScript(request->method), request->endpoint_url, errno, strerror(errno)));  
     }
 
     if(!runProcess(stdin_pipe, stdout_pipe, pid, status)) {
@@ -55,16 +56,18 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
         close(stdout_pipe[1]);
-        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to launch subprocess {} with posix_spawn, endpoint: {}, errno={} ({})", request->route->script, request->route->endpoint, errno, strerror(errno)));  
+        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to launch subprocess {} with posix_spawn, endpoint: {}, errno={} ({})", 
+        request->route->getScript(request->method), request->endpoint_url, errno, strerror(errno)));  
     } 
 
-    DEBUG("POST Handler", "endpoint[%s], extecuting %s [pid %s] with status %d", request->route->endpoint.c_str(), request->route->script.c_str(), *pid, *status);
+    // DEBUG("POST Handler", "endpoint[%s], extecuting %s [pid %s] with status %d", request->endpoint_url.c_str(), request->route->getScript().c_str(), *pid, *status);
 
     ssize_t bytes;
     if ((bytes = write(stdin_pipe[1], args.dump().c_str(), args.dump().length())) < 0) {
         close(stdout_pipe[0]);
         close(stdin_pipe[1]);
-        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to write args to subprocess {} (pid={}), endpoint: {}, errno={}, ({})", request->route->script, *pid, request->route->endpoint, errno, strerror(errno)));
+        throw http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to write args to subprocess {} (pid={}), endpoint: {}, errno={}, ({})", 
+        request->route->getScript(request->method), *pid, request->endpoint_url, errno, strerror(errno)));
     }
     close(stdin_pipe[1]); // signal eof to child
 
@@ -80,18 +83,22 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
     if(read_ec && read_ec != asio::error::eof) {
         throw http::HTTPException(http::code::Internal_Server_Error, 
         std::format("Failed to read response from subprocess={} endpoint={} asio::error={}, ({})", 
-        request->route->script, request->route->endpoint, read_ec.value(), read_ec.message()));
+        request->route->getScript(request->method), request->endpoint_url, read_ec.value(), read_ec.message()));
     }
     buffer.resize(bytes_read);
 
     response->status_msg = http::extract_header_line(buffer);
-    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || 
+    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request /*|| 
         http::extract_body(buffer, response->body) != http::code::OK || 
-        http::extract_headers(buffer, response->headers) != http::code::OK) {
+        http::extract_headers(buffer, response->headers) != http::code::OK*/) {
 
         throw http::HTTPException(http::code::Bad_Gateway, 
-        std::format("Failed to parse response from script={}, endpoint={}", request->route->script, request->route->endpoint));
+        std::format("Failed to parse response from script={}, endpoint={}", request->route->getScript(request->method), request->endpoint_url));
     }
+
+    response->body = http::extract_body(buffer);
+    response->headers = http::extract_headers(buffer);
+
     txn->addBytes(bytes_read);
 
     DEBUG("POST Handler", "Parsed script: status=%d, header=%s", static_cast<int>(response->status), response->status_msg.c_str());
@@ -99,10 +106,10 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
 
 asio::awaitable<void> PostHandler::handle() {
     if(request->route == nullptr) {
-        throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint));
+        throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint_url));
     }
 
-    if(!request->route->script.empty()) {
+    if(!request->route->getScript(request->method).empty()) {
         int pid, status;
         auto reader = runScript(&pid, &status);
         co_await readResponse(reader);

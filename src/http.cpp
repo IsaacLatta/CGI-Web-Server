@@ -29,6 +29,20 @@ std::string http::get_time_stamp() {
     return oss.str();
 }
 
+http::method http::method_str_to_enum(const std::string& method_str) {
+    if(method_str == "GET" || method_str == "get") {
+        return http::method::Get;
+    } else if (method_str == "POST" || method_str == "post") {
+        return http::method::Post;
+    } else if (method_str == "HEAD" || method_str == "head") {
+        return http::method::Head;
+    } else if (method_str == "OPTIONS" || method_str == "options") {
+        return http::method::Options;
+    } else {
+        return http::method::Not_Allowed;
+    }
+} 
+
 std::string http::trim_to_lower(std::string_view& str_param) {
     size_t first = str_param.find_first_not_of(" \t\n\r");
     if (first == std::string_view::npos) 
@@ -123,26 +137,90 @@ std::string http::extract_header_line(const std::vector<char>& buffer) {
     return (std::string)(response.substr(0, end));
 }
 
-http::code http::extract_endpoint(const std::vector<char>& buffer, std::string& resource) {
+
+// http::code http::extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query) {
+//     std::size_t start, end;
+//     std::string_view request(buffer.begin(), buffer.end());
+//     if ((start = request.find(" ")) == std::string::npos ||
+//         (end = request.find(" ", start + 1)) == std::string::npos) {
+//         return http::code::Bad_Request;
+//     }
+//     resource = request.substr(start + 1, end - start - 1);
+    
+//     if (resource == "/") {
+//         resource = "/index.html";
+//     }
+    
+//     if (!resource.empty() && resource[0] == '/') {
+//         resource = resource.substr(1);
+//     }
+
+//     std::size_t query_pos = resource.find('?');
+//     if (query_pos != std::string::npos) {
+//         if (query != nullptr) {
+//             *query = resource.substr(query_pos + 1);
+//         }
+//         resource = resource.substr(0, query_pos);
+//     }
+//     return http::code::OK;
+// }
+
+void http::extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query) {
     std::size_t start, end;
     std::string_view request(buffer.begin(), buffer.end());
-    if((start = request.find(" ")) == std::string::npos || (end = request.find(" ", start + 1)) == std::string::npos) {
-        return http::code::Bad_Request;
+    if ((start = request.find(" ")) == std::string::npos ||
+        (end = request.find(" ", start + 1)) == std::string::npos) {
+        throw http::HTTPException(http::code::Bad_Request, "failed to extract endpoint url from request buffer");
+        // return http::code::Bad_Request;
     }
     resource = request.substr(start + 1, end - start - 1);
-    if(resource == "/") {
+    
+    if (resource == "/") {
         resource = "/index.html";
     }
-    resource = resource.substr(1); // remove the '/' from the path
-    return http::code::OK;
+    
+    if (!resource.empty() && resource[0] == '/') {
+        resource = resource.substr(1);
+    }
+
+    std::size_t query_pos = resource.find('?');
+    if (query_pos != std::string::npos) {
+        if (query != nullptr) {
+            *query = resource.substr(query_pos + 1);
+        }
+        resource = resource.substr(0, query_pos);
+    }
+    // return http::code::OK;
 }
 
-http::code http::extract_body(const std::vector<char>& buffer, std::string& body) {
+
+// http::code http::extract_body(const std::vector<char>& buffer, std::string& body) {
+//     std::string_view header(buffer.data(), buffer.size());
+
+//     std::size_t start;
+//     if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
+//         return http::code::Bad_Request;    
+//     }
+//     std::size_t offset = (header[start] == '\r') ? 4 : 2;
+
+//     std::size_t end;
+//     if ((end = header.find("\r\n", start + offset)) == std::string::npos && (end = header.find("\n", start + offset)) == std::string::npos) {
+//         end = header.size();
+//     }
+
+//     body = std::string(header.substr(start + offset, end - (start + offset)));
+//     return http::code::OK;
+// }
+
+
+
+std::string http::extract_body(const std::vector<char>& buffer) {
     std::string_view header(buffer.data(), buffer.size());
 
     std::size_t start;
     if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
-        return http::code::Bad_Request;    
+        throw http::HTTPException(http::code::Bad_Request, "Failed to extract body from buffer");
+        // return http::code::Bad_Request;    
     }
     std::size_t offset = (header[start] == '\r') ? 4 : 2;
 
@@ -151,8 +229,8 @@ http::code http::extract_body(const std::vector<char>& buffer, std::string& body
         end = header.size();
     }
 
-    body = std::string(header.substr(start + offset, end - (start + offset)));
-    return http::code::OK;
+    return std::string(header.substr(start + offset, end - (start + offset)));
+    // return http::code::OK;
 }
 
 http::code http::find_content_type(const std::vector<char>& buffer, std::string& content_type) {
@@ -196,7 +274,8 @@ http::code http::build_json(const std::vector<char>& buffer, http::json& json_ar
     http::code code;
     std::string body, content_type;
 
-    if((code = http::extract_body(buffer, body)) != http::code::OK || (code = http::find_content_type(buffer, content_type)) != http::code::OK) {
+    body = http::extract_body(buffer);
+    if(/*(code = http::extract_body(buffer, body)) != http::code::OK ||*/ (code = http::find_content_type(buffer, content_type)) != http::code::OK) {
         return code;
     }
 
@@ -224,45 +303,120 @@ http::code http::extract_header_field(const std::vector<char>& buffer, std::stri
     return http::code::OK;
 }
 
-http::code http::extract_method(const std::vector<char>& buffer, std::string& method) {
+// http::code http::extract_method(const std::vector<char>& buffer, std::string& method) {
+//     std::string_view header(buffer.data(), buffer.size());
+//     std::size_t line_end = header.find("\r\n");
+//     if (line_end == std::string_view::npos) {
+//         return http::code::Bad_Request;
+//     }
+//     std::string_view request_line = header.substr(0, line_end);
+
+//     std::size_t method_end = request_line.find(' ');
+//     if (method_end == std::string_view::npos) {
+//         return http::code::Bad_Request;
+//     }
+//     method = std::string(request_line.substr(0, method_end));
+
+//     if (method.empty()) {
+//         return http::code::Bad_Request;
+//     }
+//     return http::code::OK;
+// }
+
+ http::method http::extract_method(const std::vector<char>& buffer) {
     std::string_view header(buffer.data(), buffer.size());
     std::size_t line_end = header.find("\r\n");
     if (line_end == std::string_view::npos) {
-        return http::code::Bad_Request;
+        throw http::HTTPException(http::code::Bad_Request, "failed to find return line feed while parsing request method");
     }
     std::string_view request_line = header.substr(0, line_end);
 
     std::size_t method_end = request_line.find(' ');
     if (method_end == std::string_view::npos) {
-        return http::code::Bad_Request;
+        throw http::HTTPException(http::code::Bad_Request, "failed to parse request method");
     }
-    method = std::string(request_line.substr(0, method_end));
+    return http::method_str_to_enum(std::string(request_line.substr(0, method_end)));
 
-    if (method.empty()) {
-        return http::code::Bad_Request;
-    }
-    return http::code::OK;
+    // if (method.empty()) {
+    //     throw http::HTTPException(http::code::Bad_Request, "failed to parse request method");
+    // }
+    // return http::code::OK;
 }
 
-http::code http::extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers) {
+
+// http::code http::extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers) {
+//     std::string_view request(buffer.data(), buffer.size());
+//     const std::string_view line_end = "\r\n";
+//     const std::string_view header_splitter = ": ";
+
+//     std::size_t headers_end = request.find("\r\n\r\n");
+//     if (headers_end == std::string_view::npos) {
+//         return http::code::Bad_Request;
+//     }
+
+//     std::size_t pos = 0;
+//     std::size_t end_of_request_line = request.find(line_end, pos);
+//     if (end_of_request_line == std::string_view::npos) {
+//         return http::code::Bad_Request;
+//     }
+    
+//     pos = end_of_request_line + line_end.size();
+//     if (pos >= headers_end) {
+//         return http::code::OK; 
+//     }
+
+//     while (true) {
+//         if (pos >= headers_end) {
+//             break;
+//         }
+//         std::size_t end = request.find(line_end, pos);
+//         if (end == std::string_view::npos) {
+//             return http::code::Bad_Request;
+//         }
+
+//         std::string_view line = request.substr(pos, end - pos);
+//         if (line.empty()) {
+//             break;
+//         }
+
+//         std::size_t splitter_pos = line.find(header_splitter);
+//         if (splitter_pos == std::string_view::npos) {
+//             return http::code::Bad_Request;
+//         }
+
+//         std::string key = std::string(line.substr(0, splitter_pos));
+//         std::string value = std::string(line.substr(splitter_pos + header_splitter.size()));
+
+//         headers[std::move(key)] = std::move(value);
+//         pos = end + line_end.size();
+//     }
+//     return http::code::OK;
+// }
+
+
+std::unordered_map<std::string, std::string> http::extract_headers(const std::vector<char>& buffer) {
+    std::unordered_map<std::string, std::string> headers;
     std::string_view request(buffer.data(), buffer.size());
     const std::string_view line_end = "\r\n";
     const std::string_view header_splitter = ": ";
 
     std::size_t headers_end = request.find("\r\n\r\n");
     if (headers_end == std::string_view::npos) {
-        return http::code::Bad_Request;
+        throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+        // return http::code::Bad_Request;
     }
 
     std::size_t pos = 0;
     std::size_t end_of_request_line = request.find(line_end, pos);
     if (end_of_request_line == std::string_view::npos) {
-        return http::code::Bad_Request;
+        throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+        // return http::code::Bad_Request;
     }
     
     pos = end_of_request_line + line_end.size();
     if (pos >= headers_end) {
-        return http::code::OK; 
+        return headers;
+        // return http::code::OK; 
     }
 
     while (true) {
@@ -271,7 +425,8 @@ http::code http::extract_headers(const std::vector<char>& buffer, std::unordered
         }
         std::size_t end = request.find(line_end, pos);
         if (end == std::string_view::npos) {
-            return http::code::Bad_Request;
+            throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+            // return http::code::Bad_Request;
         }
 
         std::string_view line = request.substr(pos, end - pos);
@@ -281,7 +436,8 @@ http::code http::extract_headers(const std::vector<char>& buffer, std::unordered
 
         std::size_t splitter_pos = line.find(header_splitter);
         if (splitter_pos == std::string_view::npos) {
-            return http::code::Bad_Request;
+            throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+            // return http::code::Bad_Request;
         }
 
         std::string key = std::string(line.substr(0, splitter_pos));
@@ -290,7 +446,8 @@ http::code http::extract_headers(const std::vector<char>& buffer, std::unordered
         headers[std::move(key)] = std::move(value);
         pos = end + line_end.size();
     }
-    return http::code::OK;
+    return headers;
+    // return http::code::OK;
 }
 
 std::string http::extract_jwt_from_cookie(const std::string& cookie) {

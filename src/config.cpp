@@ -1,4 +1,5 @@
 #include "config.h"
+#include "Router.h"
 
 using namespace cfg;
 
@@ -18,36 +19,46 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
     using namespace tinyxml2;
     using namespace cfg;
     
+    http::Router* router = &http::Router::INSTANCE;
+
     XMLElement* doc_routes = doc->FirstChildElement("ServerConfig")->FirstChildElement("Routes");
     if(!doc_routes) {
         return;
     }
 
-    std::string is_protected;
     XMLElement* route_el = doc_routes->FirstChildElement("Route");
     while(route_el) {
-        Route route;
-        route.method = route_el->Attribute("method") ? route_el->Attribute("method") : "";
-        route.endpoint = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
-        route.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
-        route.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
-        if(route.is_protected) {
-            route.role = route_el->Attribute("role") ? route_el->Attribute("role") : "";
-            if (route.role.empty()) {
-                WARN("Server", "protected route[%s %s] is missing role attribute, defaulting to ADMIN", route.method.c_str(), route.endpoint.c_str());
-                route.role = ADMIN_ROLE_HASH;
+        http::EndpointMethod method;
+
+        std::string endpoint_url = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
+        if(endpoint_url.empty()) {
+            WARN("Server", "endpoint url is empty, defaulting to root \"/\"");
+            endpoint_url = "/";  // Set default to root
+        }
+
+        std::string method_str = route_el->Attribute("method") ? route_el->Attribute("method") : "";
+        method.m = http::method_str_to_enum(method_str);
+        
+        method.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
+        method.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
+        if(method.is_protected) {
+            method.access_role = route_el->Attribute("role") ? route_el->Attribute("role") : "";
+            if (method.access_role.empty()) {
+                WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to ADMIN", 
+                    method_str.c_str(), endpoint_url.c_str());
+                method.access_role = ADMIN_ROLE_HASH;
             }
         }
         else {
-            route.role = VIEWER_ROLE_HASH;
+            method.access_role = VIEWER_ROLE_HASH;
         }
-        route.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
+        method.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
-        if (!route.method.empty() && !route.endpoint.empty()) {
-                routes[route.endpoint] = route;
+        if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
+                router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {
-            ERROR("Server", "incomplete route attribute: parsed method[%s] and endpoint[%s], both required", route.method.c_str(), route.endpoint.c_str());
+            ERROR("Server", "incomplete route attribute: parsed method[%s] and endpoint[%s], both required", method_str.c_str(), endpoint_url.c_str());
         }
         route_el = route_el->NextSiblingElement("Route");
     }
@@ -61,25 +72,25 @@ const Role* Config::findRole(const std::string& role) const {
     return &it->second;
 }
 
-const Route* Config::findRoute(const Endpoint& endpoint) const {
-    auto it = routes.find(endpoint);
-    if(it == routes.end()) {
-        return nullptr;
-    }
-    return &it->second;
-}
+// const Route* Config::findRoute(const Endpoint& endpoint) const {
+//     auto it = routes.find(endpoint);
+//     if(it == routes.end()) {
+//         return nullptr;
+//     }
+//     return &it->second;
+// }
 
-void Config::printRoutes() const {
-    for (const auto& [endpoint, route] : routes) {
-        std::cout << "Endpoint: " << endpoint << "\n";
-        std::cout << "  Method: " << route.method << "\n";
-        std::cout << "  Script: " << (route.script.empty() ? "Empty" : route.script) << "\n";
-        std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << "\n";
-        std::cout << "  Role: " << route.role << "\n";
-        std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
-        std::cout << "\n";
-    }
-}
+// void Config::printRoutes() const {
+//     for (const auto& [endpoint, route] : routes) {
+//         std::cout << "Endpoint: " << endpoint << "\n";
+//         std::cout << "  Method: " << route.method << "\n";
+//         std::cout << "  Script: " << (route.script.empty() ? "Empty" : route.script) << "\n";
+//         std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << "\n";
+//         std::cout << "  Role: " << route.role << "\n";
+//         std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
+//         std::cout << "\n";
+//     }
+// }
 
 void display_role(cfg::Role* role) {
     std::cout << "Title: " << role->title << "\n";

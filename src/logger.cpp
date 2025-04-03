@@ -7,6 +7,16 @@ static int duration_ms(const std::chrono::time_point<std::chrono::system_clock>&
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 }
 
+std::string logger::get_time() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm local_time = *std::localtime(&time);
+
+    std::ostringstream oss;
+    oss << std::put_time(&local_time, "%Y-%m-%d %H:%M");
+    return oss.str();
+}
+
 static std::string format_bytes(long bytes) {
     if(bytes == 1) return " byte"; 
 
@@ -20,20 +30,6 @@ static std::string format_bytes(long bytes) {
     return std::to_string(static_cast<int>(double_bytes)) + units[i];
 }
 
-static std::string get_time() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm local_time = *std::localtime(&time);
-
-    std::ostringstream oss;
-    oss << std::put_time(&local_time, "%Y-%m-%d %H:%M");
-    return oss.str();
-}
-
-static std::string get_date() {
-    std::string fmt_time = get_time();
-    return fmt_time.substr(0, fmt_time.find(" "));
-}
 
 static void trim_user_agent(std::string& user_agent) {
     std::string user_agent_label = "User-Agent: ";
@@ -150,49 +146,6 @@ static std::string level_to_str(logger::level level) {
         case level::Fatal: return "FATAL";
         case level::Status: return "STATUS";
         default: return "";
-    }
-}
-
-logger::FileSink::FileSink(const std::string& path, const std::string& server_name) 
-    :fd(-1), date_today(get_date()), path(path), server_name(server_name)  
-{
-    openFile();
-}
-
-logger::FileSink::~FileSink() {
-    if(fd != -1) {
-        ::close(fd);
-    }
-}
-
-void logger::FileSink::rotateFile() {
-    if(fd != -1) {
-        ::close(fd);
-    }
-    openFile();
-}
-
-void logger::FileSink::openFile() {
-    file_name = path + "/" + server_name + "-" + get_date() + ".log";
-    if ((fd = ::open(file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644))  < 0) {
-        perror("openFile failed");
-    }
-    date_today = get_date();
-}
-
-void logger::FileSink::write(const std::string& log_msg) {
-    if(date_today != get_date()) {
-        rotateFile();
-    }
-    
-    std::size_t bytes_written = 0, msg_size = log_msg.length();
-    while(bytes_written < msg_size) {
-        ssize_t bytes = ::write(fd, log_msg.c_str() + bytes_written, msg_size - bytes_written);
-        if(bytes < 0) {
-            perror("write failed");
-            break; 
-        }
-        bytes_written += bytes;
     }
 }
 
@@ -328,18 +281,6 @@ void Logger::start() {
 
 Logger::~Logger() {
     stopAndFlush();
-}
-
-void ConsoleSink::write(const std::string& log_msg) {
-    std::size_t msg_len = log_msg.length(), bytes_written = 0;
-    while(bytes_written < msg_len) {
-        ssize_t bytes = ::write(STDOUT_FILENO, log_msg.c_str() + bytes_written, msg_len - bytes_written);
-        if(bytes < 0) {
-            perror("write error: console sink");
-            break;
-        }
-        bytes_written += bytes;
-    }
 }
 
 

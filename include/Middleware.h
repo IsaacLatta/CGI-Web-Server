@@ -8,6 +8,7 @@
 #include "MethodHandler.h"
 #include "config.h"
 #include "logger_macros.h"
+#include "http.h"
 
 class Session;
 
@@ -59,7 +60,7 @@ class Authenticator: public Middleware
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
-    void validate(Transaction* txn, const cfg::Route* route);
+    void validate(Transaction* txn, const http::Endpoint* endpoint);
 };
 
 };

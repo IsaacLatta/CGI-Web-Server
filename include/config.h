@@ -10,6 +10,7 @@
 #include <openssl/rand.h>
 
 #include "logger_macros.h"
+#include "http.h"
 
 namespace cfg {
 
@@ -42,18 +43,19 @@ struct SSLConfig {
     std::string certificate_path;
 };
 
-struct Route {
-    std::string method{""};
-    Endpoint endpoint{""};
-    std::string script{""};
-    bool is_protected{false};
-    std::string role;
-    bool is_authenticator{false};
-    Route() {}
-};
+// struct Route {
+//     std::array<std::string, 10> methods;
+//     std::string method{""};
+//     Endpoint endpoint{""};
+//     std::string script{""};
+//     bool is_protected{false};
+//     std::string role;
+//     bool is_authenticator{false};
+//     Route() {}
+// };
 
 using Roles = std::unordered_map<std::string, Role>;
-using Routes = std::unordered_map<Endpoint, Route>;
+// using Routes = std::unordered_map<Endpoint, Route>;
 
 class Config 
 {
@@ -62,8 +64,8 @@ class Config
     void initialize(const std::string& config_path);
 
     const Role* findRole(const std::string& role_title) const;
-    const Route* findRoute(const Endpoint& endpoint) const;
-    const Routes* getRoutes() const {return &routes;}
+    // const Route* findRoute(const Endpoint& endpoint) const;
+    // const Routes* getRoutes() const {return &routes;}
     const std::string& getContentPath() const {return content_path;}
     const std::string getLogPath() const {return log_path;}
     const std::string getSecret() const {return secret;}
@@ -71,7 +73,7 @@ class Config
     const SSLConfig* getSSL() const {return &ssl;}
     std::string getHostIP() const {return host_address;}
     int getPort() const {return port;}
-    void printRoutes() const;
+    // void printRoutes() const;
 
     private:
     Config();
@@ -92,7 +94,7 @@ class Config
     static std::once_flag initFlag;
     
     Roles roles;
-    Routes routes;
+    // Routes routes;
     SSLConfig ssl;
     std::string secret;
     std::string content_path;

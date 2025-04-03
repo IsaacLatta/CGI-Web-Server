@@ -20,8 +20,11 @@
 #include <array>
 #include <execinfo.h>
 
+#include "Sink.h"
+
 namespace logger 
 { 
+    std::string get_time();
     std::string fmt_msg(const char* fmt, ...);
     std::string get_stack_trace();
     std::string get_user_agent(const char* buffer, std::size_t size);
@@ -61,38 +64,6 @@ namespace logger
         std::chrono::time_point<std::chrono::system_clock> RTT_start_time;
         std::chrono::time_point<std::chrono::system_clock> RTT_end_time;
         std::string build() override;
-    };
-
-    class Sink
-    {
-        public:
-        virtual void write(const std::string& log_msg) = 0;
-        virtual ~Sink() = default;
-    };
-
-    class ConsoleSink: public Sink
-    {
-        public:
-        void write(const std::string& log_msg) override;
-    };
-
-    class FileSink: public Sink 
-    {
-        public:
-        FileSink(const std::string& path, const std::string& server_name);
-        ~FileSink();
-        void write(const std::string& log_msg) override;
-
-        private:
-        int fd;
-        std::string date_today;
-        std::string path;
-        std::string server_name;
-        std::string file_name;
-
-        private:
-        void openFile();
-        void rotateFile();
     };
 
     class Logger {

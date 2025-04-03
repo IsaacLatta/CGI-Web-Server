@@ -15,7 +15,9 @@
 #include <unordered_map>
 #include "json.hpp"
 #include <jwt-cpp/jwt.h>
+
 #include "config.h"
+#include "Router.h"
 
 namespace http
 {
@@ -42,12 +44,15 @@ namespace http
         Service_Unavailable = 503 
     };
 
-    namespace method {
-        constexpr std::string_view GET = "GET";
-        constexpr std::string_view HEAD = "HEAD";
-        constexpr std::string_view POST = "POST";
-        constexpr std::string_view NOT_FOUND = "";
-    }
+    enum class method : int {
+        Get,
+        Head,
+        Post,
+        Options,
+        Not_Allowed
+    };
+
+    method method_str_to_enum(const std::string& method_str);
 
     const std::vector<std::pair<std::string, std::string>> FILE_EXTENSIONS = {
         // HTML, CSS, JS
@@ -135,9 +140,10 @@ namespace http
     };
 
     struct Request {
-        std::string method;
-        std::string endpoint;
-        const cfg::Route* route{nullptr}; 
+        json query_params;
+        http::method method;
+        std::string endpoint_url;
+        const http::Endpoint* route{nullptr}; 
         std::unordered_map<std::string, std::string> headers;
         std::string body;
 
@@ -154,21 +160,26 @@ namespace http
 
     bool is_success_code(http::code status) noexcept;
 
-    code extract_method(const std::vector<char>& buffer, std::string& method);
+    // code extract_method(const std::vector<char>& buffer, std::string& method);
+    method extract_method(const std::vector<char>& buffer);
     code extract_token(const std::vector<char>& buffer, std::string& token);
     code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
-    code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
+    // code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
+    std::unordered_map<std::string, std::string> extract_headers(const std::vector<char>& buffer);
     code extract_status_code(const std::vector<char>& buffer);
     std::string extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);
+
     code build_json(const std::vector<char>& buffer, json& json_array);
     json parse_url_form(const std::string& body);
     std::string extract_header_line(const std::vector<char>& buffer);
-    code extract_body(const std::vector<char>& buffer, std::string& body);
+    std::string extract_body(const std::vector<char>& buffer);
+    // code extract_body(const std::vector<char>& buffer, std::string& body);
     code find_content_type(const std::vector<char>& buffer, std::string& content_type);
-    code extract_endpoint(const std::vector<char>& buffer, std::string& resource);
+    // code extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query = nullptr);
+    void extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query = nullptr);
     code determine_content_type(const std::string& resource, std::string& content_type);
 };
 

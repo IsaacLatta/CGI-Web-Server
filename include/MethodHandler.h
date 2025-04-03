@@ -15,7 +15,6 @@
 
 #include "Socket.h"
 #include "config.h"
-#include "http.h"
 #include "Transaction.h"
 
 /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
@@ -23,7 +22,8 @@
 #define HEADER_SIZE 8192
 #define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
 
-class Session;
+// class Session;
+
 
 struct TransferState {
     long total_bytes{0};         
@@ -37,8 +37,6 @@ struct TransferState {
 class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 {
     public:
-    // MethodHandler(Socket* sock, http::Request* request, http::Response* response) : 
-                // sock(sock), request(request), response(response), config(cfg::Config::getInstance()) {};
     MethodHandler(Transaction* txn) : 
                 txn(txn), sock(txn->getSocket()), request(txn->getRequest()), response(txn->getResponse()), config(cfg::Config::getInstance()) {} 
     
@@ -57,7 +55,6 @@ class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 class GetHandler: public MethodHandler
 {
     public:
-    // GetHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {};
     GetHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
@@ -69,7 +66,6 @@ class GetHandler: public MethodHandler
 class HeadHandler: public MethodHandler
 {
     public:
-    // HeadHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response){};
     HeadHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
@@ -83,7 +79,6 @@ class HeadHandler: public MethodHandler
 class PostHandler: public MethodHandler 
 {
     public:
-    // PostHandler(Socket* sock, http::Request* request, http::Response* response): MethodHandler(sock, request, response) {total_bytes = 0;};
     PostHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
@@ -97,5 +92,12 @@ class PostHandler: public MethodHandler
     long total_bytes;
     std::string response_header;
 };
+
+
+// class Options: public MethodHandler
+// {
+//     public:
+//     asio::awaitable<void> handle() override;
+// }
 
 #endif
