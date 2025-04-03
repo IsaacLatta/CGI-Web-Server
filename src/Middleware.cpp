@@ -6,8 +6,9 @@ using namespace mw;
 asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
         co_await next();
-        if(txn->finish) {
-            co_await txn->finish();
+        auto request = txn->getRequest();
+        if(auto finisher = request->route->getHandler(request->method)) {
+            co_await finisher(txn);
         } else {
             TRACE("Error Handler", "no lambda finisher assigned for transaction");
         }
@@ -40,27 +41,13 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     }
 
     std::string query_str = "";
-    http::code code;
     http::Request request;
-    // http::extract_method(*buffer, request.method);
-    // http::extract_endpoint_and_query_str(*buffer, request.endpoint, &query_str);
-    // http::extract_body(*buffer, request.body);
-    // http::extract_headers(*buffer, request.headers);
-
-    // if(/*(code = http::extract_method(*buffer, request.method)) != http::code::OK ||*/ (code = http::extract_endpoint_and_query_str(*buffer, request.endpoint_url, &query_str)) != http::code::OK || 
-    //    (/*code = http::extract_body(*buffer, request.body)) != http::code::OK || (code = http::extract_headers(*buffer, request.headers)) != http::code::OK*/) {
-    
-    //     throw http::HTTPException(code, std::format("Failed to parse request for client: {}\nResults\n\tMethod: {}\n\tEndpoint: {}\n\tBody: {}", 
-    //     txn->getSocket()->getIP(), request.method, request.endpoint, request.body));
-    // }
-
     http::extract_endpoint_and_query_str(*buffer, request.endpoint_url, &query_str);
     request.headers = http::extract_headers(*buffer);
     request.body = http::extract_body(*buffer);
     request.method = http::extract_method(*buffer);
     request.query_params = http::parse_url_form(query_str);
     request.route = http::Router::getInstance()->getEndpoint(request.endpoint_url);
-    // request.route = config->findRoute(request.endpoint);
     
     txn->setRequest(std::move(request));
     co_await next();

@@ -22,9 +22,6 @@
 #define HEADER_SIZE 8192
 #define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
 
-// class Session;
-
-
 struct TransferState {
     long total_bytes{0};         
     long bytes_sent{0};          

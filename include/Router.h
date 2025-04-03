@@ -18,18 +18,20 @@ namespace cfg {
     class Config;
 }
 
+class Transaction;
+
 namespace http {
 
-    using Handler = std::function<asio::awaitable<void>(const http::Request*)>;
+    using Handler = std::function<asio::awaitable<void>(Transaction*)>;
 
     struct EndpointMethod {
         method m;
         std::string access_role; // role required to access the endpoint
         std::string auth_role;
-        Handler handler;
-        std::string script{""};
         bool is_protected{false};
         bool is_authenticator{false};
+        std::string script{""};
+        Handler handler;
     };
 
     class Endpoint {
