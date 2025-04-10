@@ -19,7 +19,7 @@ void Session::buildPipeline() {
     pipeline.push_back(std::make_unique<mw::ErrorHandler>());
     pipeline.push_back(std::make_unique<mw::Parser>());
     pipeline.push_back(std::make_unique<mw::Authenticator>());
-    pipeline.push_back(std::make_unique<mw::RequestHandler>());
+    // pipeline.push_back(std::make_unique<mw::RequestHandler>());
 }
 
 asio::awaitable<void> Session::runPipeline(Transaction *txn, std::size_t index)

@@ -43,7 +43,9 @@ namespace http {
         std::string getAccessRole(method m) const;
         std::string getScript(method m) const;
         Handler getHandler(method m) const;
+        std::vector<method> getMethods() const;
         void addMethod(EndpointMethod&& method);
+
 
         private:
         std::unordered_map<method, EndpointMethod> methods;

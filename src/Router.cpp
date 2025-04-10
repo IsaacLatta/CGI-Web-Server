@@ -38,24 +38,15 @@ Router::Router() {
             co_return;
         }
     });
-
-    DEFAULT_ENDPOINT.addMethod({
-        .m = http::method::Post,
-        .access_role = VIEWER_ROLE_HASH,
-        .auth_role = "",
-        .is_protected = false,
-        .is_authenticator = false,
-        .script = "",
-        .handler = [](Transaction* txn) -> asio::awaitable<void> {
-            PostHandler handler(txn);
-            co_await handler.handle();
-            co_return;
-        }
-    });
 }
 
 const Router* Router::getInstance() {
     return &Router::INSTANCE;
+}
+
+static bool file_exists(const std::string& path) {
+    struct stat buffer;
+    return stat(path.c_str(), &buffer) == 0;
 }
 
 const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
@@ -64,7 +55,10 @@ const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
     // the response of the existing one
     auto it = endpoints.find(endpoint);
     if(it == endpoints.end()) {
-        return &DEFAULT_ENDPOINT;
+        if (file_exists("public/" + endpoint)) {
+            return &DEFAULT_ENDPOINT;
+        }
+        throw http::HTTPException(http::code::Not_Found, std::format("request for {}: does not exist", endpoint));
     }
     return &it->second;
 }
@@ -83,6 +77,11 @@ static http::Handler assign_handler(method m) {
         };
         case http::method::Head: return [](Transaction* txn) -> asio::awaitable<void> {
             HeadHandler handler(txn);
+            co_await handler.handle();
+            co_return;
+        };
+        case http::method::Options: return [](Transaction* txn) -> asio::awaitable<void> {
+            OptionsHandler handler(txn);
             co_await handler.handle();
             co_return;
         };
@@ -146,7 +145,19 @@ std::string http::Endpoint::getAccessRole(http::method m) const {
 http::Handler http::Endpoint::getHandler(http::method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return assign_handler(m); // this might be a 404, or a non registered resource, like an index.html
+        if(m != http::method::Get && m != http::method::Head) {
+            throw http::HTTPException(http::code::Method_Not_Allowed, 
+            std::format("{} {} does not exist", http::method_enum_to_str(m), endpoint));
+        } 
+        return assign_handler(m); 
     }
     return it->second.handler;
+}
+
+std::vector<method> http::Endpoint::getMethods() const {
+    std::vector<method> results;
+    for(auto m: methods) {
+        results.push_back(m.first);
+    }
+    return results;
 }

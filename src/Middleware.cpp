@@ -7,25 +7,25 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
         co_await next();
         auto request = txn->getRequest();
-        TRACE("Error Handler", "retreiving handler for method %s", 
-        http::method_enum_to_str(request->method).c_str());
         if(auto finisher = request->route->getHandler(request->method)) {
             co_await finisher(txn);
         } else {
-            TRACE("Error Handler", "no lambda finisher assigned for transaction");
+            throw http::HTTPException(http::code::Not_Found, 
+            std::format("no handler found for %s %s", 
+            http::method_enum_to_str(request->method).c_str(), request->endpoint_url.c_str()));
         }
     }
     catch (const http::HTTPException& http_error) {
         txn->response = std::move(*http_error.getResponse());
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        DEBUG("Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
+        DEBUG("MW Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
     }
     catch (const std::exception& error) {
         txn->response = std::move(http::Response(http::code::Internal_Server_Error));
         std::string response = txn->response.build();
         txn->sock->write(response.data(), response.length());
-        DEBUG("Error Handler", "std exception: %s", error.what());
+        DEBUG("MW Error Handler", "std exception: %s", error.what());
     }
     co_return;
 }
@@ -71,32 +71,6 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     entry->RTT_end_time = std::chrono::system_clock::now();
     entry->level = http::is_success_code(txn->getResponse()->status) ? logger::level::Info : logger::level::Error;
     LOG_SESSION(std::move(txn->log_entry));
-}
-
-std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transaction* txn) {
-    // http::Request* request = txn->getRequest();
-    // if(request->method == http::method::GET) {
-    //     return std::make_shared<GetHandler>(txn); 
-    // }
-    // if(request->method == http::method::HEAD) {
-    //     return std::make_shared<HeadHandler>(txn); 
-    // }
-    // if(request->method == http::method::POST) {
-    //     return std::make_shared<PostHandler>(txn);
-    // }
-    return nullptr;
-}
-
-asio::awaitable<void> mw::RequestHandler::process(Transaction* txn, Next next) {
-    co_await next();
-    co_return;
-    // if(auto handler = createMethodHandler(txn)) {
-    //     co_await handler->handle();
-    //     co_await next();
-    // }
-    // else {
-    //     throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
-    // }    
 }
 
 void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) {

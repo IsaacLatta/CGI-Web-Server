@@ -34,6 +34,7 @@ std::string http::method_enum_to_str(method m) {
         case method::Get: return "GET";
         case method::Head: return "HEAD";
         case method::Post: return "POST";
+        case method::Options: return "OPTIONS";
         default: return "";
     }
 }

@@ -90,11 +90,12 @@ class PostHandler: public MethodHandler
     std::string response_header;
 };
 
+class OptionsHandler: public MethodHandler
+{
+    public:
+    OptionsHandler(Transaction* txn): MethodHandler(txn) {};
 
-// class Options: public MethodHandler
-// {
-//     public:
-//     asio::awaitable<void> handle() override;
-// }
+    asio::awaitable<void> handle() override;
+};
 
 #endif

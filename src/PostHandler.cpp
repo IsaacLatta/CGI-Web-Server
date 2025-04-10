@@ -88,10 +88,7 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
     buffer.resize(bytes_read);
 
     response->status_msg = http::extract_header_line(buffer);
-    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request /*|| 
-        http::extract_body(buffer, response->body) != http::code::OK || 
-        http::extract_headers(buffer, response->headers) != http::code::OK*/) {
-
+    if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request) {
         throw http::HTTPException(http::code::Bad_Gateway, 
         std::format("Failed to parse response from script={}, endpoint={}", request->route->getScript(request->method), request->endpoint_url));
     }

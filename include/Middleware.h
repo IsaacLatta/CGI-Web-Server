@@ -32,14 +32,6 @@ class ErrorHandler: public Middleware
     asio::awaitable<void> process(Transaction* txn, Next next) override;  
 };
 
-class RequestHandler: public Middleware
-{
-    public:
-    asio::awaitable<void> process(Transaction* txn, Next next) override;
-    private:
-    std::shared_ptr<MethodHandler> createMethodHandler(Transaction* txn);
-};
-
 class Logger: public Middleware
 {
     public:

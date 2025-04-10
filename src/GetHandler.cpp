@@ -80,7 +80,7 @@ asio::awaitable<void> GetHandler::handle() {
         request->endpoint_url = "public/" + request->endpoint_url;
     }
     
-    int filefd =  open(request->endpoint_url.c_str(), O_RDONLY);
+    int filefd = open(request->endpoint_url.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 
               std::format("Failed to open resource: {}, errno={} ({})", request->endpoint_url, errno, strerror(errno)));
@@ -107,11 +107,4 @@ asio::awaitable<void> GetHandler::handle() {
     co_await writeResource(filefd, file_len);
     co_return;
 
-    // auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());
-    // txn->finish = [self, filefd, file_len]() -> asio::awaitable<void> {
-    //     co_await self->writeHeader();
-    //     co_await self->writeResource(filefd, file_len);
-    // };
-
-    // co_return;
 }
