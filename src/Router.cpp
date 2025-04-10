@@ -7,11 +7,8 @@
 using namespace http;
 using namespace cfg;
 
-Router Router::INSTANCE;
-
 static http::Endpoint DEFAULT_ENDPOINT;
-
-
+Router Router::INSTANCE;
 
 Router::Router() {
     DEFAULT_ENDPOINT.addMethod({
@@ -90,7 +87,7 @@ static http::Handler assign_handler(method m) {
             co_return;
         };
         default:
-            return http::Handler{};
+            throw http::HTTPException(http::code::Not_Implemented, "request method not supported");
     }
 }
 
@@ -149,7 +146,7 @@ std::string http::Endpoint::getAccessRole(http::method m) const {
 http::Handler http::Endpoint::getHandler(http::method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return Handler{}; // this might be a 404, or a non registered resource, like an index.html
+        return assign_handler(m); // this might be a 404, or a non registered resource, like an index.html
     }
     return it->second.handler;
 }

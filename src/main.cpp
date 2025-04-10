@@ -19,7 +19,7 @@
 int main(int argc, char** argv)
 {
     if(argc < 2 && argv[1] == nullptr) {
-        std::cerr << "ERROR no configuration path, must provide a path to load configuration from";
+        std::cerr << "ERROR no configuration path, must provide a path to load configuration from\n";
         return 0;
     }
 
@@ -27,7 +27,6 @@ int main(int argc, char** argv)
     STATUS("Server", "configuration loaded from file: %s", argv[1]);
     STATUS("Server", "serving from: %s", config->getContentPath().c_str());
     STATUS("Server", "writing logs to: %s", config->getLogPath().c_str());
-    // config->printRoutes();
 
     try {
         Server server(config);

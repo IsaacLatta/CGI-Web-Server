@@ -7,6 +7,8 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
         co_await next();
         auto request = txn->getRequest();
+        TRACE("Error Handler", "retreiving handler for method %s", 
+        http::method_enum_to_str(request->method).c_str());
         if(auto finisher = request->route->getHandler(request->method)) {
             co_await finisher(txn);
         } else {
@@ -48,7 +50,8 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     request.method = http::extract_method(*buffer);
     request.query_params = http::parse_url_form(query_str);
     request.route = http::Router::getInstance()->getEndpoint(request.endpoint_url);
-    
+    TRACE("MW Parser", "Hit for endpoint: %s", request.endpoint_url.c_str());
+
     txn->setRequest(std::move(request));
     co_await next();
 }
@@ -85,13 +88,15 @@ std::shared_ptr<MethodHandler> mw::RequestHandler::createMethodHandler(Transacti
 }
 
 asio::awaitable<void> mw::RequestHandler::process(Transaction* txn, Next next) {
-    if(auto handler = createMethodHandler(txn)) {
-        co_await handler->handle();
-        co_await next();
-    }
-    else {
-        throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
-    }    
+    co_await next();
+    co_return;
+    // if(auto handler = createMethodHandler(txn)) {
+    //     co_await handler->handle();
+    //     co_await next();
+    // }
+    // else {
+    //     throw http::HTTPException(http::code::Not_Implemented, "Request method not supported, supported methods (GET, HEAD, POST)");
+    // }    
 }
 
 void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) {

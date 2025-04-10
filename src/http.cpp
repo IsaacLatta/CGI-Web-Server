@@ -29,6 +29,15 @@ std::string http::get_time_stamp() {
     return oss.str();
 }
 
+std::string http::method_enum_to_str(method m) {
+    switch (m) {
+        case method::Get: return "GET";
+        case method::Head: return "HEAD";
+        case method::Post: return "POST";
+        default: return "";
+    }
+}
+
 http::method http::method_str_to_enum(const std::string& method_str) {
     if(method_str == "GET" || method_str == "get") {
         return http::method::Get;

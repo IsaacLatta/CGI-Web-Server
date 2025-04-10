@@ -103,11 +103,15 @@ asio::awaitable<void> GetHandler::handle() {
     response->addHeader("Connection", "close");
     response->addHeader("Content-Type", content_type);
     response->addHeader("Content-Length", std::to_string(file_len));
-
-    auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());
-    txn->finish = [self, filefd, file_len]() -> asio::awaitable<void> {
-        co_await self->writeHeader();
-        co_await self->writeResource(filefd, file_len);
-    };
+    co_await writeHeader();
+    co_await writeResource(filefd, file_len);
     co_return;
+
+    // auto self = std::dynamic_pointer_cast<GetHandler>(shared_from_this());
+    // txn->finish = [self, filefd, file_len]() -> asio::awaitable<void> {
+    //     co_await self->writeHeader();
+    //     co_await self->writeResource(filefd, file_len);
+    // };
+
+    // co_return;
 }

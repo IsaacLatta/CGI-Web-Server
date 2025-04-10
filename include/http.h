@@ -53,6 +53,7 @@ namespace http
     };
 
     method method_str_to_enum(const std::string& method_str);
+    std::string method_enum_to_str(method m);
 
     const std::vector<std::pair<std::string, std::string>> FILE_EXTENSIONS = {
         // HTML, CSS, JS

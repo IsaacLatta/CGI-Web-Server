@@ -15,6 +15,17 @@ const Config* Config::getInstance(const std::string& config_path) {
     return &Config::INSTANCE;
 }
 
+
+static void print_endpoint(const http::EndpointMethod& method, const std::string& endpoint_url) {
+    std::cout << "ENDPOINT: " << endpoint_url << 
+    "\n\tMethod: " << static_cast<int>(method.m) << 
+    "\n\tAccessRole: " << method.access_role <<
+    "\n\tAuthRole: " << method.auth_role << 
+    "\n\tIsProtected: " << method.is_protected << 
+    "\n\tIsAuthenticator: " << method.is_authenticator << 
+    "\n\tScript: " << method.script << "\n"; 
+}
+
 void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path) {
     using namespace tinyxml2;
     using namespace cfg;
@@ -55,6 +66,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         method.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
                     
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
+                print_endpoint(method, endpoint_url);
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {
@@ -264,6 +276,7 @@ void Config::initialize(const std::string& config_path) {
     auto logger = logger::Logger::getInstance();
     logger->addSink(std::move(std::make_unique<logger::ConsoleSink>()));
     logger->start();
+    TRACE("Server", "parsing config file: %s", config_path.c_str());
 
     if(doc.LoadFile(config_path.c_str()) != tinyxml2::XML_SUCCESS) {
         FATAL("Server", "loading configuration failed [error=%d %s]", static_cast<int>(doc.ErrorID()), doc.ErrorStr());
@@ -277,9 +290,13 @@ void Config::initialize(const std::string& config_path) {
         FATAL("Server", "loading configuration failed: no web directory to serve from");
     }
 
+    TRACE("Server", "Web Directory found: %s", content_path.c_str());
+
     if(chdir(content_path.c_str()) < 0) {
         FATAL("Server", "failed to chdir to web directory(%s): [error=%d %s]", content_path.c_str(), errno, strerror(errno));
     }
+
+    TRACE("Server", "changed directory to: %s", content_path.c_str());
 
     tinyxml2::XMLElement* host = doc.FirstChildElement("ServerConfig")->FirstChildElement("Host");
     if(host) {
@@ -288,6 +305,8 @@ void Config::initialize(const std::string& config_path) {
     else {
         host_name = cfg::NO_HOST_NAME;
     }
+
+
 
     tinyxml2::XMLElement* log_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("LogDirectory");
     if(log_dir && log_dir->GetText()) {

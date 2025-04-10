@@ -85,7 +85,7 @@ static std::string get_browser(const std::string user_agent) {
 }
 
 std::string logger::fmt_msg(const char* fmt, ...) {
-    constexpr size_t BUFF_SIZE = 256; // shoudnt ever need more than this
+    constexpr size_t BUFF_SIZE = 1024; // shoudnt ever need more than this
     char buf[BUFF_SIZE];
     va_list args;
     va_start(args, fmt);
