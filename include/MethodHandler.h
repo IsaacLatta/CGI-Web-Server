@@ -16,6 +16,7 @@
 #include "Socket.h"
 #include "config.h"
 #include "Transaction.h"
+#include "Streamer.h"
 
 #define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
 
