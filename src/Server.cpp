@@ -47,7 +47,8 @@ asio::awaitable<void> Server::run() {
 void Server::start() {
     /* This thread, 1 logger thread, the rest of the threads are workers*/
     std::vector<std::thread> threads;
-    std::size_t thread_count = std::thread::hardware_concurrency();
+    // std::size_t thread_count = std::thread::hardware_concurrency();
+    std::size_t thread_count = 8;
     if(!thread_count) {
         thread_count = 8;
     }

@@ -92,6 +92,7 @@ void display_role(cfg::Role* role) {
     std::cout << "\n";
 }
 
+// TODO: update parsing to account for new access role config params
 void Config::loadRoles(tinyxml2::XMLDocument* doc) {
     roles[ADMIN_ROLE_HASH] = ADMIN;
     roles[USER_ROLE_HASH] = USER;

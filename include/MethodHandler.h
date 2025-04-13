@@ -17,19 +17,7 @@
 #include "config.h"
 #include "Transaction.h"
 
-/* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
-#define BUFFER_SIZE 262144
-#define HEADER_SIZE 8192
 #define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
-
-struct TransferState {
-    long total_bytes{0};         
-    long bytes_sent{0};          
-    long current_offset{0};      
-    int retry_count{1};
-    static constexpr int MAX_RETRIES = 3;
-    static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
-};
 
 class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 {
@@ -55,9 +43,6 @@ class GetHandler: public MethodHandler
     GetHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
-
-    asio::awaitable<void> writeHeader();
-    asio::awaitable<void> writeResource(int filefd, long file_len);
 };
 
 class HeadHandler: public MethodHandler

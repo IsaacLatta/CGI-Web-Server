@@ -8,6 +8,10 @@
 #include <vector>
 #include "logger.h"
 
+/* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
+#define BUFFER_SIZE 262144
+#define HEADER_SIZE 8192
+
 class Socket
 {
     public:
