@@ -60,8 +60,6 @@ asio::posix::stream_descriptor PostHandler::runScript(int* pid, int* status) {
         request->route->getScript(request->method), request->endpoint_url, errno, strerror(errno)));  
     } 
 
-    // DEBUG("POST Handler", "endpoint[%s], extecuting %s [pid %s] with status %d", request->endpoint_url.c_str(), request->route->getScript().c_str(), *pid, *status);
-
     ssize_t bytes;
     if ((bytes = write(stdin_pipe[1], args.dump().c_str(), args.dump().length())) < 0) {
         close(stdout_pipe[0]);
@@ -111,6 +109,7 @@ asio::awaitable<void> PostHandler::handle() {
         auto reader = runScript(&pid, &status);
         co_await readResponse(reader);
         waitpid(pid, &status, 0);
+        co_return;
     }
 
     response->addHeader("Connection", "close");

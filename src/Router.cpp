@@ -80,8 +80,22 @@ const http::ErrorPage* Router::getErrorPage(http::code status) const {
 }
 
 void Router::addErrorPage(ErrorPage&& error_page, std::string&& file) {
-    // assign the handler here
-    error_page.handler = DEFAULT_ERROR_PAGE.handler;
+    error_page.handler = [file_path = std::move(file), status = error_page.status](Transaction* txn) -> asio::awaitable<void> {
+        try {
+            FileStreamer f_stream(file_path);
+            co_await f_stream.prepare(txn->getResponse());
+            std::string response = txn->getResponse()->build();
+            StringStreamer s_stream(&response);
+            co_await s_stream.stream(txn->getSocket());
+            co_await f_stream.stream(txn->getSocket());
+            co_return;
+        } catch (const std::exception& error) {
+            WARN("Error Page Handler", "failed to serve error page %s for code=%d: %s", 
+            file_path.c_str(), static_cast<int>(status), error.what());
+        } 
+        
+        co_await DEFAULT_ERROR_PAGE.handler(txn); // if sending the error page fails, simply send the original error
+    };
     error_pages[error_page.status] = std::move(error_page);
 }
 
