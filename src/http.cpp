@@ -29,6 +29,18 @@ std::string http::get_time_stamp() {
     return oss.str();
 }
 
+http::code http::code_str_to_enum(const char* code_str) {
+    if (!code_str) {
+        return http::code::Not_A_Status;
+    }
+    try {
+        int numeric_code = std::stoi(code_str);
+        return static_cast<http::code>(numeric_code);
+    } catch (const std::exception& e) {
+        return http::code::Not_A_Status;
+    }
+}
+
 std::string http::method_enum_to_str(method m) {
     switch (m) {
         case method::Get: return "GET";

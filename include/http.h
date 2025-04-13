@@ -24,6 +24,7 @@ namespace http
     using json = nlohmann::json;
 
     enum class code {
+        Not_A_Status = -1,
         OK = 200,
         Created = 201,
         Accepted = 202,
@@ -43,6 +44,8 @@ namespace http
         Bad_Gateway = 502,
         Service_Unavailable = 503 
     };
+
+    code code_str_to_enum(const char* code_str);
 
     enum class method : int {
         Get,

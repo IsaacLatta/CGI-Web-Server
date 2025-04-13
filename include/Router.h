@@ -8,10 +8,10 @@
 #include <asio/awaitable.hpp>
 #include <asio/use_awaitable.hpp>
 
-// #include "MethodHandler.h"
 namespace http {
     class Request;
     enum class method : int;
+    enum class code : int;
 }
 
 namespace cfg {
@@ -23,6 +23,11 @@ class Transaction;
 namespace http {
 
     using Handler = std::function<asio::awaitable<void>(Transaction*)>;
+
+    struct ErrorPage {
+        http::code status;
+        Handler handler;
+    };
 
     struct EndpointMethod {
         method m;
@@ -59,26 +64,20 @@ namespace http {
         public:
         static const Router* getInstance();
         const Endpoint* getEndpoint(const std::string& endpoint) const;
+        const ErrorPage* getErrorPage(http::code status) const;
 
         private:
         static Router INSTANCE;
         std::unordered_map<std::string, Endpoint> endpoints;
+        std::unordered_map<http::code, ErrorPage> error_pages;
 
         private:
         void updateEndpoint(const std::string& endpoint_url, EndpointMethod&& method);
+        void addErrorPage(ErrorPage&& error_page, std::string&& file);
         Router();
         Router(const Router&) = delete;
         Router& operator=(const Router&) = delete;
     };
 };
-
-// namespace std {
-//     template <>
-//     struct hash<http::method> {
-//         std::size_t operator()(const http::method& m) const noexcept {
-//             return std::hash<int>()(static_cast<int>(m));
-//         }
-//     };
-// }
 
 #endif

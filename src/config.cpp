@@ -84,26 +84,6 @@ const Role* Config::findRole(const std::string& role) const {
     return &it->second;
 }
 
-// const Route* Config::findRoute(const Endpoint& endpoint) const {
-//     auto it = routes.find(endpoint);
-//     if(it == routes.end()) {
-//         return nullptr;
-//     }
-//     return &it->second;
-// }
-
-// void Config::printRoutes() const {
-//     for (const auto& [endpoint, route] : routes) {
-//         std::cout << "Endpoint: " << endpoint << "\n";
-//         std::cout << "  Method: " << route.method << "\n";
-//         std::cout << "  Script: " << (route.script.empty() ? "Empty" : route.script) << "\n";
-//         std::cout << "  Protected: " << (route.is_protected ? "Yes" : "No") << "\n";
-//         std::cout << "  Role: " << route.role << "\n";
-//         std::cout << "  Authenticator: " << (route.is_authenticator ? "Yes" : "No") << "\n";
-//         std::cout << "\n";
-//     }
-// }
-
 void display_role(cfg::Role* role) {
     std::cout << "Title: " << role->title << "\n";
     for(const auto& include: role->includes) {
@@ -260,6 +240,34 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     WARN("Server", "ignoring jwt configuration: no options set");
 }
 
+static void print_error_page(const http::ErrorPage& error_page, const std::string& file) {
+    std::cout << "ERROR PAGE\n\tstatus: " << 
+    static_cast<int>(error_page.status) << 
+    "\n\tfile: " <<  file << "\n";
+}
+
+void Config::loadErrorPages(tinyxml2::XMLDocument* doc) {
+    tinyxml2::XMLElement* error_pg_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("ErrorPages");
+    if(!error_pg_elem) {
+        return;
+    }
+
+    http::Router* router = &http::Router::INSTANCE;
+    tinyxml2::XMLElement* error_pg = error_pg_elem->FirstChildElement("ErrorPage");
+    while(error_pg) {
+        http::ErrorPage error_page;
+        error_page.status = error_pg->Attribute("code") ? http::code_str_to_enum(error_pg->Attribute("code")) : http::code::Not_A_Status;
+        std::string file = error_pg->Attribute("file") ? error_pg->Attribute("file") : "";
+        if(error_page.status == http::code::Not_A_Status || file.empty()) {
+            WARN("Server", "loading configuration: invalid error page, code=%d, file=%s", static_cast<int>(error_page.status), file.c_str());
+        } else {
+            print_error_page(error_page, file);
+            router->addErrorPage(std::move(error_page), std::move(file));
+        }
+        error_pg = error_pg_elem->NextSiblingElement("ErrorPage");
+    }
+}
+
 static std::string resolve_log_path(const std::string& path) {
     std::string log_dir = "log";
     char resolved[PATH_MAX];
@@ -280,6 +288,10 @@ void Config::initialize(const std::string& config_path) {
 
     if(doc.LoadFile(config_path.c_str()) != tinyxml2::XML_SUCCESS) {
         FATAL("Server", "loading configuration failed [error=%d %s]", static_cast<int>(doc.ErrorID()), doc.ErrorStr());
+    }
+
+    if(!doc.FirstChildElement("ServerConfig")) {
+        FATAL("Server", "loading configuration: no ServerConfig element, must provide <ServerConfig></ServerConfig> to load configuration from");
     }
 
     tinyxml2::XMLElement* web_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("WebDirectory");
@@ -306,8 +318,6 @@ void Config::initialize(const std::string& config_path) {
         host_name = cfg::NO_HOST_NAME;
     }
 
-
-
     tinyxml2::XMLElement* log_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("LogDirectory");
     if(log_dir && log_dir->GetText()) {
         this->log_path = resolve_log_path(log_dir->GetText());
@@ -322,6 +332,7 @@ void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;
 
+    loadErrorPages(&doc);
     loadRoles(&doc);
     loadSSL(&doc);
     loadRoutes(&doc, content_path);

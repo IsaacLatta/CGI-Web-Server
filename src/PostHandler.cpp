@@ -117,12 +117,5 @@ asio::awaitable<void> PostHandler::handle() {
     std::string response = txn->response.build();
     co_await txn->sock->co_write(response.data(), response.size());
     co_return; 
-   
-    // txn->finish = [self = shared_from_this(), txn = this->txn]() -> asio::awaitable<void> {
-    //     std::string response = txn->response.build();
-    //     co_await txn->sock->co_write(response.data(), response.size());
-    //     co_return;            
-    // };
-    // co_return;
 }
 

@@ -4,28 +4,28 @@
 using namespace mw;
 
 asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
+    http::Handler error_handler = nullptr;
     try {
         co_await next();
         auto request = txn->getRequest();
         if(auto finisher = request->route->getHandler(request->method)) {
             co_await finisher(txn);
-        } else {
-            throw http::HTTPException(http::code::Not_Found, 
-            std::format("no handler found for %s %s", 
-            http::method_enum_to_str(request->method).c_str(), request->endpoint_url.c_str()));
         }
     }
     catch (const http::HTTPException& http_error) {
-        txn->response = std::move(*http_error.getResponse());
-        std::string response = txn->response.build();
-        txn->sock->write(response.data(), response.length());
         DEBUG("MW Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
+        txn->response = std::move(*http_error.getResponse());
+        error_handler = http::Router::getInstance()->getErrorPage(txn->response.getStatus())->handler;
     }
     catch (const std::exception& error) {
+        DEBUG("MW Error Handler", "status=500, std exception: %s", error.what());
         txn->response = std::move(http::Response(http::code::Internal_Server_Error));
-        std::string response = txn->response.build();
-        txn->sock->write(response.data(), response.length());
-        DEBUG("MW Error Handler", "std exception: %s", error.what());
+        error_handler = http::Router::getInstance()->getErrorPage(txn->response.getStatus())->handler;
+    }
+
+    if(error_handler) {
+        TRACE("MW Error Handler", "Serving error page for status=%d", static_cast<int>(txn->response.getStatus()));
+        co_await error_handler(txn);
     }
     co_return;
 }

@@ -8,6 +8,7 @@ using namespace http;
 using namespace cfg;
 
 static http::Endpoint DEFAULT_ENDPOINT;
+static http::ErrorPage DEFAULT_ERROR_PAGE;
 Router Router::INSTANCE;
 
 Router::Router() {
@@ -38,6 +39,12 @@ Router::Router() {
             co_return;
         }
     });
+
+    DEFAULT_ERROR_PAGE.handler = [](Transaction* txn) -> asio::awaitable<void> {
+        std::string response = txn->response.build();
+        txn->sock->write(response.data(), response.length());
+        co_return;
+    };
 }
 
 const Router* Router::getInstance() {
@@ -61,6 +68,21 @@ const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
         throw http::HTTPException(http::code::Not_Found, std::format("request for {}: does not exist", endpoint));
     }
     return &it->second;
+}
+
+const http::ErrorPage* Router::getErrorPage(http::code status) const {
+    auto it = error_pages.find(status);
+    if(it == error_pages.end()) {
+        std::cout << "returning default error page\n";
+        return &DEFAULT_ERROR_PAGE;
+    }
+    return &it->second;
+}
+
+void Router::addErrorPage(ErrorPage&& error_page, std::string&& file) {
+    // assign the handler here
+    error_page.handler = DEFAULT_ERROR_PAGE.handler;
+    error_pages[error_page.status] = std::move(error_page);
 }
 
 static http::Handler assign_handler(method m) {
