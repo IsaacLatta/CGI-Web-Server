@@ -100,21 +100,58 @@ asio::awaitable<void> PostHandler::readResponse(asio::posix::stream_descriptor& 
 }
 
 asio::awaitable<void> PostHandler::handle() {
+    // if(request->route == nullptr) {
+    //     throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint_url));
+    // }
+
+    // if(!request->route->getScript(request->method).empty()) {
+    //     int pid, status;
+    //     auto reader = runScript(&pid, &status);
+    //     co_await readResponse(reader);
+    //     waitpid(pid, &status, 0);
+    //     co_return;
+    // }
+
+    // response->addHeader("Connection", "close");
+    // std::string response = txn->response.build();
+    // co_await txn->sock->co_write(response.data(), response.size());
+    // co_return;
+
+
+    // /****** NEW CODE ********/
+
     if(request->route == nullptr) {
         throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint_url));
     }
-
-    if(!request->route->getScript(request->method).empty()) {
-        int pid, status;
-        auto reader = runScript(&pid, &status);
-        co_await readResponse(reader);
-        waitpid(pid, &status, 0);
-        co_return;
+    
+    http::json args;
+    http::code code;
+    if((code = http::build_json(*(txn->getBuffer()), args)) != http::code::OK) {
+        throw http::HTTPException(code, "Failed to build json array");
     }
 
-    response->addHeader("Connection", "close");
-    std::string response = txn->response.build();
-    co_await txn->sock->co_write(response.data(), response.size());
+    auto buffer_callback = [response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len){
+        std::vector<char> buffer(buf, buf + len); // will need to replace this later
+        response->status_msg = http::extract_header_line(buffer);
+        if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request) {
+            throw http::HTTPException(http::code::Bad_Gateway, 
+            std::format("Failed to parse response from script"));
+        }
+
+        response->body = http::extract_body(buffer);
+        std::cout << "RESPONSE BODY: " << response->body << "\n";
+        response->headers = http::extract_headers(buffer);
+        response->addHeader("Connection", "close");
+        std::string response_str = response->build();
+        sock->write(response_str.data(), response_str.length());
+    };
+
+    std::string args_str = args.dump();
+    std::string script = request->route->getScript(request->method);
+    ScriptStreamer streamer(script, args_str, buffer_callback);
+    co_await streamer.prepare(txn->getResponse()); 
+    co_await streamer.stream(txn->getSocket());
+    
     co_return; 
 }
 

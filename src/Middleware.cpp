@@ -14,6 +14,7 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     }
     catch (const http::HTTPException& http_error) {
         DEBUG("MW Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
+        std::cout << "ERROR MESSAGE: " << http_error.what() << "\n";
         txn->response = std::move(*http_error.getResponse());
         error_handler = http::Router::getInstance()->getErrorPage(txn->response.getStatus())->handler;
     }

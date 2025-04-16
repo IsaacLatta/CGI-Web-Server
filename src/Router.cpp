@@ -73,7 +73,6 @@ const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
 const http::ErrorPage* Router::getErrorPage(http::code status) const {
     auto it = error_pages.find(status);
     if(it == error_pages.end()) {
-        std::cout << "returning default error page\n";
         return &DEFAULT_ERROR_PAGE;
     }
     return &it->second;
@@ -95,6 +94,7 @@ void Router::addErrorPage(ErrorPage&& error_page, std::string&& file) {
         } 
         
         co_await DEFAULT_ERROR_PAGE.handler(txn); // if sending the error page fails, simply send the original error
+        co_return;
     };
     error_pages[error_page.status] = std::move(error_page);
 }

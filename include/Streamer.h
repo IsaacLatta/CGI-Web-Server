@@ -2,10 +2,15 @@
 #define STREAMER_H
 
 #include <asio/awaitable.hpp>
+#include <functional>
+#include <spawn.h>
+#include <sys/wait.h>
+
 #include "http.h"
 #include "logger_macros.h"
 #include "Transaction.h"
 #include "Socket.h"
+
 
 class Streamer
 {
@@ -43,6 +48,31 @@ class FileStreamer: public Streamer
     std::string file_path;
     long file_len;
     int filefd;
+};
+
+class ScriptStreamer: public Streamer
+{
+    public:
+    ScriptStreamer(const std::string& script_path, const std::string& stdin_data, 
+    std::function<void(const char*, std::size_t)> first_read_callback = nullptr) 
+    : script_path(script_path), stdin_data(stdin_data), first_read_callback(first_read_callback) {} 
+    ~ScriptStreamer();
+
+
+    asio::awaitable<void> prepare(http::Response*) override;
+    asio::awaitable<void> stream(Socket* sock) override;
+
+    private:
+    void spawnProcess();
+
+    private:
+    const std::string& script_path;
+    const std::string& stdin_data;
+    std::function<void(const char*, std::size_t)> first_read_callback;
+    int stdin_pipe[2];
+    int stdout_pipe[2];
+    int status;
+    pid_t pid;
 };
 
 #endif
