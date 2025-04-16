@@ -67,11 +67,6 @@ class PostHandler: public MethodHandler
     asio::awaitable<void> handle() override;
 
     private:
-    asio::awaitable<void> readResponse(asio::posix::stream_descriptor& reader);
-    asio::posix::stream_descriptor runScript(int* pid, int* status);
-    bool runProcess(int* stdin_pipe, int* stdout_pipe, pid_t* pid, int* status);
-
-    private:
     long total_bytes;
     std::string response_header;
 };
