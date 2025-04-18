@@ -47,6 +47,23 @@ Router::Router() {
     };
 }
 
+http::arg_type http::arg_str_to_enum(const std::string& args_str) noexcept {
+    std::string_view args = args_str;
+    std::string args_upper = http::trim_to_upper(args);
+    if(args_upper == "JSON") {
+        return http::arg_type::Body_JSON;
+    } else if (args_upper == "QUERY") {
+        return http::arg_type::Query_String;
+    } else if (args_upper == "URL") {
+        return http::arg_type::Body_URL;
+    } else if(args_upper == "*" || args_upper == "ANY") {
+        return http::arg_type::Any;
+    } else if(args_upper == "BODY") {
+        return http::arg_type::Body_Any;
+    }
+    return http::arg_type::None;
+}
+
 const Router* Router::getInstance() {
     return &Router::INSTANCE;
 }
@@ -82,7 +99,7 @@ void Router::addErrorPage(ErrorPage&& error_page, std::string&& file) {
     error_page.handler = [file_path = std::move(file), status = error_page.status](Transaction* txn) -> asio::awaitable<void> {
         try {
             FileStreamer f_stream(file_path);
-            co_await f_stream.prepare(txn->getResponse());
+            txn->getResponse()->addHeader("Content-Length", std::to_string(f_stream.getFileSize()));
             std::string response = txn->getResponse()->build();
             StringStreamer s_stream(&response);
             co_await s_stream.stream(txn->getSocket());
@@ -152,6 +169,14 @@ bool http::Endpoint::isMethodProtected(method m) const {
         return false; // shouldnt reach, should maybe throw an http::exception (Method_Not_Allowed)
     }
     return it->second.is_protected; // corrected to return is_protected
+}
+
+arg_type http::Endpoint::getArgType(http::method m) const {
+    auto it = methods.find(m);
+    if(it == methods.end()) {
+        return arg_type::None; 
+    }
+    return it->second.args;
 }
 
 bool http::Endpoint::isMethodAuthenticator(method m) const {

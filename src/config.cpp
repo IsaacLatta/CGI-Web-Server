@@ -23,7 +23,8 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     "\n\tAuthRole: " << method.auth_role << 
     "\n\tIsProtected: " << method.is_protected << 
     "\n\tIsAuthenticator: " << method.is_authenticator << 
-    "\n\tScript: " << method.script << "\n"; 
+    "\n\tScript: " << method.script << 
+    "\n\tArgs: " << static_cast<int>(method.args) << "\n"; 
 }
 
 void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path) {
@@ -64,7 +65,8 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
             method.access_role = VIEWER_ROLE_HASH;
         }
         method.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
-                    
+        method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
+
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
                 print_endpoint(method, endpoint_url);
                 router->updateEndpoint(endpoint_url, std::move(method));

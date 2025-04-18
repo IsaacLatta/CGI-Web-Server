@@ -22,6 +22,11 @@ class Transaction;
 
 namespace http {
 
+    enum class arg_type {
+        None, Any, Body_Any, Body_JSON, Body_URL, Query_String
+    };
+    arg_type arg_str_to_enum(const std::string& args_str) noexcept;
+
     using Handler = std::function<asio::awaitable<void>(Transaction*)>;
 
     struct ErrorPage {
@@ -36,6 +41,7 @@ namespace http {
         bool is_protected{false};
         bool is_authenticator{false};
         std::string script{""};
+        http::arg_type args{arg_type::None};
         Handler handler;
     };
 
@@ -47,6 +53,7 @@ namespace http {
         // method getAuthMethod() const; // need to think about the possibility here of multiple auth methods on the same endpoint
         std::string getAccessRole(method m) const;
         std::string getScript(method m) const;
+        arg_type getArgType(method m) const;
         Handler getHandler(method m) const;
         std::vector<method> getMethods() const;
         void addMethod(EndpointMethod&& method);

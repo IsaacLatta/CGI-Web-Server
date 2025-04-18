@@ -3,7 +3,7 @@
 static std::string get_methods_str(const std::vector<http::method>& methods) {
     std::string allow_header = "";
     for(auto method : methods) {
-        allow_header += http::method_enum_to_str(method) + ", ";
+        allow_header += std::string(http::method_enum_to_str(method)) + ", ";
     }
     if(!allow_header.empty()) {
         allow_header.erase(allow_header.size() - 2, 2);

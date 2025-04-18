@@ -17,7 +17,6 @@ class Streamer
     public:
     long long getBytesStreamed() {return bytes_streamed;}
     virtual ~Streamer() = default;
-    virtual asio::awaitable<void> prepare(http::Response*) = 0;
     virtual asio::awaitable<void> stream(Socket*) = 0;
 
     protected:
@@ -28,7 +27,6 @@ class StringStreamer: public Streamer
 {
     public:
     StringStreamer(const std::string* payload): payload(payload) {}
-    asio::awaitable<void> prepare(http::Response*) override;
     asio::awaitable<void> stream(Socket*) override;
 
     private:
@@ -38,13 +36,17 @@ class StringStreamer: public Streamer
 class FileStreamer: public Streamer
 {
     public:
-    FileStreamer(const std::string& file_path): file_path(file_path) {}
+    FileStreamer(const std::string& file_path): 
+    buffer(BUFFER_SIZE, 0), file_path(file_path), filefd(-1) {openFile();}
     ~FileStreamer() override;
-    asio::awaitable<void> prepare(http::Response*) override;
+    long getFileSize() {return file_len;}
     asio::awaitable<void> stream(Socket*) override;
 
     private:
-    std::array<char, BUFFER_SIZE> buffer{};
+    void openFile();
+
+    private:
+    std::vector<char> buffer;
     std::string file_path;
     long file_len;
     int filefd;
@@ -54,21 +56,20 @@ class ScriptStreamer: public Streamer
 {
     public:
     ScriptStreamer(const std::string& script_path, const std::string& stdin_data, 
-    std::function<void(const char*, std::size_t)> first_read_callback = nullptr) 
-    : script_path(script_path), stdin_data(stdin_data), first_read_callback(first_read_callback) {} 
+    std::function<void(const char*, std::size_t)> chunk_callback = nullptr) 
+    : script_path(script_path), stdin_data(stdin_data), chunk_callback(chunk_callback) {} 
     ~ScriptStreamer();
 
-
-    asio::awaitable<void> prepare(http::Response*) override;
     asio::awaitable<void> stream(Socket* sock) override;
 
     private:
+    void spawn();
     void spawnProcess();
 
     private:
     const std::string& script_path;
     const std::string& stdin_data;
-    std::function<void(const char*, std::size_t)> first_read_callback;
+    std::function<void(const char*, std::size_t)> chunk_callback;
     int stdin_pipe[2];
     int stdout_pipe[2];
     int status;

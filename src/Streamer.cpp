@@ -1,10 +1,5 @@
 #include "Streamer.h"
 
-asio::awaitable<void> StringStreamer::prepare(http::Response* response) {
-    response->addHeader("Content-Length", std::to_string(payload->length()));
-    co_return;
-}
-
 static asio::awaitable<bool> check_error(const asio::error_code& ec, TransferState& state) {
     if (ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof) {
         throw http::HTTPException(http::code::Client_Closed_Request, "Connection reset by client");
@@ -50,7 +45,7 @@ FileStreamer::~FileStreamer() {
     }
 }
 
-asio::awaitable<void> FileStreamer::prepare(http::Response* response) {
+void FileStreamer::openFile() {
     filefd = open(file_path.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 
@@ -63,11 +58,13 @@ asio::awaitable<void> FileStreamer::prepare(http::Response* response) {
                 std::format("Failed to open endpoint={}, errno={} ({})", file_path, errno, strerror(errno)));
     }
     lseek(filefd, 0, SEEK_SET);
-    response->addHeader("Content-Length", std::to_string(file_len));
-    co_return;
 }
 
 asio::awaitable<void> FileStreamer::stream(Socket* sock) {
+    if(filefd == -1) {
+        openFile();
+    }
+    
     TransferState state{.total_bytes = file_len};
     while (state.bytes_sent < file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - state.bytes_sent));
@@ -136,7 +133,7 @@ void ScriptStreamer::spawnProcess() {
     close(stdout_pipe[1]);
 }
 
-asio::awaitable<void> ScriptStreamer::prepare(http::Response* response) {
+void ScriptStreamer::spawn() {
     if(pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0) {
         throw http::HTTPException(http::code::Internal_Server_Error, 
         std::format("Failed to create pipes for script={}, errno={} ({})", script_path, errno, strerror(errno)));  
@@ -151,29 +148,49 @@ asio::awaitable<void> ScriptStreamer::prepare(http::Response* response) {
         script_path.c_str(), pid, errno, strerror(errno)));
     }
     close(stdin_pipe[1]); // signal eof to child
-
-    co_return;
 }
 
 asio::awaitable<void> ScriptStreamer::stream(Socket* sock) {
+    spawn();
+    
     asio::posix::stream_descriptor reader(sock->getRawSocket().get_executor(), stdout_pipe[0]);
     asio::error_code read_ec;
     std::size_t bytes_read;
     std::vector<char> buffer(BUFFER_SIZE);
-    std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
+    TransferState state;
     
-    if(read_ec && read_ec != asio::error::eof) {
-        throw http::HTTPException(http::code::Internal_Server_Error, 
-        std::format("Failed to read response from subprocess={}, pid={}, asio::error={}, ({})", 
-        script_path, pid, read_ec.value(), read_ec.message()));
-    }
-    buffer.resize(bytes_read);
-    
-    if(first_read_callback) {
-        first_read_callback(buffer.data(), bytes_read);
+    while(true) {
+        std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
+        if(read_ec == asio::error::eof) {
+            break;
+        } 
+        if(read_ec && read_ec != asio::error::eof) {
+            throw http::HTTPException(http::code::Internal_Server_Error, 
+            std::format("Failed to read response from subprocess={}, pid={}, asio::error={}, ({})", 
+            script_path, pid, read_ec.value(), read_ec.message()));
+        }
+        if(chunk_callback) {
+            chunk_callback(buffer.data(), bytes_read);
+            state.bytes_sent += bytes_read;
+            continue;
+        }
+
+        state.retry_count = 1;  
+        std::size_t total_bytes_written = 0;
+        while (total_bytes_written < bytes_read) {
+            auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + total_bytes_written, bytes_read - total_bytes_written);
+
+            if(co_await check_error(ec, state)) {
+                continue;
+            }
+
+            total_bytes_written += bytes_written;
+            state.retry_count = 0;
+        }
+        state.bytes_sent += total_bytes_written;
     }
     waitpid(pid, &status, 0);
-
+    bytes_streamed = state.bytes_sent;
     co_return;
 }
 

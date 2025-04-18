@@ -43,14 +43,15 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
                 http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->getIP()));
     }
 
-    std::string query_str = "";
+    auto router = http::Router::getInstance();
     http::Request request;
-    http::extract_endpoint_and_query_str(*buffer, request.endpoint_url, &query_str);
+    request.endpoint_url = http::extract_resource(*buffer);
+    request.route = router->getEndpoint(request.endpoint_url);
+    request.method = http::extract_method(*buffer);
+    request.args = http::extract_args(*buffer, request.route->getArgType(request.method));
     request.headers = http::extract_headers(*buffer);
     request.body = http::extract_body(*buffer);
-    request.method = http::extract_method(*buffer);
-    request.query_params = http::parse_url_form(query_str);
-    request.route = http::Router::getInstance()->getEndpoint(request.endpoint_url);
+    
     TRACE("MW Parser", "Hit for endpoint: %s", request.endpoint_url.c_str());
 
     txn->setRequest(std::move(request));

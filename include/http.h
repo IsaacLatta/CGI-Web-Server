@@ -13,6 +13,9 @@
 #include <string>
 #include <utility>
 #include <unordered_map>
+#include <span>
+#include <cctype>
+
 #include "json.hpp"
 #include <jwt-cpp/jwt.h>
 
@@ -56,7 +59,7 @@ namespace http
     };
 
     method method_str_to_enum(const std::string& method_str);
-    std::string method_enum_to_str(method m);
+    std::string_view method_enum_to_str(method m);
 
     const std::vector<std::pair<std::string, std::string>> FILE_EXTENSIONS = {
         // HTML, CSS, JS
@@ -82,7 +85,7 @@ namespace http
         {".otf",   "font/otf"}
     };
 
-    std::string get_status_msg(code http_code);
+    std::string_view get_status_msg(code http_code);
     std::string get_time_stamp();
 
     class Response {
@@ -144,12 +147,12 @@ namespace http
     };
 
     struct Request {
-        json query_params;
         http::method method;
+        std::string_view args;
         std::string endpoint_url;
         const http::Endpoint* route{nullptr}; 
         std::unordered_map<std::string, std::string> headers;
-        std::string body;
+        std::string_view body;
 
         void addHeader(std::string key, std::string value) {headers[key] = value;}
 
@@ -164,27 +167,25 @@ namespace http
 
     bool is_success_code(http::code status) noexcept;
 
-    // code extract_method(const std::vector<char>& buffer, std::string& method);
-    method extract_method(const std::vector<char>& buffer);
+    method extract_method(std::span<const char> buffer);
     code extract_token(const std::vector<char>& buffer, std::string& token);
-    code extract_header_field(const std::vector<char>& buffer, std::string field, std::string& result);
-    // code extract_headers(const std::vector<char>& buffer, std::unordered_map<std::string, std::string>& headers);
-    std::unordered_map<std::string, std::string> extract_headers(const std::vector<char>& buffer);
-    code extract_status_code(const std::vector<char>& buffer);
+    std::unordered_map<std::string, std::string> extract_headers(std::span<const char> buffer);
+    code extract_status_code(std::span<const char> buffer) noexcept;
     std::string extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);
 
-    code build_json(const std::vector<char>& buffer, json& json_array);
+    code build_json(std::span<const char> buffer, json& json_array);
     json parse_url_form(const std::string& body);
-    std::string extract_header_line(const std::vector<char>& buffer);
-    std::string extract_body(const std::vector<char>& buffer);
-    // code extract_body(const std::vector<char>& buffer, std::string& body);
-    code find_content_type(const std::vector<char>& buffer, std::string& content_type);
-    // code extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query = nullptr);
-    void extract_endpoint_and_query_str(const std::vector<char>& buffer, std::string& resource, std::string* query = nullptr);
+    std::string_view extract_header_line(std::span<const char> buffer);
+    std::string_view extract_body(std::span<const char> buffer);
+    code find_content_type(std::span<const char> buffer, std::string& content_type) noexcept;
+    std::string_view get_request_target(std::span<const char> buffer);
+    std::string extract_resource(std::span<const char> buffer);
+    std::string_view extract_query_string(std::span<const char> buffer);
     code determine_content_type(const std::string& resource, std::string& content_type);
+    std::string_view extract_args(std::span<const char> buffer, http::arg_type arg);
 };
 
 #endif
