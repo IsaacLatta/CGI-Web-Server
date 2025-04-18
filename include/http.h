@@ -104,6 +104,12 @@ namespace http
             status_msg = http::get_status_msg(status);
         }
 
+        void addHeaders(const std::unordered_map<std::string, std::string>& headers) {
+            for (auto& [k,v] : headers) {
+                this->headers[k] = v;
+            }
+        }
+
         void addHeader(std::string key, const std::string& val) {
             headers[key] = val;
         }

@@ -12,6 +12,8 @@ static http::ErrorPage DEFAULT_ERROR_PAGE;
 Router Router::INSTANCE;
 
 Router::Router() {
+    // DEFAULT_ENDPOINT.setEndpointURL("/");
+
     DEFAULT_ENDPOINT.addMethod({
     .m = http::method::Get,
     .access_role = VIEWER_ROLE_HASH,
@@ -74,9 +76,6 @@ static bool file_exists(const std::string& path) {
 }
 
 const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
-    // This function opens up caching possibilities here too, frequent requests 
-    // for routes could be cached by swaping in a new lambda handler that caches
-    // the response of the existing one
     auto it = endpoints.find(endpoint);
     if(it == endpoints.end()) {
         if (file_exists("public/" + endpoint)) {
@@ -159,6 +158,10 @@ void http::Router::updateEndpoint(const std::string& endpoint_url, EndpointMetho
 
 http::Endpoint::Endpoint() {}
 
+void http::Endpoint::setEndpointURL(const std::string& url) {
+    endpoint = url;
+}
+
 void http::Endpoint::addMethod(EndpointMethod&& method) {
     methods[method.m] = std::move(method);
 }
@@ -166,7 +169,8 @@ void http::Endpoint::addMethod(EndpointMethod&& method) {
 bool http::Endpoint::isMethodProtected(method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return false; // shouldnt reach, should maybe throw an http::exception (Method_Not_Allowed)
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve protection status: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
     return it->second.is_protected; // corrected to return is_protected
 }
@@ -174,15 +178,26 @@ bool http::Endpoint::isMethodProtected(method m) const {
 arg_type http::Endpoint::getArgType(http::method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return arg_type::None; 
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve argument type: {} {} does not exist", method_enum_to_str(m), endpoint));  
     }
     return it->second.args;
+}
+
+std::string http::Endpoint::getAuthRole(method m) const {
+    auto it = methods.find(m);
+    if(it == methods.end()) {
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve auth role: {} {} does not exist", method_enum_to_str(m), endpoint)); 
+    }
+    return it->second.auth_role;
 }
 
 bool http::Endpoint::isMethodAuthenticator(method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return false; // shouldnt reach, should maybe throw an http::exception (Method_Not_Allowed)
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve authenticator status: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
     return it->second.is_authenticator;
 }
@@ -190,7 +205,8 @@ bool http::Endpoint::isMethodAuthenticator(method m) const {
 std::string http::Endpoint::getScript(method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return ""; // shouldnt reach, should maybe throw an http::exception (Method_Not_Allowed)
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve script: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
     return it->second.script;
 }
@@ -198,7 +214,8 @@ std::string http::Endpoint::getScript(method m) const {
 std::string http::Endpoint::getAccessRole(http::method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
-        return ""; // could swap in the default role here, maybe warn too
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve access role: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
     return it->second.access_role;
 }
@@ -208,7 +225,7 @@ http::Handler http::Endpoint::getHandler(http::method m) const {
     if(it == methods.end()) {
         if(m != http::method::Get && m != http::method::Head) {
             throw http::HTTPException(http::code::Method_Not_Allowed, 
-            std::format("{} {} does not exist", http::method_enum_to_str(m), endpoint));
+            std::format("failed to retrieve handler {} {} does not exist", http::method_enum_to_str(m), endpoint));
         } 
         return assign_handler(m); 
     }

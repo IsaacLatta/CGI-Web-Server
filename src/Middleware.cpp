@@ -14,7 +14,6 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     }
     catch (const http::HTTPException& http_error) {
         DEBUG("MW Error Handler", "status=%d %s", static_cast<int>(http_error.getResponse()->getStatus()), http_error.what());
-        std::cout << "ERROR MESSAGE: " << http_error.what() << "\n";
         txn->response = std::move(*http_error.getResponse());
         error_handler = http::Router::getInstance()->getErrorPage(txn->response.getStatus())->handler;
     }
@@ -84,7 +83,7 @@ void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) 
 
     std::string cookie, token;
     if ((cookie = request->getHeader("Cookie")).empty() || (token = http::extract_jwt_from_cookie(cookie)).empty()) {
-        throw http::HTTPException(http::code::Unauthorized, "Missing or invalid authentication token");
+        throw http::HTTPException(http::code::Unauthorized, "missing or invalid authentication token");
     }
 
     try {
@@ -93,42 +92,40 @@ void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) 
         verifier.verify(decoded_token);
 
         if(decoded_token.has_expires_at() && std::chrono::system_clock::now() > decoded_token.get_expires_at()) {
-            throw http::HTTPException(http::code::Unauthorized, "Expired token");
+            throw http::HTTPException(http::code::Unauthorized, "expired token");
         }
 
         auto role_claim = decoded_token.get_payload_claim("role");
         const cfg::Role* role;
         if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->getAccessRole(request->method)))) {
-            throw http::HTTPException(http::code::Unauthorized, "Insufficient permissions");
+            throw http::HTTPException(http::code::Unauthorized, "insufficient permissions");
         }
     } catch (const std::exception& error) {
         throw http::HTTPException(http::code::Unauthorized, 
-        std::format("[client {}] Invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
+        std::format("[client {}] invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
     }
 }
 
 asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
-   
-    if(!request->route || !request->route->isMethodProtected(request->method)) {
-        co_await next();
-        co_return;
-    }
-
+ 
     validate(txn, request->route);
     co_await next();
     auto response = txn->getResponse();
     
-    if(request->route->isMethodAuthenticator(request->method)) { 
-        if(!http::is_success_code(response->status)) {
-            throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
-        }
-        
-        auto token_builder = jwt::create();
-        std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
-                            .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->getAccessRole(request->method)))).sign(jwt::algorithm::hs256{config->getSecret()});
-        response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
+    if(!request->route->isMethodAuthenticator(request->method)) { 
+        co_return;
     }
+
+    if(!http::is_success_code(response->status)) {
+        throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
+    }
+    
+    auto token_builder = jwt::create();
+    std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
+                        .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->getAuthRole(request->method)))).sign(jwt::algorithm::hs256{config->getSecret()});
+    response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
+    co_return;
 }
  

@@ -50,14 +50,14 @@ namespace http {
         Endpoint();
         bool isMethodProtected(method m) const;
         bool isMethodAuthenticator(method m) const;
-        // method getAuthMethod() const; // need to think about the possibility here of multiple auth methods on the same endpoint
+        std::string getAuthRole(method m) const;
         std::string getAccessRole(method m) const;
         std::string getScript(method m) const;
         arg_type getArgType(method m) const;
         Handler getHandler(method m) const;
         std::vector<method> getMethods() const;
         void addMethod(EndpointMethod&& method);
-
+        void setEndpointURL(const std::string& url);
 
         private:
         std::unordered_map<method, EndpointMethod> methods;

@@ -20,7 +20,8 @@ asio::awaitable<void> PostHandler::handle() {
         }
 
         response->body = http::extract_body(buffer);
-        response->headers = http::extract_headers(buffer);
+        auto headers = http::extract_headers(buffer);
+        response->addHeaders(headers);
         response->addHeader("Connection", "close");
         std::string response_str = response->build();
         sock->write(response_str.data(), response_str.length());

@@ -452,7 +452,7 @@ static std::string_view get_args(std::span<const char> buffer, const std::string
     std::string_view body = http::extract_body(buffer);
     std::string result = "";
     if(!extract_header_field(buffer, field, result) || result != desired || !filter(body)) {
-        throw http::HTTPException(http::code::Bad_Request, std::format("invalid content type, expected {}, header claimed {}", desired, result));
+        throw http::HTTPException(http::code::Bad_Request, std::format("invalid content type, expected={}, client claimed={}", desired, result));
     }
     return body;
 }

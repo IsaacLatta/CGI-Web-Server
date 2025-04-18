@@ -54,7 +54,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         method.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
         method.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(method.is_protected) {
-            method.access_role = route_el->Attribute("role") ? route_el->Attribute("role") : "";
+            method.access_role = route_el->Attribute("access_role") ? route_el->Attribute("access_role") : "";
             if (method.access_role.empty()) {
                 WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to ADMIN", 
                     method_str.c_str(), endpoint_url.c_str());
@@ -64,8 +64,17 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         else {
             method.access_role = VIEWER_ROLE_HASH;
         }
+
         method.is_authenticator = route_el->Attribute("authenticator") && std::string(route_el->Attribute("authenticator")) == "true";
+        if(method.is_authenticator) {
+            method.auth_role = route_el->Attribute("auth_role") ? route_el->Attribute("auth_role") : "";
+            if(method.auth_role.empty()) {
+                WARN("Server", "route [%s %s] is missing auth role, defaulting to lowest priveledge VIEWER", method_str.c_str(), endpoint_url.c_str());
+                method.auth_role = cfg::VIEWER_ROLE_HASH;
+            }
+        }
         method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
+
 
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
                 print_endpoint(method, endpoint_url);
