@@ -61,9 +61,7 @@ asio::awaitable<void> GetHandler::handle() {
     
     auto route = request->route;
     std::string script =  route->getScript(request->method);
-    std::cout << "SCRIPT" << script << "\n";
     if(!script.empty()) {
-        std::cout << "SCRIPT DETECTED\n";
         co_await handleScript();
         co_return;
     } 

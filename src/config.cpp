@@ -103,7 +103,6 @@ void display_role(cfg::Role* role) {
     std::cout << "\n";
 }
 
-// TODO: update parsing to account for new access role config params
 void Config::loadRoles(tinyxml2::XMLDocument* doc) {
     roles[ADMIN_ROLE_HASH] = ADMIN;
     roles[USER_ROLE_HASH] = USER;
@@ -280,6 +279,36 @@ void Config::loadErrorPages(tinyxml2::XMLDocument* doc) {
     }
 }
 
+void Config::loadThreads(tinyxml2::XMLDocument* doc) {
+    std::size_t fallback = 4;
+    auto* threads_el = doc->FirstChildElement("ServerConfig")->FirstChildElement("Threads");
+    if(!threads_el) {
+        thread_count = std::thread::hardware_concurrency();
+        if (thread_count == 0) {
+            WARN("Server", "unable to detect CPU cores, defaulting to %zu", fallback);
+            thread_count = fallback;
+        }
+        DEBUG("Server", "allocating %zu threads", thread_count);
+        return;
+    }
+    
+    const char* txt = threads_el->GetText();
+    if (txt && *txt) {
+        std::size_t tmp = 0;
+        auto [ptr, ec] = std::from_chars(txt, txt + std::strlen(txt), tmp);
+        if (ec == std::errc() && tmp > 0) {
+            thread_count = tmp;
+        } else {
+            WARN("Server", "invalid threads '%s', defaulting to %zu", txt, fallback);
+            thread_count = fallback;
+        }
+    } else {
+        WARN("Server", "threads element empty, defaulting to %zu", fallback);
+        thread_count = fallback;
+    }
+    DEBUG("Server", "allocating %zu threads", thread_count);
+}
+
 static std::string resolve_log_path(const std::string& path) {
     std::string log_dir = "log";
     char resolved[PATH_MAX];
@@ -314,7 +343,7 @@ void Config::initialize(const std::string& config_path) {
         FATAL("Server", "loading configuration failed: no web directory to serve from");
     }
 
-    TRACE("Server", "Web Directory found: %s", content_path.c_str());
+    DEBUG("Server", "Web Directory found: %s", content_path.c_str());
 
     if(chdir(content_path.c_str()) < 0) {
         FATAL("Server", "failed to chdir to web directory(%s): [error=%d %s]", content_path.c_str(), errno, strerror(errno));
@@ -344,6 +373,7 @@ void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLElement* host_port = doc.FirstChildElement("ServerConfig")->FirstChildElement("Port");
     port = host_port ? std::stoi(host_port->GetText()) : 80;
 
+    loadThreads(&doc);
     loadErrorPages(&doc);
     loadRoles(&doc);
     loadSSL(&doc);

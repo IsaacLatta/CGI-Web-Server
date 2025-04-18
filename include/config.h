@@ -59,6 +59,7 @@ class Config
     const SSLConfig* getSSL() const {return &ssl;}
     std::string getHostIP() const {return host_address;}
     int getPort() const {return port;}
+    std::size_t getThreadCount() const {return thread_count;}
 
     private:
     Config();
@@ -73,9 +74,11 @@ class Config
     void loadJWTSecret(tinyxml2::XMLDocument* doc);
     void loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem);
     void generateJWTSecret(tinyxml2::XMLElement* secret_elem);
+    void loadThreads(tinyxml2::XMLDocument* doc);
     void loadErrorPages(tinyxml2::XMLDocument* doc);
 
     private:
+    std::size_t thread_count{0};
     static Config INSTANCE;
     static std::once_flag initFlag;
     
