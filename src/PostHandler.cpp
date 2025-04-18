@@ -3,10 +3,15 @@
 
 asio::awaitable<void> PostHandler::handle() {
     if(request->route == nullptr) {
-        throw http::HTTPException(http::code::Method_Not_Allowed, std::format("No POST route found for endpoint: {}", request->endpoint_url));
+        throw http::HTTPException(http::code::Service_Unavailable, 
+        std::format("No POST route found for endpoint={}", request->endpoint_url));
     }
 
-    auto chunk_callback = [response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len){
+    bool first_read = true;
+    auto chunk_callback = [first_read, response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len){
+        if(!first_read) {
+            return;
+        }
         std::span<const char> buffer(buf, len);
         response->status_msg = http::extract_header_line(buffer);
         if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || response->status == http::code::Not_A_Status) {

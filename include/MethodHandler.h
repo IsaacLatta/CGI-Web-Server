@@ -44,6 +44,10 @@ class GetHandler: public MethodHandler
     GetHandler(Transaction* txn): MethodHandler(txn) {};
     
     asio::awaitable<void> handle() override;
+
+    private:
+    asio::awaitable<void> handleScript();
+    asio::awaitable<void> handleFile();
 };
 
 class HeadHandler: public MethodHandler

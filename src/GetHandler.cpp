@@ -2,21 +2,36 @@
 #include "Session.h"
 #include "Streamer.h"
 
-asio::awaitable<void> GetHandler::handle() {    
-    if(!request->route || !request->route->isMethodProtected(request->method)) {
+asio::awaitable<void> GetHandler::handleScript() {
+    bool first_read = true;
+    auto chunk_callback = [first_read, response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len){
+        if(!first_read) {
+            return;
+        }
+        std::span<const char> buffer(buf, len);
+        response->status_msg = http::extract_header_line(buffer);
+        if((response->status = http::extract_status_code(buffer)) == http::code::Bad_Request || response->status == http::code::Not_A_Status) {
+            throw http::HTTPException(http::code::Bad_Gateway, 
+            std::format("Failed to parse response from script"));
+        }
+
+        response->body = http::extract_body(buffer);
+        response->headers = http::extract_headers(buffer);
+        response->addHeader("Connection", "close");
+        std::string response_str = response->build();
+        sock->write(response_str.data(), response_str.length());
+    };
+
+    std::string script = request->route->getScript(request->method);
+    std::string args(request->args);
+    ScriptStreamer streamer(script, args, chunk_callback);
+    co_await streamer.stream(txn->getSocket());
+}
+
+asio::awaitable<void> GetHandler::handleFile() {
+    if(!request->route->isMethodProtected(request->method)) {
         request->endpoint_url = "public/" + request->endpoint_url;
     }
-    
-    auto route = request->route;
-    std::string script =  route->getScript(request->method);
-    std::cout << "SCRIPT" << script << "\n";
-    if(!script.empty()) {
-        // handle the script
-        std::cout << "SCRIPT DETECTED\n";
-
-        co_return;
-    }
-
 
     std::string content_type;
     if(http::determine_content_type(request->endpoint_url, content_type) != http::code::OK) {
@@ -36,4 +51,22 @@ asio::awaitable<void> GetHandler::handle() {
     co_await f_stream.stream(txn->getSocket());
     txn->addBytes(f_stream.getBytesStreamed() + s_stream.getBytesStreamed());
     co_return;
+}
+
+asio::awaitable<void> GetHandler::handle() {    
+    if(!request->route) {
+        throw http::HTTPException(http::code::Service_Unavailable, 
+        std::format("No GET route found for endpoint={}", request->endpoint_url));
+    }
+    
+    auto route = request->route;
+    std::string script =  route->getScript(request->method);
+    std::cout << "SCRIPT" << script << "\n";
+    if(!script.empty()) {
+        std::cout << "SCRIPT DETECTED\n";
+        co_await handleScript();
+        co_return;
+    } 
+    co_await handleFile();
+    co_return;    
 }
