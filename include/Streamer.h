@@ -56,7 +56,7 @@ class ScriptStreamer: public Streamer
 {
     public:
     ScriptStreamer(const std::string& script_path, const std::string& stdin_data, 
-    std::function<void(const char*, std::size_t)> chunk_callback = nullptr) 
+    std::function<asio::awaitable<void>(const char*, std::size_t)> chunk_callback = nullptr) 
     : script_path(script_path), stdin_data(stdin_data), chunk_callback(chunk_callback) {} 
     ~ScriptStreamer();
 
@@ -69,7 +69,7 @@ class ScriptStreamer: public Streamer
     private:
     const std::string& script_path;
     const std::string& stdin_data;
-    std::function<void(const char*, std::size_t)> chunk_callback;
+    std::function<asio::awaitable<void>(const char*, std::size_t)> chunk_callback;
     int stdin_pipe[2];
     int stdout_pipe[2];
     int status;

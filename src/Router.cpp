@@ -44,7 +44,10 @@ Router::Router() {
 
     DEFAULT_ERROR_PAGE.handler = [](Transaction* txn) -> asio::awaitable<void> {
         std::string response = txn->response.build();
-        txn->sock->write(response.data(), response.length());
+        auto result = co_await http::io::co_write_all(txn->getSocket(), std::span<const char>(response.data(), response.length()));
+        if(!http::is_success_code(result.status)) {
+            DEBUG("MW Error Handler", "failed to execute default error handler: status=%d, message=%s", static_cast<int>(result.status), result.message.c_str());
+        }
         co_return;
     };
 }

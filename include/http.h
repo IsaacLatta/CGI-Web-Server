@@ -1,6 +1,5 @@
-    #ifndef HTTP_H
+#ifndef HTTP_H
 #define HTTP_H
-
 
 #include <string>
 #include <vector>
@@ -15,12 +14,16 @@
 #include <unordered_map>
 #include <span>
 #include <cctype>
+#include <chrono>
+#include <random>
 
 #include "json.hpp"
 #include <jwt-cpp/jwt.h>
 
 #include "config.h"
 #include "Router.h"
+// #include "Transaction.h"
+#include "Socket.h"
 
 namespace http
 {
@@ -41,11 +44,14 @@ namespace http
         Forbidden = 403,
         Not_Found = 404,
         Method_Not_Allowed = 405,
+        Too_Many_Requests = 429,
         Client_Closed_Request = 499,
         Internal_Server_Error = 500,
         Not_Implemented = 501,
         Bad_Gateway = 502,
-        Service_Unavailable = 503 
+        Service_Unavailable = 503,
+        Gateway_Timeout = 504,
+        Insufficient_Storage = 507
     };
 
     code code_str_to_enum(const char* code_str);
@@ -192,6 +198,49 @@ namespace http
     std::string_view extract_query_string(std::span<const char> buffer);
     code determine_content_type(const std::string& resource, std::string& content_type);
     std::string_view extract_args(std::span<const char> buffer, http::arg_type arg);
+
+    namespace io {
+        struct WriteStatus {
+            http::code status{code::OK};
+            std::string message{"Success"};
+            std::size_t bytes{0};
+        };        
+
+        asio::awaitable<WriteStatus> co_write_all(Socket* sock, std::span<const char> buffer) noexcept;
+        std::chrono::milliseconds select_backoff(const asio::error_code& ec, int retry) noexcept; 
+        asio::awaitable<void> backoff(const asio::error_code& ec, int retry) noexcept;
+        
+        inline bool is_client_disconnect(const asio::error_code& ec) noexcept {
+            return ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof;
+        }
+
+        inline bool is_permanent_failure(const asio::error_code& ec) noexcept {
+            return ec == asio::error::bad_descriptor || ec == asio::error::address_in_use;
+        }
+
+        inline bool is_retryable(const asio::error_code& ec) noexcept {
+            return ec == asio::error::would_block || ec == asio::error::try_again || ec == asio::error::network_unreachable
+                || ec == asio::error::host_unreachable || ec == asio::error::connection_refused || ec == asio::error::timed_out
+                || ec == asio::error::no_buffer_space;
+        }
+
+        inline http::code error_to_status(const asio::error_code& ec) noexcept {
+            if (!ec) {
+                return http::code::OK;
+            } else if (is_client_disconnect(ec)) {
+                return http::code::Client_Closed_Request;
+            } else if (ec == asio::error::access_denied) {
+                return http::code::Forbidden;
+            } else if (is_permanent_failure(ec)) {
+                return http::code::Internal_Server_Error;
+            } else if (ec == asio::error::no_buffer_space) {
+                return http::code::Insufficient_Storage;
+            } else if (ec == asio::error::timed_out) {
+                return http::code::Gateway_Timeout;
+            }
+            return http::code::Service_Unavailable;
+        }
+    };
 };
 
 #endif

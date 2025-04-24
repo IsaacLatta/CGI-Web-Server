@@ -8,9 +8,9 @@ asio::awaitable<void> PostHandler::handle() {
     }
 
     bool first_read = true;
-    auto chunk_callback = [first_read, response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len){
+    auto chunk_callback = [first_read, response = txn->getResponse(), sock = txn->getSocket()] (const char* buf, std::size_t len) -> asio::awaitable<void> {
         if(!first_read) {
-            return;
+            co_return;
         }
         std::span<const char> buffer(buf, len);
         response->status_msg = http::extract_header_line(buffer);
@@ -24,14 +24,20 @@ asio::awaitable<void> PostHandler::handle() {
         response->addHeaders(headers);
         response->addHeader("Connection", "close");
         std::string response_str = response->build();
-        sock->write(response_str.data(), response_str.length());
+
+        std::span<const char> header_buf(response_str.data(), response_str.length());
+        http::io::WriteStatus result = co_await http::io::co_write_all(sock, header_buf);
+        if(!http::is_success_code(result.status)) {
+            throw http::HTTPException(result.status, std::move(result.message));
+        }
+        co_return;
     };
 
     std::string script = request->route->getScript(request->method);
     std::string args(request->args);
     ScriptStreamer streamer(script, args, chunk_callback);
     co_await streamer.stream(txn->getSocket());
-    
+    txn->addBytes(streamer.getBytesStreamed());
     co_return; 
 }
 

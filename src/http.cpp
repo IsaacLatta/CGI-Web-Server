@@ -475,3 +475,66 @@ std::string_view http::extract_args(std::span<const char> buffer, http::arg_type
             throw http::HTTPException(http::code::Internal_Server_Error, "unkown arg type");
     }
 }
+
+
+asio::awaitable<http::io::WriteStatus> http::io::co_write_all(Socket* sock, std::span<const char> buffer) noexcept {
+    TransferState state;
+    state.bytes_sent = 0;
+    state.total_bytes = buffer.size();
+    while(state.bytes_sent < state.total_bytes) {
+        auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + state.bytes_sent, state.total_bytes - state.bytes_sent);
+        
+        if(http::io::is_permanent_failure(ec) || state.retry_count > TransferState::MAX_RETRIES) {
+            co_return http::io::WriteStatus{http::io::error_to_status(ec), 
+            std::format("error={} ({})", ec.value(), ec.message()), static_cast<std::size_t>(state.bytes_sent)};
+        }
+
+        if(http::io::is_retryable(ec)) {
+            co_await http::io::backoff(ec, state.retry_count);
+            state.retry_count++;
+        }
+
+        state.bytes_sent += bytes_written;
+    }
+    if(state.bytes_sent != state.total_bytes) {
+        co_return http::io::WriteStatus{http::code::Internal_Server_Error, 
+                std::format("incomplete send, sent %zd/%zd bytes", state.bytes_sent, state.total_bytes), static_cast<std::size_t>(state.bytes_sent)};
+    }
+    co_return http::io::WriteStatus{http::code::OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
+}
+
+std::chrono::milliseconds http::io::select_backoff(const asio::error_code& ec, int attempt) noexcept {
+    if(!ec || http::io::is_client_disconnect(ec) || http::io::is_permanent_failure(ec)) {
+        return std::chrono::milliseconds{0}; 
+    }
+
+    if(ec == asio::error::no_buffer_space) {
+        return std::chrono::milliseconds{1000}*attempt;
+    }
+
+    constexpr int MAX_ATTEMPTS = 6;
+    constexpr auto BASE_DELAY_MS = std::chrono::milliseconds{50};
+    constexpr auto MAX_DELAY_MS = std::chrono::milliseconds{2000};
+    static thread_local std::mt19937_64 rng(std::random_device{}());
+
+    auto exp_delay = BASE_DELAY_MS * (1 << std::min(attempt, MAX_ATTEMPTS)); // multiply by 2^attempt
+    if(exp_delay > MAX_DELAY_MS) {
+        exp_delay = MAX_DELAY_MS;
+    }
+    auto jitter_range = exp_delay.count() / 10; // 10% of the ticks for the delay
+    std::uniform_int_distribution<int64_t> dist(-jitter_range, jitter_range);
+    return exp_delay + std::chrono::milliseconds{dist(rng)};
+}
+
+asio::awaitable<void> http::io::backoff(const asio::error_code& ec, int attempt) noexcept {
+    auto delay = http::io::select_backoff(ec, attempt);
+    if(delay.count() <= 0) {
+        co_return;
+    }
+
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    timer.expires_after(delay);
+    co_await timer.async_wait(asio::use_awaitable);
+    co_return;
+}
+
