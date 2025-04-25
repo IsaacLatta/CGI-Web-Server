@@ -44,6 +44,7 @@ namespace http
         Forbidden = 403,
         Not_Found = 404,
         Method_Not_Allowed = 405,
+        Unsupported_Media_Type = 415,
         Too_Many_Requests = 429,
         Client_Closed_Request = 499,
         Internal_Server_Error = 500,

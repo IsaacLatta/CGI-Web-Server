@@ -11,7 +11,7 @@ Visit my personal website:  [lattadata.com](https://lattadata.com)
 
 ## Features
 
-- **GET/HEAD and POST Methods**: Supports retrieval of static resources and execution of server-side scripts.
+- **GET, HEAD, POST, and OPTIONS Methods**: Supports retrieval of static resources and execution of server-side scripts.
 - **Middleware Pipeline**: Modular middleware processing for tasks such as logging, error handling, authentication, and request parsing.
 - **Dynamic Content Execution**: Executes scripts in response to POST requests using POSIX system calls.
 - **SSL Support**: Optional HTTPS support using OpenSSL.
@@ -68,6 +68,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - Roles: Specifies user roles and permissions.
     - SSL: Configures SSL settings, including certificate and key paths.
     - JWT: Configures the JWT setting used for generating secrets.
+    - ErrorPages: Allows serving of predefined error pages for various error codes.
 
 - Example xml configuration: 
    ```xml
@@ -75,6 +76,9 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
    <ServerConfig>
     <!-- Specifies the directory containing static web files -->
     <WebDirectory>/var/www/html</WebDirectory>
+
+    <!-- Specifies the number of threads the server will allocate -->
+    <Threads>32</Threads>
 
     <!-- Optional directory where logs will be stored, will default to a log folder within the WebDirectory if none specified -->
     <LogDirectory>/etc/MyWebServer/log</LogDirectory>
@@ -109,18 +113,42 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <!-- Route definitions -->
     <Routes>
         <!-- POST route for admin login, creates admin cookie -->
-        <Route method="POST" endpoint="/login" script="scripts/login.py" role="admin"/>
-        <!-- GET route with protection -->
-        <Route method="GET" endpoint="/admin" protected="true" role="admin"/>
+        <Route method="POST" endpoint="/login" script="scripts/login.py" auth_role="admin" authenticator="true" args="json"/>
+        <!-- GET route with protection, server forwards no arguments, requires admin privilege to access -->
+        <Route method="GET" endpoint="/admin" script="scripts/admin.php" args="none" protected="true" access_role="admin"/>
+        <!-- GET route with protection, server will forward a query string from the client, requires admin privilege to access -->
+        <Route method="GET" endpoint="/health" script="scripts/health.py" args="query" protected="true" access_role="admin"/>
+        <!-- GET route with protection, server will forward a url form in the request body, requires admin privilege to access -->
+        <Route method="GET" endpoint="/status" script="scripts/status.php" args="url" protected="true" access_role="admin"/>
+        <!-- POST route with protection, server will forward json in the request body, requires admin privilege to access, will provide a JWT with the role set to owner -->
+        <Route method="POST" endpoint="/protected_login" script="scripts/protected_login.py" args="json" protected="true" access_role="admin" authenticator="true" auth_role="owner"/>
     </Routes>
+
+    <!-- ErrorPage definitions -->
+    <ErrorPages>
+        <!-- Serve 404.html on status 404 -->
+	    <ErrorPage code="404" file="error_pages/404.html" />
+	    <!-- Serve 500.html on status 500 -->
+        <ErrorPage code="500" file="error_pages/500.html" />
+    </ErrorPages>
+
+    <JWT>
+        <!-- Disabled JWT generation -->
+    	<GenerateSecret enable="false">
+		    <Length>128</Length> 
+	    </GenerateSecret>
+        <!-- Load the JWT secret from a file -->
+	    <SecretFile>/path/to/jwt_secret.txt</SecretFile>
+    </JWT>
+
 </ServerConfig>
 
 ### Role Permissions
 
 - Roles can be defined in the configuration file.
 - The server uses a hierarchical role system.
-    - Roles may include other roles to inherit priveledges.
-- The server uses the Set-Cookie header with jwt's to handle priveledges.
+    - Roles may include other roles to inherit privileges.
+- The server uses the Set-Cookie header with jwt's to handle privileges.
 - The role name is added the jwt body, the client can then authenticate via the "Cookie" header with the jwt set. The server then checks the jwt's role against that of the requested endpoint/resource
 
 - The server includes the following default roles:
@@ -137,12 +165,24 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
         - Generates a Cookie for the client based on the "role" set in the config.
     - **protected**
         - Restricts access to the endpoint to only the "role" field, and roles that include this "role" field.
-    - **role**
-        - The specified role for this resource, see the **protected** option.
+    - **access_role**
+        - The role required in the JWT to access the endpoint.
+    - **auth_role**
+        - The role the client will receive in their JWT upon the script returning a success
     - **method**
-        - The request method the endpoint is accessable from.
+        - The request method the endpoint is accessible from.
     - **script**
         - The script the server will execute in response to the request.
+    - **args**
+        - The desired argument format the client must provide to be forwarded to the script. If this argument type is not provided, the server will return a 400 Bad Request.
+        - Options Include:
+          - **json**: valid json in the request body.
+          - **url**: valid url form in the request body.
+          - **query**: valid query string, will extract from the ? to the end of the request uri, example:
+            - '/search?q=awesome+cgi+web+server' gets forwarded to the script as 'q=awesome+cgi+web+server'
+          - **body**: will forward the request body, the server only validates json or url format against the content-type header. If this header isnt present, the server will forward   the body as is.
+          - **any** or '**\***': will forward any argument type. This option prioritizes forwarding a query string, if no query string is present, the server forwards the body in the exact same way as the **body** option.
+          - **none**: no data gets forwarded to the script.
 
 ### Script Configuration
 
@@ -156,17 +196,17 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - The response header and response body must not exceed the BUFFER_SIZE(**262144 bytes**) macro defined in **MethodHandler.h**. 
         - This can be changed by simply tweaking the macro.
     - The server provides the arguments to the script over **stdin(fd 0)**, and expects the response over **stdout(fd 1)**.
-    - The server provides the arguments as a json string.
-- The server expects the arguments from the client in the request body, and they may be of the type url-form or application/json.
+    - The server provides the arguments in the format provided in the endpoint configuration.
+- The server will only validate json and url-form content types.
 
 ### JWT Configuration
 
-- The server has 3 configuration options for JWT secret creation.
+- The server has 3 configuration options for JWT secret creation. Note that this configuration must appear within the JWT xml block as seen in the example config.
     - **Secret String**: The actual secret used for signing the JWT tokens.
     ```xml
     <Secret>top-secret-string</Secret>
     ```
-    - **Secret File**: The file to load the JWT secret from.
+    - **Secret File**: The file to load the JWT secret from. This options expects the full file contents to be the secret, there is no support for .pem or .json etc.
     ```xml
     <SecretFile>/path/to/super/secret/file</SecretFile>
     ```
@@ -184,18 +224,23 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 - The running server's file structure is seen below:
 ```bash
 ├── public # Directory visible to all users.
-│   ├── images       # Holds the public static web content.
-└── log                  # Holds the servers log files(prefixed by date).
+│   
+└── log # Holds the servers log files(prefixed by the name of the server, and date).
 ```
-- Note that I have used a seperate **scripts** directory in my example, this is not required.
+- Note that I have used a separate **scripts** and **error_pages** directory in my example, this is not required.
 
 ### Logging
 
-- The server creates log files, prefixed by the name of the server and the date in the **log** directory:
+- The server creates log files, prefixed by the name of the server and the date in the **log** directory, relative the root web directory:
 ```bash
 /var/www/html/log/MyWebServer-YYYY-MM-DD.log
 ```
-- The logs are formatted with readability in mind, mirroring those of reputable web servers:
+- This directory can be overridden by adding the LogDirectory field to the configuration file, this new path will not be relative to the **WebDirectory** path.
+```xml
+<LogDirectory>/path/to/different/log/</LogDirectory>
+```
+
+- The logs are formatted with readability in mind:
 ```bash
 [2025-01-01 13:14] STATUS [Server] MyWebServer is running on [ubuntu 203.0.113.84:8080] pid=60630
 [2024-12-31 15:35] INFO [client 198.51.100.45] "GET / HTTP/1.1" Mozilla/5.0 on X11; Linux x86_64 Chrome/131.0.0.0 [Latency: 21 ms RTT: 2 ms Size: 2 KB] HTTP/1.1 200 OK
@@ -204,11 +249,11 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 [2024-12-21 19:23] ERROR [client 172.20.10.1] "GET /admin HTTP/1.1" Mozilla/5.0 on X11; Linux x86_64 Chrome/131.0.0.0  [Latency: 172 ms RTT: 5 ms] HTTP/1.1 401 Unauthorized
 ```
 
-## Limitations
-
-- An authenticator endpoint is always unprotected and different role authentication requires different auth endpoints.
-- POST request support is limited, no task submission, file uploads etc.
-- HTTP request parsing is tenuous.
+- Some additional log levels are also supported, all of which append the (file:line function):
+    - **TRACE**: The most verbose level.
+    - **DEBUG**: Slightly less verbose than trace, currently logs information useful troubleshooting administrators.
+    - **WARN**: Higher severity than error.
+    - **FATAL**: This level is reserved for critical errors that result in the server exiting. The FATAL level will also write the stack trace, and the pid of the exiting server process.
 
 ## To Do
 
@@ -225,6 +270,5 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 6. Add rate limiting, especially for POST.
 7. Add example files config, static gifs, scripts etc for example usage.
 8. Add documentation to the code base.
-8. Address the limitations.
 
 

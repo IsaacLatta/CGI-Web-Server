@@ -436,46 +436,72 @@ static bool is_valid_url_form(std::string_view sv) {
     return true;
 }
 
+static bool get_content_type(std::span<const char> buf, std::string& ct) {
+    if (!extract_header_field(buf, "Content-Type", ct)) {
+        return false;
+    }
+    std::transform(ct.begin(), ct.end(), ct.begin(), [](unsigned char c){ return std::tolower(c); });
+    auto semi = ct.find(';');
+    if (semi != std::string::npos) {
+        ct.resize(semi);
+    }
+    if(ct.empty()) {
+        return false;
+    }
+    return true;
+}
+
+static std::string_view get_args(std::span<const char> buffer, const std::string& desired, bool (*filter)(std::string_view) ) {
+    std::string content_type;
+    std::string_view body = http::extract_body(buffer);
+    if (!get_content_type(buffer, content_type)) {
+        throw http::HTTPException(http::code::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
+    }
+    if (content_type != desired) {
+        throw http::HTTPException(http::code::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
+    }
+    if (!filter(body)) {
+        throw http::HTTPException(http::code::Bad_Request, std::format("invalid `{}` body", desired));
+    }
+    return body;
+}
+
+static std::string_view body_any(std::span<const char> buffer) {
+    std::string_view body = http::extract_body(buffer);
+    std::string content_type;
+    if(!get_content_type(buffer, content_type)) {
+        return body;
+    } else if(content_type == "application/json" && is_valid_json(body)) {
+        return body;
+    } else if(content_type == "application/x-www-form-urlencoded" && is_valid_url_form(body)) {
+        return body;
+    } else if (content_type == "application/json" || content_type == "application/x-www-form-urlencoded") { // supported content type, but body was invalid
+        throw http::HTTPException(http::code::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
+    } else { // cannot validate this content-type, simply pass through
+        return body;
+    }
+}
+
 static std::string_view args_any(std::span<const char> buffer) {
     std::string_view result;
     if(!(result = http::extract_query_string(buffer)).empty()) {
         return result; // prioritize query string
     }
-    std::string_view body = http::extract_body(buffer);
-    if(!is_valid_json(body) && !is_valid_url_form(body)) {
-        throw http::HTTPException(http::code::Bad_Request, "invalid argument format in request body");
-    }
-    return body;
-}
-
-static std::string_view get_args(std::span<const char> buffer, const std::string& field, const std::string& desired, bool (*filter)(std::string_view) ) {
-    std::string_view body = http::extract_body(buffer);
-    std::string result = "";
-    if(!extract_header_field(buffer, field, result) || result != desired || !filter(body)) {
-        throw http::HTTPException(http::code::Bad_Request, std::format("invalid content type, expected={}, client claimed={}", desired, result));
-    }
-    return body;
+    return body_any(buffer);
 }
 
 std::string_view http::extract_args(std::span<const char> buffer, http::arg_type arg) {
     switch(arg) {
         case http::arg_type::None: return {};
         case http::arg_type::Any: return args_any(buffer);
-        case http::arg_type::Body_Any: {
-            std::string_view body = http::extract_body(buffer);
-            if(!is_valid_json(body) && !is_valid_url_form(body)) {
-                throw http::HTTPException(http::code::Bad_Request, "invalid argument format in request body");
-            }
-            return body;
-        }
-        case http::arg_type::Body_JSON: return get_args(buffer, "Content-Type", "application/json", is_valid_json);
-        case http::arg_type::Body_URL: return get_args(buffer, "Content-Type", "application/x-www-form-urlencoded", is_valid_url_form);
+        case http::arg_type::Body_Any: return body_any(buffer);
+        case http::arg_type::Body_JSON: return get_args(buffer, "application/json", is_valid_json);
+        case http::arg_type::Body_URL: return get_args(buffer, "application/x-www-form-urlencoded", is_valid_url_form);
         case http::arg_type::Query_String: return http::extract_query_string(buffer);
         default:
-            throw http::HTTPException(http::code::Internal_Server_Error, "unkown arg type");
+            throw http::HTTPException(http::code::Internal_Server_Error, "unknown arg type"); // should'nt ever reach, unless enum class gets updated
     }
 }
-
 
 asio::awaitable<http::io::WriteStatus> http::io::co_write_all(Socket* sock, std::span<const char> buffer) noexcept {
     TransferState state;
@@ -521,7 +547,7 @@ std::chrono::milliseconds http::io::select_backoff(const asio::error_code& ec, i
     if(exp_delay > MAX_DELAY_MS) {
         exp_delay = MAX_DELAY_MS;
     }
-    auto jitter_range = exp_delay.count() / 10; // 10% of the ticks for the delay
+    auto jitter_range = exp_delay.count() / 10; // 10% of the ticks for the delay, to avoid contention on wake ups
     std::uniform_int_distribution<int64_t> dist(-jitter_range, jitter_range);
     return exp_delay + std::chrono::milliseconds{dist(rng)};
 }

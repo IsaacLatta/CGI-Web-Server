@@ -1,24 +1,5 @@
 #include "Streamer.h"
 
-static asio::awaitable<bool> check_error(const asio::error_code& ec, TransferState& state) {
-    if (ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof) {
-        throw http::HTTPException(http::code::Client_Closed_Request, "Connection reset by client");
-    }
-
-    if(ec && state.retry_count > TransferState::MAX_RETRIES) {
-        throw http::HTTPException(http::code::Internal_Server_Error, "Max retries reached while streaming");
-    }
-
-    if (ec && state.retry_count <= TransferState::MAX_RETRIES) {
-        state.retry_count++;
-        asio::steady_timer timer(co_await asio::this_coro::executor);
-        timer.expires_after(asio::chrono::milliseconds(TransferState::RETRY_DELAY * state.retry_count));
-        co_await timer.async_wait(asio::use_awaitable);
-        co_return true;
-    }
-    co_return false;
-}
-
 asio::awaitable<void> StringStreamer::stream(Socket* sock) {
     std::span<const char> buffer(payload->data(), payload->length());
     auto result = co_await http::io::co_write_all(sock, buffer);

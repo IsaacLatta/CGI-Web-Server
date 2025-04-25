@@ -69,7 +69,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         if(method.is_authenticator) {
             method.auth_role = route_el->Attribute("auth_role") ? route_el->Attribute("auth_role") : "";
             if(method.auth_role.empty()) {
-                WARN("Server", "route [%s %s] is missing auth role, defaulting to lowest priveledge VIEWER", method_str.c_str(), endpoint_url.c_str());
+                WARN("Server", "route [%s %s] is missing auth role, defaulting to lowest privilege VIEWER", method_str.c_str(), endpoint_url.c_str());
                 method.auth_role = cfg::VIEWER_ROLE_HASH;
             }
         }
@@ -78,6 +78,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
 
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
                 print_endpoint(method, endpoint_url);
+                endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; // temp fix to allow '/endpoint' and 'endpoint' in the config 
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {
