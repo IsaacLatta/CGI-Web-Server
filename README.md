@@ -162,9 +162,9 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 - Endpoints can be set with the following options:
     - **authenticator**
-        - Generates a Cookie for the client based on the "role" set in the config.
+        - Generates a Cookie for the client based on the "auth_role" set in the config.
     - **protected**
-        - Restricts access to the endpoint to only the "role" field, and roles that include this "role" field.
+        - Restricts access to the endpoint to only the "access_role" field, and roles that include this "access_role" field.
     - **access_role**
         - The role required in the JWT to access the endpoint.
     - **auth_role**
@@ -174,7 +174,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - **script**
         - The script the server will execute in response to the request.
     - **args**
-        - The desired argument format the client must provide to be forwarded to the script. If this argument type is not provided, the server will return a 400 Bad Request.
+        - The desired argument format the client must provide to be forwarded to the script. If this argument type is not provided, the server will return status 400 or 419.
         - Options Include:
           - **json**: valid json in the request body.
           - **url**: valid url form in the request body.
