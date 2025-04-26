@@ -33,7 +33,7 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     };
 
-    std::string script = request->route->getScript(request->method);
+    std::string script = request->route->getResource(request->method);
     std::string args(request->args);
     ScriptStreamer streamer(script, args, chunk_callback);
     co_await streamer.stream(txn->getSocket());

@@ -23,7 +23,7 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     "\n\tAuthRole: " << method.auth_role << 
     "\n\tIsProtected: " << method.is_protected << 
     "\n\tIsAuthenticator: " << method.is_authenticator << 
-    "\n\tScript: " << method.script << 
+    "\n\tScript: " << method.resource << 
     "\n\tArgs: " << static_cast<int>(method.args) << "\n"; 
 }
 
@@ -51,7 +51,8 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         std::string method_str = route_el->Attribute("method") ? route_el->Attribute("method") : "";
         method.m = http::method_str_to_enum(method_str);
         
-        method.script = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
+        method.resource = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
+        method.has_script = !method.resource.empty();
         method.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(method.is_protected) {
             method.access_role = route_el->Attribute("access_role") ? route_el->Attribute("access_role") : "";
@@ -80,8 +81,9 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
                 print_endpoint(method, endpoint_url);
 
                 /* temp fix to allow '/endpoint' and 'endpoint' in the config */ 
-                endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; 
-                endpoint_url = endpoint_url.empty() ? "index.html" : endpoint_url;
+                // endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; 
+                // endpoint_url = endpoint_url.empty() ? "index.html" : endpoint_url;
+                
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {

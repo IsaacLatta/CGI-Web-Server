@@ -44,7 +44,7 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
 
     auto router = http::Router::getInstance();
     http::Request request;
-    request.endpoint_url = http::extract_resource(*buffer);
+    request.endpoint_url = http::extract_endpoint(*buffer);
     request.route = router->getEndpoint(request.endpoint_url);
     request.method = http::extract_method(*buffer);
     request.args = http::extract_args(*buffer, request.route->getArgType(request.method));

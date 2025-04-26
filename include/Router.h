@@ -40,7 +40,8 @@ namespace http {
         std::string auth_role;
         bool is_protected{false};
         bool is_authenticator{false};
-        std::string script{""};
+        std::string resource{""};
+        bool has_script{false};
         http::arg_type args{arg_type::None};
         Handler handler;
     };
@@ -50,9 +51,10 @@ namespace http {
         Endpoint();
         bool isMethodProtected(method m) const;
         bool isMethodAuthenticator(method m) const;
+        bool hasScript(method m) const;
         std::string getAuthRole(method m) const;
         std::string getAccessRole(method m) const;
-        std::string getScript(method m) const;
+        std::string getResource(method m) const;
         arg_type getArgType(method m) const;
         Handler getHandler(method m) const;
         std::vector<method> getMethods() const;
@@ -69,8 +71,8 @@ namespace http {
         friend class cfg::Config; // only the Configuration object can modify—at startup
 
         public:
-        static const Router* getInstance();
-        const Endpoint* getEndpoint(const std::string& endpoint) const;
+        static Router* getInstance();
+        const Endpoint* getEndpoint(const std::string& endpoint);
         const ErrorPage* getErrorPage(http::code status) const;
 
         private:

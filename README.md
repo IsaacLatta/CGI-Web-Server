@@ -264,7 +264,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 2. PUT Request.
     - Allow upload of resource.
 3. OPTIONS Request.
-    - Allow preflight for resoruce creation (use with POST).
+    - Allow preflight for resource creation (use with POST).
 4. CONNECT Support.
     - For tunneling (HTTPS).
 5. Default endpoints.

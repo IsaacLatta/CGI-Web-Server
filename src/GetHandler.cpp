@@ -27,7 +27,7 @@ asio::awaitable<void> GetHandler::handleScript() {
         co_return;
     };
 
-    std::string script = request->route->getScript(request->method);
+    std::string script = request->route->getResource(request->method);
     std::string args(request->args);
     ScriptStreamer streamer(script, args, chunk_callback);
     co_await streamer.stream(txn->getSocket());
@@ -36,13 +36,10 @@ asio::awaitable<void> GetHandler::handleScript() {
 }
 
 asio::awaitable<void> GetHandler::handleFile() {
-    if(!request->route->isMethodProtected(request->method)) {
-        request->endpoint_url = "public/" + request->endpoint_url;
-    }
-
+    std::string file = request->route->getResource(request->method);
     std::string content_type;
-    if(http::determine_content_type(request->endpoint_url, content_type) != http::code::OK) {
-        throw http::HTTPException(http::code::Forbidden, std::format("Failed to extract content_type for endpoint={}", request->endpoint_url));
+    if(http::determine_content_type(file, content_type) != http::code::OK) {
+        throw http::HTTPException(http::code::Forbidden, std::format("Failed to extract content_type for endpoint={}, file={}", request->endpoint_url, file));
     }
 
     response->setStatus(http::code::OK);
@@ -53,7 +50,7 @@ asio::awaitable<void> GetHandler::handleFile() {
     StringStreamer s_stream(&response_header);
     co_await s_stream.stream(txn->getSocket());
 
-    FileStreamer f_stream(request->endpoint_url);
+    FileStreamer f_stream(file);
     response->addHeader("Content-Type", std::to_string(f_stream.getFileSize()));
     co_await f_stream.stream(txn->getSocket());
     txn->addBytes(f_stream.getBytesStreamed() + s_stream.getBytesStreamed());
@@ -66,9 +63,7 @@ asio::awaitable<void> GetHandler::handle() {
         std::format("No GET route found for endpoint={}", request->endpoint_url));
     }
     
-    auto route = request->route;
-    std::string script =  route->getScript(request->method);
-    if(!script.empty()) {
+    if(request->route->hasScript(request->method)) {
         co_await handleScript();
         co_return;
     } 

@@ -7,20 +7,20 @@
 using namespace http;
 using namespace cfg;
 
-static http::Endpoint DEFAULT_ENDPOINT;
+static http::Endpoint ROOT_ENDPOINT;
 static http::ErrorPage DEFAULT_ERROR_PAGE;
 Router Router::INSTANCE;
 
 Router::Router() {
     // DEFAULT_ENDPOINT.setEndpointURL("/");
 
-    DEFAULT_ENDPOINT.addMethod({
+    ROOT_ENDPOINT.addMethod({
     .m = http::method::Get,
     .access_role = VIEWER_ROLE_HASH,
     .auth_role = "",
     .is_protected = false,
     .is_authenticator = false,
-    .script = "",
+    .resource = "public/index.html",
     .handler = [](Transaction* txn) -> asio::awaitable<void> {
         GetHandler handler(txn);
         co_await handler.handle();
@@ -28,19 +28,20 @@ Router::Router() {
         }
     });
 
-    DEFAULT_ENDPOINT.addMethod({
+    ROOT_ENDPOINT.addMethod({
         .m = http::method::Head,
         .access_role = VIEWER_ROLE_HASH,
         .auth_role = "",
         .is_protected = false,
         .is_authenticator = false,
-        .script = "",
+        .resource = "public/index.html",
         .handler = [](Transaction* txn) -> asio::awaitable<void> {
             HeadHandler handler(txn);
             co_await handler.handle();
             co_return;
         }
     });
+    endpoints["/"] = ROOT_ENDPOINT;
 
     DEFAULT_ERROR_PAGE.handler = [](Transaction* txn) -> asio::awaitable<void> {
         std::string response = txn->response.build();
@@ -69,7 +70,7 @@ http::arg_type http::arg_str_to_enum(const std::string& args_str) noexcept {
     return http::arg_type::None;
 }
 
-const Router* Router::getInstance() {
+Router* Router::getInstance() {
     return &Router::INSTANCE;
 }
 
@@ -78,13 +79,48 @@ static bool file_exists(const std::string& path) {
     return stat(path.c_str(), &buffer) == 0;
 }
 
-const http::Endpoint* Router::getEndpoint(const std::string& endpoint) const {
+static http::Handler assign_handler(method m) {
+    switch (m) {
+        case http::method::Get: return [](Transaction* txn) -> asio::awaitable<void> {
+            GetHandler handler(txn);
+            co_await handler.handle();
+            co_return;
+        };
+        case http::method::Post: return [](Transaction* txn) -> asio::awaitable<void> {
+            PostHandler handler(txn);
+            co_await handler.handle();
+            co_return;
+        };
+        case http::method::Head: return [](Transaction* txn) -> asio::awaitable<void> {
+            HeadHandler handler(txn);
+            co_await handler.handle();
+            co_return;
+        };
+        case http::method::Options: return [](Transaction* txn) -> asio::awaitable<void> {
+            OptionsHandler handler(txn);
+            co_await handler.handle();
+            co_return;
+        };
+        default:
+            throw http::HTTPException(http::code::Not_Implemented, "request method not supported");
+    }
+}
+
+static http::EndpointMethod create_default_endpoint_method(const std::string& endpoint, method m) {
+    return http::EndpointMethod{m, cfg::VIEWER_ROLE_HASH, "", false, false, endpoint, false, arg_type::None, assign_handler(m)};
+}
+
+const http::Endpoint* Router::getEndpoint(const std::string& endpoint) {
     auto it = endpoints.find(endpoint);
     if(it == endpoints.end()) {
-        if (file_exists("public/" + endpoint)) {
-            return &DEFAULT_ENDPOINT;
+        if (!file_exists("public" + endpoint)) {
+            throw http::HTTPException(http::code::Not_Found, std::format("request for {}: does not exist", endpoint));
         }
-        throw http::HTTPException(http::code::Not_Found, std::format("request for {}: does not exist", endpoint));
+        http::Endpoint ep;
+        ep.addMethod(create_default_endpoint_method("public" + endpoint, http::method::Get));
+        ep.addMethod(create_default_endpoint_method("public" + endpoint, http::method::Head));
+        endpoints[endpoint] = ep;
+        return &endpoints[endpoint];
     }
     return &it->second;
 }
@@ -118,45 +154,18 @@ void Router::addErrorPage(ErrorPage&& error_page, std::string&& file) {
     error_pages[error_page.status] = std::move(error_page);
 }
 
-static http::Handler assign_handler(method m) {
-    switch (m) {
-        case http::method::Get: return [](Transaction* txn) -> asio::awaitable<void> {
-            GetHandler handler(txn);
-            co_await handler.handle();
-            co_return;
-        };
-        case http::method::Post: return [](Transaction* txn) -> asio::awaitable<void> {
-            PostHandler handler(txn);
-            co_await handler.handle();
-            co_return;
-        };
-        case http::method::Head: return [](Transaction* txn) -> asio::awaitable<void> {
-            HeadHandler handler(txn);
-            co_await handler.handle();
-            co_return;
-        };
-        case http::method::Options: return [](Transaction* txn) -> asio::awaitable<void> {
-            OptionsHandler handler(txn);
-            co_await handler.handle();
-            co_return;
-        };
-        default:
-            throw http::HTTPException(http::code::Not_Implemented, "request method not supported");
-    }
-}
-
 void http::Router::updateEndpoint(const std::string& endpoint_url, EndpointMethod&& method) {
     auto it = endpoints.find(endpoint_url);
-    if(it != endpoints.end()) {
-        http::Endpoint& endpoint = it->second;
+    if(it == endpoints.end()) {
+        http::Endpoint endpoint;
         method.handler = assign_handler(method.m);
         endpoint.addMethod(std::move(method));
+        endpoints[endpoint_url] = endpoint;    
         return;
     }
-    http::Endpoint endpoint;
+    http::Endpoint& endpoint = it->second;
     method.handler = assign_handler(method.m);
     endpoint.addMethod(std::move(method));
-    endpoints[endpoint_url] = endpoint;
 }
 
 http::Endpoint::Endpoint() {}
@@ -175,7 +184,16 @@ bool http::Endpoint::isMethodProtected(method m) const {
         throw http::HTTPException(http::code::Method_Not_Allowed, 
         std::format("failed to retrieve protection status: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
-    return it->second.is_protected; // corrected to return is_protected
+    return it->second.is_protected; 
+}
+
+bool http::Endpoint::hasScript(method m) const {
+    auto it = methods.find(m);
+    if(it == methods.end()) {
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve script status: {} {} does not exist", method_enum_to_str(m), endpoint)); 
+    }
+    return it->second.has_script; 
 }
 
 arg_type http::Endpoint::getArgType(http::method m) const {
@@ -205,13 +223,13 @@ bool http::Endpoint::isMethodAuthenticator(method m) const {
     return it->second.is_authenticator;
 }
 
-std::string http::Endpoint::getScript(method m) const {
+std::string http::Endpoint::getResource(method m) const {
     auto it = methods.find(m);
     if(it == methods.end()) {
         throw http::HTTPException(http::code::Method_Not_Allowed, 
         std::format("failed to retrieve script: {} {} does not exist", method_enum_to_str(m), endpoint)); 
     }
-    return it->second.script;
+    return it->second.resource;
 }
 
 std::string http::Endpoint::getAccessRole(http::method m) const {

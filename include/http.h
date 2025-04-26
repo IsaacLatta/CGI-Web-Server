@@ -195,7 +195,7 @@ namespace http
     std::string_view extract_body(std::span<const char> buffer);
     code find_content_type(std::span<const char> buffer, std::string& content_type) noexcept;
     std::string_view get_request_target(std::span<const char> buffer);
-    std::string extract_resource(std::span<const char> buffer);
+    std::string extract_endpoint(std::span<const char> buffer);
     std::string_view extract_query_string(std::span<const char> buffer);
     code determine_content_type(const std::string& resource, std::string& content_type);
     std::string_view extract_args(std::span<const char> buffer, http::arg_type arg);
