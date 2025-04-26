@@ -15,16 +15,19 @@ const Config* Config::getInstance(const std::string& config_path) {
     return &Config::INSTANCE;
 }
 
-
 static void print_endpoint(const http::EndpointMethod& method, const std::string& endpoint_url) {
-    std::cout << "ENDPOINT: " << endpoint_url << 
-    "\n\tMethod: " << static_cast<int>(method.m) << 
-    "\n\tAccessRole: " << method.access_role <<
-    "\n\tAuthRole: " << method.auth_role << 
-    "\n\tIsProtected: " << method.is_protected << 
-    "\n\tIsAuthenticator: " << method.is_authenticator << 
-    "\n\tScript: " << method.resource << 
-    "\n\tArgs: " << static_cast<int>(method.args) << "\n"; 
+    std::string msg = std::format(
+        "route [{} {}]\n\taccess_role={}\n\tauth_role={}\n\tprotected={}\n\tauthenticator={}\n\tscript={}\n\targs={}\n",
+        http::method_enum_to_str(method.m),
+        endpoint_url,
+        method.access_role,
+        method.auth_role,
+        method.is_protected ? "true" : "false",
+        method.is_authenticator ? "true" : "false",
+        method.resource.empty() ? "none" : method.resource,
+        static_cast<int>(method.args)
+    );
+    TRACE("Server", "%s", msg.c_str());
 }
 
 void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path) {
@@ -45,7 +48,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         std::string endpoint_url = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
         if(endpoint_url.empty()) {
             WARN("Server", "endpoint url is empty, defaulting to root \"/\"");
-            endpoint_url = "/index.html";  // Set default to root
+            endpoint_url = "/";  // Set default to root
         }
 
         std::string method_str = route_el->Attribute("method") ? route_el->Attribute("method") : "";
@@ -57,7 +60,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         if(method.is_protected) {
             method.access_role = route_el->Attribute("access_role") ? route_el->Attribute("access_role") : "";
             if (method.access_role.empty()) {
-                WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to ADMIN", 
+                WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to admin", 
                     method_str.c_str(), endpoint_url.c_str());
                 method.access_role = ADMIN_ROLE_HASH;
             }
@@ -70,20 +73,13 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         if(method.is_authenticator) {
             method.auth_role = route_el->Attribute("auth_role") ? route_el->Attribute("auth_role") : "";
             if(method.auth_role.empty()) {
-                WARN("Server", "route [%s %s] is missing auth role, defaulting to lowest privilege VIEWER", method_str.c_str(), endpoint_url.c_str());
+                WARN("Server", "route [%s %s] is missing auth role, defaulting to lowest privilege viewer", method_str.c_str(), endpoint_url.c_str());
                 method.auth_role = cfg::VIEWER_ROLE_HASH;
             }
         }
         method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
-
-
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
                 print_endpoint(method, endpoint_url);
-
-                /* temp fix to allow '/endpoint' and 'endpoint' in the config */ 
-                // endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; 
-                // endpoint_url = endpoint_url.empty() ? "index.html" : endpoint_url;
-                
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {
@@ -102,12 +98,18 @@ const Role* Config::findRole(const std::string& role) const {
 }
 
 void display_role(cfg::Role* role) {
-    std::cout << "Title: " << role->title << "\n";
-    for(const auto& include: role->includes) {
-        std::cout << "  Include: " << include << "\n";
+    std::string includes;
+    for (const auto& include : role->includes) {
+        includes += "include=" + include + "\n\t";
     }
-    std::cout << "\n";
+    if (!includes.empty()) {
+        includes.pop_back(); 
+        includes.pop_back(); 
+    }
+    std::string final_msg = std::format("role [{}]\n\t{}\n", role->title, includes);
+    TRACE("Server", "%s", final_msg.c_str());
 }
+
 
 void Config::loadRoles(tinyxml2::XMLDocument* doc) {
     roles[ADMIN_ROLE_HASH] = ADMIN;
@@ -258,9 +260,8 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
 }
 
 static void print_error_page(const http::ErrorPage& error_page, const std::string& file) {
-    std::cout << "ERROR PAGE\n\tstatus: " << 
-    static_cast<int>(error_page.status) << 
-    "\n\tfile: " <<  file << "\n";
+    std::string msg = "Error Page [" + std::to_string(static_cast<int>(error_page.status)) + " " + file + "] loaded";
+    TRACE("Server", "%s", msg.c_str());
 }
 
 void Config::loadErrorPages(tinyxml2::XMLDocument* doc) {
