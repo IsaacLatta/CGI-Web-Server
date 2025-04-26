@@ -16,7 +16,7 @@ asio::awaitable<void> GetHandler::handleScript() {
         }
 
         response->body = http::extract_body(buffer);
-        response->headers = http::extract_headers(buffer);
+        response->addHeaders(http::extract_headers(buffer));
         response->addHeader("Connection", "close");
         std::string response_str = response->build();
         std::span<const char> header_buf(response_str.data(), response_str.length());

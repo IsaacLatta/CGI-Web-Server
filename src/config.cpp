@@ -45,7 +45,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         std::string endpoint_url = route_el->Attribute("endpoint") ? route_el->Attribute("endpoint") : "";
         if(endpoint_url.empty()) {
             WARN("Server", "endpoint url is empty, defaulting to root \"/\"");
-            endpoint_url = "/";  // Set default to root
+            endpoint_url = "/index.html";  // Set default to root
         }
 
         std::string method_str = route_el->Attribute("method") ? route_el->Attribute("method") : "";
@@ -78,7 +78,10 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
 
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
                 print_endpoint(method, endpoint_url);
-                endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; // temp fix to allow '/endpoint' and 'endpoint' in the config 
+
+                /* temp fix to allow '/endpoint' and 'endpoint' in the config */ 
+                endpoint_url = endpoint_url[0] == '/' ? endpoint_url.substr(1) : endpoint_url; 
+                endpoint_url = endpoint_url.empty() ? "index.html" : endpoint_url;
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 
         else {

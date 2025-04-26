@@ -160,6 +160,8 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ### Endpoint Configuration
 
+- **NOTE**: Currently there is a limitation preventing the POST endpoints '/' and 'index.html', GET 
+
 - Endpoints can be set with the following options:
     - **authenticator**
         - Generates a Cookie for the client based on the "role" set in the config.
