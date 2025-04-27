@@ -13,7 +13,7 @@ Visit my personal website:  [lattadata.com](https://lattadata.com)
 
 - **GET, HEAD, POST, and OPTIONS Methods**: Supports retrieval of static resources and execution of server-side scripts.
 - **Middleware Pipeline**: Modular middleware processing for tasks such as logging, error handling, authentication, and request parsing.
-- **Dynamic Content Execution**: Executes scripts in response to POST requests using POSIX system calls.
+- **Dynamic Content Execution**: Executes scripts in response to POST and GET requests using POSIX system calls.
 - **SSL Support**: Optional HTTPS support using OpenSSL.
 - **Logging**: Detailed logging of request and response details, including latency and round-trip times.
 - **Configuration**: XML-based configuration for routes, SSL, roles, and permissions.
