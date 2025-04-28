@@ -23,11 +23,6 @@ class Session
     asio::awaitable<void> start();
     Socket* getSocket() const {return sock.get();}
 
-    private:
-    void buildPipeline();
-    asio::awaitable<void> runPipeline(Transaction* txn, std::size_t index);
-
-    private:
     std::vector<std::unique_ptr<mw::Middleware>> pipeline;
     std::unique_ptr<Socket> sock;
 };

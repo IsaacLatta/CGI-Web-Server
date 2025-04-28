@@ -26,6 +26,11 @@ class Middleware
     const cfg::Config* config;
 };
 
+struct Pipeline {
+    std::vector<std::unique_ptr<Middleware>> components;
+    asio::awaitable<void> run(Transaction* txn);
+};
+
 class ErrorHandler: public Middleware 
 {
     public:
@@ -54,10 +59,18 @@ class Authenticator: public Middleware
     void validate(Transaction* txn, const http::EndpointMethod* route);
 };
 
-// class RateLimiter: public Middleware
+// struct IpInfo {
+//     std::string ip;
+//     cfg::RateSetting setting;
+//     std::size_t counter{0};
+// };
+
+// class IPRateLimiter: public Middleware
 // {
 //     public:
 //     asio::awaitable<void> process(Transaction* txn, Next next) override;
+//     private:
+//     static std::unordered_map<std::string, IpInfo> clients;
 // };
 
 };

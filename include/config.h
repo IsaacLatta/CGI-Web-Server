@@ -12,6 +12,11 @@
 #include "logger_macros.h"
 #include "http.h"
 
+namespace mw {
+    class Middleware;
+    struct Pipeline;
+}
+
 namespace cfg {
 
 using Endpoint = std::string;
@@ -23,6 +28,11 @@ struct Role {
     bool includesRole(const std::string& role) const {
         return (title == role) || (std::find(includes.begin(), includes.end(), role) != includes.end());
     }
+};
+
+struct RateSetting {
+    int window;
+    int max_requests;  
 };
 
 std::string get_role_hash(std::string role_title);
@@ -51,6 +61,7 @@ class Config
     static const Config* getInstance(const std::string& config_path = "");
     void initialize(const std::string& config_path);
 
+    mw::Pipeline* getPipeline() const;
     const Role* findRole(const std::string& role_title) const;
     const std::string& getContentPath() const {return content_path;}
     const std::string getLogPath() const {return log_path;}
@@ -76,6 +87,7 @@ class Config
     void generateJWTSecret(tinyxml2::XMLElement* secret_elem);
     void loadThreads(tinyxml2::XMLDocument* doc);
     void loadErrorPages(tinyxml2::XMLDocument* doc);
+    void loadPipeline(tinyxml2::XMLDocument* doc);
 
     private:
     std::size_t thread_count{0};

@@ -3,6 +3,28 @@
 
 using namespace mw;
 
+static asio::awaitable<void> run_pipeline(Transaction *txn, std::size_t index, std::vector<std::unique_ptr<Middleware>>* pipeline) {
+    if(!pipeline) {
+        std::cout << "PIPELINE VECTOR IS NULL\n";
+        co_return;
+    }
+    
+    if (index >= pipeline->size()) {
+        co_return;
+    }
+
+    mw::Middleware *mw = (*pipeline)[index].get();
+    mw::Next next_func = [pipeline, txn, index]() -> asio::awaitable<void> {
+        co_await run_pipeline(txn, index + 1, pipeline);
+    };
+    co_await mw->process(txn, next_func);
+}
+
+asio::awaitable<void> Pipeline::run(Transaction* txn) {
+    std::cout << "RUNNING PIPELINE\n";
+    co_return co_await run_pipeline(txn, 0, &components);
+}
+
 asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     http::Handler error_handler = nullptr;
     try {
@@ -129,4 +151,8 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
     co_return;
 }
+
+// asio::awaitable<void> mw::RateLimiter::process(Transaction* txn, Next next) {
+
+// }
  

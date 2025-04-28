@@ -1,5 +1,6 @@
 #include "config.h"
 #include "Router.h"
+#include "Middleware.h"
 
 using namespace cfg;
 
@@ -28,6 +29,23 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
         static_cast<int>(method.args)
     );
     TRACE("Server", "%s", msg.c_str());
+}
+
+mw::Pipeline PIPELINE;
+
+void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
+    // later add dynamic creation with parsing
+    PIPELINE.components.push_back(std::make_unique<mw::Logger>());
+    PIPELINE.components.push_back(std::make_unique<mw::ErrorHandler>());
+    // PIPELINE.components.push_back(mw::IPRateLimiter());
+    PIPELINE.components.push_back(std::make_unique<mw::Parser>());
+    PIPELINE.components.push_back(std::make_unique<mw::Authenticator>());
+    TRACE("Server", "pipeline loaded");
+}
+
+mw::Pipeline* Config::getPipeline() const {
+    std::cout << "RETURNING PIPELINE\n";
+    return &PIPELINE;
 }
 
 void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path) {
@@ -386,6 +404,7 @@ void Config::initialize(const std::string& config_path) {
     loadSSL(&doc);
     loadRoutes(&doc, content_path);
     loadHostIP();
+    loadPipeline(&doc);
 }
 
 std::string cfg::get_role_hash(std::string role) {
