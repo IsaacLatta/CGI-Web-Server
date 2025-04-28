@@ -2,7 +2,7 @@
 #include "Session.h"
 
 asio::awaitable<void> PostHandler::handle() {
-    if(request->route == nullptr) {
+    if(request->endpoint == nullptr || !request->route || !request->route->has_script) {
         throw http::HTTPException(http::code::Service_Unavailable, 
         std::format("No POST route found for endpoint={}", request->endpoint_url));
     }
@@ -33,7 +33,7 @@ asio::awaitable<void> PostHandler::handle() {
         co_return;
     };
 
-    std::string script = request->route->getResource(request->method);
+    std::string script = request->route->resource;
     std::string args(request->args);
     ScriptStreamer streamer(script, args, chunk_callback);
     co_await streamer.stream(txn->getSocket());

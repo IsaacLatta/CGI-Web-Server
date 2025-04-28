@@ -2,7 +2,7 @@
 #include "Session.h"
 
 void HeadHandler::buildResponse() {
-    std::string file = request->route->getResource(request->method);
+    std::string file = request->route->resource;
     int filefd =  open(file.c_str(), O_RDONLY);
     if(filefd == -1) {
         throw http::HTTPException(http::code::Not_Found, 
@@ -19,7 +19,7 @@ void HeadHandler::buildResponse() {
     close(filefd);
 
     std::string content_type;
-    if(http::determine_content_type(request->route->getResource(request->method), content_type) != http::code::OK) {
+    if(http::determine_content_type(request->endpoint->getResource(request->method), content_type) != http::code::OK) {
         throw http::HTTPException(http::code::Forbidden, std::format("failed to extract content type for endpoint={}, from file={}", request->endpoint_url, file));
     }
 
@@ -30,7 +30,7 @@ void HeadHandler::buildResponse() {
 }
 
 asio::awaitable<void> HeadHandler::handle() {    
-    if(!request->route) {
+    if(!request->endpoint || !request->route || request->route->has_script) {
         throw http::HTTPException(http::code::Service_Unavailable, 
         std::format("No GET route found for endpoint={}", request->endpoint_url));
     }

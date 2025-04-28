@@ -37,7 +37,6 @@ class Logger: public Middleware
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
-    bool forward{true};
 };
 
 class Parser: public Middleware
@@ -52,8 +51,14 @@ class Authenticator: public Middleware
     public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
-    void validate(Transaction* txn, const http::Endpoint* endpoint);
+    void validate(Transaction* txn, const http::EndpointMethod* route);
 };
+
+// class RateLimiter: public Middleware
+// {
+//     public:
+//     asio::awaitable<void> process(Transaction* txn, Next next) override;
+// };
 
 };
 #endif

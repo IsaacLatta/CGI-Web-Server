@@ -8,7 +8,7 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
     try {
         co_await next();
         auto request = txn->getRequest();
-        if(auto finisher = request->route->getHandler(request->method)) {
+        if(auto finisher = request->endpoint->getHandler(request->method)) {
             co_await finisher(txn);
         }
     }
@@ -45,12 +45,13 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     auto router = http::Router::getInstance();
     http::Request request;
     request.endpoint_url = http::extract_endpoint(*buffer);
-    request.route = router->getEndpoint(request.endpoint_url);
+    request.endpoint = router->getEndpoint(request.endpoint_url);
     request.method = http::extract_method(*buffer);
-    request.args = http::extract_args(*buffer, request.route->getArgType(request.method));
+    request.args = http::extract_args(*buffer, request.endpoint->getArgType(request.method));
     request.headers = http::extract_headers(*buffer);
     request.body = http::extract_body(*buffer);
-    
+    request.route = router->getEndpointMethod(request.endpoint_url, request.method);
+
     TRACE("MW Parser", "Hit for endpoint: %s", request.endpoint_url.c_str());
 
     txn->setRequest(std::move(request));
@@ -74,10 +75,10 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     LOG_SESSION(std::move(txn->log_entry));
 }
 
-void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) {
+void mw::Authenticator::validate(Transaction* txn, const http::EndpointMethod* route) {
     auto request = txn->getRequest();
 
-    if(!route->isMethodProtected(request->method)) {
+    if(!route->is_protected) {
         return;
     }
 
@@ -97,7 +98,7 @@ void mw::Authenticator::validate(Transaction* txn, const http::Endpoint* route) 
 
         auto role_claim = decoded_token.get_payload_claim("role");
         const cfg::Role* role;
-        if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->getAccessRole(request->method)))) {
+        if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->access_role))) {
             throw http::HTTPException(http::code::Unauthorized, "insufficient permissions");
         }
     } catch (const std::exception& error) {
@@ -112,19 +113,19 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
  
     validate(txn, request->route);
     co_await next();
-    auto response = txn->getResponse();
     
-    if(!request->route->isMethodAuthenticator(request->method)) { 
+     if(!request->route->is_authenticator) { 
         co_return;
     }
 
+    auto response = txn->getResponse();
     if(!http::is_success_code(response->status)) {
         throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
     }
     
     auto token_builder = jwt::create();
     std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(DEFAULT_EXPIRATION)
-                        .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->route->getAuthRole(request->method)))).sign(jwt::algorithm::hs256{config->getSecret()});
+                        .set_payload_claim("role", jwt::claim(cfg::get_role_hash(request->endpoint->getAuthRole(request->method)))).sign(jwt::algorithm::hs256{config->getSecret()});
     response->addHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
     co_return;
 }

@@ -22,7 +22,6 @@
 
 #include "config.h"
 #include "Router.h"
-// #include "Transaction.h"
 #include "Socket.h"
 
 namespace http
@@ -163,7 +162,8 @@ namespace http
         http::method method;
         std::string_view args;
         std::string endpoint_url;
-        const http::Endpoint* route{nullptr}; 
+        const http::Endpoint* endpoint{nullptr};
+        const http::EndpointMethod* route{nullptr};
         std::unordered_map<std::string, std::string> headers;
         std::string_view body;
 

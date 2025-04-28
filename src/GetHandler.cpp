@@ -27,7 +27,7 @@ asio::awaitable<void> GetHandler::handleScript() {
         co_return;
     };
 
-    std::string script = request->route->getResource(request->method);
+    std::string script = request->endpoint->getResource(request->method);
     std::string args(request->args);
     ScriptStreamer streamer(script, args, chunk_callback);
     co_await streamer.stream(txn->getSocket());
@@ -36,7 +36,7 @@ asio::awaitable<void> GetHandler::handleScript() {
 }
 
 asio::awaitable<void> GetHandler::handleFile() {
-    std::string file = request->route->getResource(request->method);
+    std::string file = request->route->resource;
     std::string content_type;
     if(http::determine_content_type(file, content_type) != http::code::OK) {
         throw http::HTTPException(http::code::Forbidden, std::format("Failed to extract content_type for endpoint={}, file={}", request->endpoint_url, file));
@@ -58,12 +58,12 @@ asio::awaitable<void> GetHandler::handleFile() {
 }
 
 asio::awaitable<void> GetHandler::handle() {    
-    if(!request->route) {
+    if(!request->endpoint || !request->route) {
         throw http::HTTPException(http::code::Service_Unavailable, 
         std::format("No GET route found for endpoint={}", request->endpoint_url));
     }
     
-    if(request->route->hasScript(request->method)) {
+    if(request->route->has_script) {
         co_await handleScript();
         co_return;
     } 

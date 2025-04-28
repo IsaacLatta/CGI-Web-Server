@@ -12,11 +12,11 @@ static std::string get_methods_str(const std::vector<http::method>& methods) {
 }
 
 asio::awaitable<void> OptionsHandler::handle() {
-    if(!request || !(request->route)) {
+    if(!request || !(request->endpoint)) {
         throw http::HTTPException(http::code::Internal_Server_Error, "OPTIONS request for unexpected missing route or endpoint");
     }
 
-    response->addHeader("Allow", get_methods_str(request->route->getMethods()));
+    response->addHeader("Allow", get_methods_str(request->endpoint->getMethods()));
     response->addHeader("Content-Length", "0");
     response->addHeader("Connection", "close");
     std::string response_str = response->build();

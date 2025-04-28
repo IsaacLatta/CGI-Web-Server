@@ -125,6 +125,11 @@ const http::Endpoint* Router::getEndpoint(const std::string& endpoint) {
     return &it->second;
 }
 
+const http::EndpointMethod* Router::getEndpointMethod(const std::string& endpoint_url, http::method m) {
+    auto endpoint = getEndpoint(endpoint_url);
+    return endpoint->getMethod(m);
+}
+
 const http::ErrorPage* Router::getErrorPage(http::code status) const {
     auto it = error_pages.find(status);
     if(it == error_pages.end()) {
@@ -172,6 +177,15 @@ http::Endpoint::Endpoint() {}
 
 void http::Endpoint::setEndpointURL(const std::string& url) {
     endpoint = url;
+}
+
+const http::EndpointMethod* http::Endpoint::getMethod(http::method m) const {
+    auto it = methods.find(m);
+    if(it == methods.end()) {
+        throw http::HTTPException(http::code::Method_Not_Allowed, 
+        std::format("failed to retrieve method: {} {} does not exist", method_enum_to_str(m), endpoint));
+    }
+    return &it->second;
 }
 
 void http::Endpoint::addMethod(EndpointMethod&& method) {

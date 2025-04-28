@@ -49,6 +49,7 @@ namespace http {
     class Endpoint {
         public:
         Endpoint();
+        const EndpointMethod* getMethod(method m) const;
         bool isMethodProtected(method m) const;
         bool isMethodAuthenticator(method m) const;
         bool hasScript(method m) const;
@@ -73,6 +74,7 @@ namespace http {
         public:
         static Router* getInstance();
         const Endpoint* getEndpoint(const std::string& endpoint);
+        const EndpointMethod* getEndpointMethod(const std::string& endpoint_url, http::method m);
         const ErrorPage* getErrorPage(http::code status) const;
 
         private:
