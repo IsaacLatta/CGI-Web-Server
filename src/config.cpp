@@ -32,6 +32,75 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     TRACE("Server", "%s", msg.c_str());
 }
 
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <stdexcept>
+
+static int get_seconds_from_time_str(const char* data) {
+    if(!data) {
+        DEBUG("Server", "empty time field, resulting to default %s seconds", cfg::DEFAULT_WINDOW_SECONDS);
+        return cfg::DEFAULT_WINDOW_SECONDS;
+    }
+    
+    std::string str(data);
+    std::string token;
+    std::istringstream iss(str);
+
+    if (!(iss >> token)) {
+        WARN("Server", "missing time value for rate limit, defaulting to %d seconds",
+             cfg::DEFAULT_WINDOW_SECONDS);
+        return cfg::DEFAULT_WINDOW_SECONDS;
+    }
+    std::size_t pos = 0;
+    while (pos < token.size() && std::isdigit(static_cast<unsigned char>(token[pos]))) {
+        ++pos; // move to the beginning of the unit
+    }
+    if (pos == 0) {
+        WARN("Server", "invalid time value '%s' for rate limit, defaulting to %d seconds",
+             token.c_str(), cfg::DEFAULT_WINDOW_SECONDS);
+        return cfg::DEFAULT_WINDOW_SECONDS;
+    }
+    int value = 0;
+    try {
+        value = std::stoi(token.substr(0, pos));
+    }
+    catch (const std::exception&) {
+        WARN("Server", "couldn't parse numeric part of '%s' for rate limit, defaulting to %d seconds",
+             token.c_str(), cfg::DEFAULT_WINDOW_SECONDS);
+        return cfg::DEFAULT_WINDOW_SECONDS;
+    }
+    std::string unit = token.substr(pos);
+    std::transform(unit.begin(), unit.end(), unit.begin(), [](unsigned char c){ return std::tolower(c); });
+
+    if (unit == "d" || unit == "day" || unit == "days") {
+        return value*24*3600;
+    } else if (unit == "h" || unit == "hr" || unit == "hour" || unit == "hours") {
+        return value*3600;
+    } else if (unit == "m"   || unit == "min" || unit == "mins") {
+        return value*60;
+    } else if (unit == "s" || unit == "sec" || unit == "secs") {
+        return value;
+    } else {
+        WARN("Server", "unknown time unit '%s' for rate limit, treating %d as seconds", unit.c_str(), value);
+        return value;
+    }
+}
+
+static int load_int(const char* int_str, int fallback, const std::string& fallback_log) {
+    if(!int_str) {
+        DEBUG("Server", "%s", fallback_log.c_str());
+        return fallback;
+    }
+    try {
+        return std::stoi(int_str);
+    } catch (const std::exception& e) {
+        DEBUG("Server", "%s", fallback_log.c_str());
+        return fallback;
+    }
+}
+
 void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
     auto rate_limit_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("RateLimit");
     if(!rate_limit_elem) {
@@ -44,14 +113,11 @@ void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
         PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
         DEBUG("Server", "no global rate limit configuration: defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
     } else if(!(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true"))) {
-        try {
-        global_setting.max_requests = global_elem->Attribute("max_requests") ? std::stoi(global_elem->Attribute("max_requests")) : cfg::DEFAULT_MAX_REQUESTS;
-        global_setting.window_seconds = global_elem->Attribute("window_seconds") ? std::stoi(global_elem->Attribute("window_settings")) : cfg::DEFAULT_WINDOW_SECONDS;
+        global_setting.max_requests = load_int(global_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
+            std::format("failed to parse max_requests for global rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
+        global_setting.window_seconds = global_elem->Attribute("window") ? get_seconds_from_time_str(global_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
+        DEBUG("Server", "global rate limit [max_requests=%d window=%ds] loaded", global_setting.max_requests, global_setting.window_seconds);
         PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>(global_setting));
-        } catch (const std::exception& e) {
-            DEBUG("Server", "parsing error for global rate limit, defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
-            PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
-        }
     } else {
         DEBUG("Server", "global rate limit disabled");
     }
