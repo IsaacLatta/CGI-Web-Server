@@ -241,7 +241,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <!-- Disabled rate limiting -->
     <Global disable="true"/>
     ```
-        - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
+  - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
 
 - By default, the window length will be **60s**, with a maximum of **5000 requests**.
     - If an attribute is missing, the server will choose the default value for the missing attribute, regardless if the other is/isn't present:
