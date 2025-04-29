@@ -262,7 +262,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <Global max_requests="500" window="12"/>
 
     <!-- Correct units (m, min, mins), results in 500req/12min -->
-    <Global max_request"500" window="12m"/>
+    <Global max_requests="500" window="12m"/>
 
 - The configuration supports windowing time units of seconds, minutes, hours, and days (no decimals or fractions):
     - **seconds**: s, sec, secs
