@@ -19,6 +19,9 @@ namespace mw {
 
 namespace cfg {
 
+constexpr int DEFAULT_WINDOW_SECONDS = 60;
+constexpr int DEFAULT_MAX_REQUESTS = 5000;
+
 using Endpoint = std::string;
 
 struct Role {
@@ -31,8 +34,8 @@ struct Role {
 };
 
 struct RateSetting {
-    int window_seconds{60};
-    int max_requests{5000};  
+    int window_seconds{DEFAULT_WINDOW_SECONDS};
+    int max_requests{DEFAULT_MAX_REQUESTS};  
 };
 
 std::string get_role_hash(std::string role_title);
@@ -73,7 +76,7 @@ class Config
     std::size_t getThreadCount() const {return thread_count;}
 
     private:
-    Config();
+    Config(); 
 
     Config(Config&) = delete;
     void operator=(Config&) = delete;
@@ -88,6 +91,7 @@ class Config
     void loadThreads(tinyxml2::XMLDocument* doc);
     void loadErrorPages(tinyxml2::XMLDocument* doc);
     void loadPipeline(tinyxml2::XMLDocument* doc);
+    void loadGlobalRateLimit(tinyxml2::XMLDocument* doc);
 
     private:
     std::size_t thread_count{0};
@@ -95,7 +99,6 @@ class Config
     static std::once_flag initFlag;
     
     Roles roles;
-    // Routes routes;
     SSLConfig ssl;
     std::string secret;
     std::string content_path;

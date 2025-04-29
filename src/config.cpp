@@ -6,6 +6,7 @@ using namespace cfg;
 
 Config Config::INSTANCE;
 std::once_flag Config::initFlag;
+mw::Pipeline PIPELINE;
 
 Config::Config() {}
 
@@ -31,13 +32,35 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     TRACE("Server", "%s", msg.c_str());
 }
 
-mw::Pipeline PIPELINE;
+void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
+    auto rate_limit_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("RateLimit");
+    if(!rate_limit_elem) {
+        return;
+    }
+
+    cfg::RateSetting global_setting;
+    auto global_elem = rate_limit_elem->FirstChildElement("Global");
+    if(!global_elem) {
+        PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
+        DEBUG("Server", "no global rate limit configuration: defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+    } else if(!(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true"))) {
+        try {
+        global_setting.max_requests = global_elem->Attribute("max_requests") ? std::stoi(global_elem->Attribute("max_requests")) : cfg::DEFAULT_MAX_REQUESTS;
+        global_setting.window_seconds = global_elem->Attribute("window_seconds") ? std::stoi(global_elem->Attribute("window_settings")) : cfg::DEFAULT_WINDOW_SECONDS;
+        PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>(global_setting));
+        } catch (const std::exception& e) {
+            DEBUG("Server", "parsing error for global rate limit, defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+            PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
+        }
+    } else {
+        DEBUG("Server", "global rate limit disabled");
+    }
+}
 
 void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
-    // later add dynamic creation with parsing
     PIPELINE.components.push_back(std::make_unique<mw::Logger>());
     PIPELINE.components.push_back(std::make_unique<mw::ErrorHandler>());
-    PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
+    loadGlobalRateLimit(doc);
     PIPELINE.components.push_back(std::make_unique<mw::Parser>());
     PIPELINE.components.push_back(std::make_unique<mw::Authenticator>());
     TRACE("Server", "pipeline loaded");

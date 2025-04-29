@@ -66,6 +66,7 @@ struct IpInfo {
 class IPRateLimiter: public Middleware
 {
     public:
+    IPRateLimiter(cfg::RateSetting setting): setting(setting) {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
     IPRateLimiter() {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
