@@ -231,11 +231,22 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ### Rate Limit Configuration
 
-- Currently the server supports the fixed window algorithm and rate limits based on the clients ip address. There is no per endpoint rate limiting, which is why in all example configurations the settings are under **"Global"**
-- By default, the window length will be **60s**, with a maximum number of **5000 requests**.
-    - If one attribute is not present, the server will choose the default value for the attribute, regardless if the other is/isn't present:
+- Currently the server supports the fixed window algorithm and rate limits based on the clients ip address. There is no per endpoint rate limiting, which is why in all example configurations the settings are under **_"Global"_**.
+
+- The Global RateLimit section has 3 attributes:
+  - **max_requests**: The maximum number of requests the server will allow per ip in the given window length.
+  - **window**: The time frame over which the requests counter will increment.
+  - **disable**: An optional true/false field that allows Global ip rate limiting to be disabled entirely:
     ```xml
-    <!-- 'window' attribute is not present, server will set window to 60s, resulting in 300req/min -->
+    <!-- Disabled rate limiting -->
+    <Global disable="true"/>
+    ```
+        - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
+
+- By default, the window length will be **60s**, with a maximum of **5000 requests**.
+    - If an attribute is missing, the server will choose the default value for the missing attribute, regardless if the other is/isn't present:
+    ```xml
+    <!-- 'window' attribute is not present, server will set window to 60s, resulting in 300req/60s -->
     <Global max_requests="300"/>
 
     <!-- max_requests attribute is not present, server will set max_requests to 5000, resulting in 5000req/12min -->
@@ -253,29 +264,23 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     <!-- Correct units (m, min, mins), results in 500req/12min -->
     <Global max_request"500" window="12m"/>
 
-- The Global RateLimit section has 3 attributes:
-  - **max_requests**: The maximum number of requests the server will allow per ip in the given window length.
-  - **window**: The time frame over which the requests counter will increment.
-  - **disable**: An optional true/false field that allows Global ip rate limiting to be disabled entirely:
-    ```xml
-    <!-- Disabled rate limiting -->
-    <Global disable="true"/>
-    ```
-        - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
-
 - The configuration supports windowing time units of seconds, minutes, hours, and days (no decimals or fractions):
     - **seconds**: s, sec, secs
     - **minutes**: m , min, mins
     - **hours**: hr, hour, hours
     - **days**: d, day, days
 
-- All rate limiting sections must appear in the **RateLimit** element of the **ServerConfig**. under the element **Global**:
+- All rate limiting sections must appear in the **RateLimit** element within the **ServerConfig** element, under **Global**:
 ```xml
 <ServerConfig>
+    .
+    .
     <RateLimit>
         <!-- 100 req/hr -->
         <Global max_requests="100" window="1hr"/>
     </RateLimit>
+    .
+    .
 </ServerConfig>
 ```
 
