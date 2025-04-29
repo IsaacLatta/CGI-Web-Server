@@ -10,9 +10,6 @@ asio::awaitable<void> Session::start() {
 
     Transaction txn(sock.get());
     auto pipeline = cfg::Config::getInstance()->getPipeline();
-    if(pipeline == nullptr) {
-        std::cout << "PIPELINE IS NULL\n";
-    }
     co_await pipeline->run(&txn);
     sock->close();
 }

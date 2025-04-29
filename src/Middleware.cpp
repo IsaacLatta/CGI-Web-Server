@@ -4,11 +4,6 @@
 using namespace mw;
 
 static asio::awaitable<void> run_pipeline(Transaction *txn, std::size_t index, std::vector<std::unique_ptr<Middleware>>* pipeline) {
-    if(!pipeline) {
-        std::cout << "PIPELINE VECTOR IS NULL\n";
-        co_return;
-    }
-    
     if (index >= pipeline->size()) {
         co_return;
     }
@@ -21,7 +16,6 @@ static asio::awaitable<void> run_pipeline(Transaction *txn, std::size_t index, s
 }
 
 asio::awaitable<void> Pipeline::run(Transaction* txn) {
-    std::cout << "RUNNING PIPELINE\n";
     co_return co_await run_pipeline(txn, 0, &components);
 }
 
@@ -152,7 +146,50 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
     co_return;
 }
 
-// asio::awaitable<void> mw::RateLimiter::process(Transaction* txn, Next next) {
+IpInfo* IPRateLimiter::findClient(const std::string& ip) {
+    auto it = clients.find(ip);
+    if(it != clients.end()) {
+        return it->second.get();
+    } 
 
-// }
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    it = clients.find(ip);
+    if(it != clients.end()) {
+        return it->second.get();
+    }
+    auto client_ptr = std::make_unique<IpInfo>();
+    auto client_raw = client_ptr.get();
+    clients.emplace(ip, std::move(client_ptr));
+    return client_raw;
+}
+
+asio::awaitable<void> mw::IPRateLimiter::process(Transaction* txn, Next next) {
+    std::string ip = txn->getSocket()->getIP();
+    auto client_info = findClient(ip);
+
+    auto now = std::chrono::steady_clock::now();
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    std::uint32_t this_window_id = secs / setting.window_seconds;
+    std::uint64_t desired;
+    std::uint64_t old = client_info->window_and_count.load(std::memory_order_relaxed);
+    do {
+        std::uint32_t old_window_id = std::uint32_t(old >> 32); 
+        std::uint32_t old_count = std::uint32_t(old);
+        
+        if(old_window_id == this_window_id) {
+            if(old_count >= setting.max_requests) {
+                throw http::HTTPException(http::code::Too_Many_Requests, 
+                std::format("client={} has exceeded {} requests in {}s", ip, setting.max_requests, setting.window_seconds));
+            } 
+            desired = (std::uint64_t(this_window_id) << 32) | (old_count + 1); // increment by 1
+        } else {
+            desired = (std::uint64_t(this_window_id) << 32) | 1u; // reset to 1
+        }
+    } while(client_info->window_and_count.compare_exchange_weak(old, desired, std::memory_order_relaxed, std::memory_order_relaxed));
+
+    co_await next();
+}
+
+
+
  

@@ -31,8 +31,8 @@ struct Role {
 };
 
 struct RateSetting {
-    int window;
-    int max_requests;  
+    int window_seconds{60};
+    int max_requests{5000};  
 };
 
 std::string get_role_hash(std::string role_title);

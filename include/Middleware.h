@@ -59,19 +59,23 @@ class Authenticator: public Middleware
     void validate(Transaction* txn, const http::EndpointMethod* route);
 };
 
-// struct IpInfo {
-//     std::string ip;
-//     cfg::RateSetting setting;
-//     std::size_t counter{0};
-// };
+struct IpInfo {
+    std::atomic<std::uint64_t> window_and_count; 
+}; 
 
-// class IPRateLimiter: public Middleware
-// {
-//     public:
-//     asio::awaitable<void> process(Transaction* txn, Next next) override;
-//     private:
-//     static std::unordered_map<std::string, IpInfo> clients;
-// };
+class IPRateLimiter: public Middleware
+{
+    public:
+    IPRateLimiter() {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
+    asio::awaitable<void> process(Transaction* txn, Next next) override;
+    private:
+    std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
+    cfg::RateSetting setting;
+    std::mutex clients_mutex;
+
+    private:
+    IpInfo* findClient(const std::string& ip);
+};
 
 };
 #endif

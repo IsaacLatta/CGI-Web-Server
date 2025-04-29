@@ -37,14 +37,13 @@ void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
     // later add dynamic creation with parsing
     PIPELINE.components.push_back(std::make_unique<mw::Logger>());
     PIPELINE.components.push_back(std::make_unique<mw::ErrorHandler>());
-    // PIPELINE.components.push_back(mw::IPRateLimiter());
+    PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
     PIPELINE.components.push_back(std::make_unique<mw::Parser>());
     PIPELINE.components.push_back(std::make_unique<mw::Authenticator>());
     TRACE("Server", "pipeline loaded");
 }
 
 mw::Pipeline* Config::getPipeline() const {
-    std::cout << "RETURNING PIPELINE\n";
     return &PIPELINE;
 }
 
