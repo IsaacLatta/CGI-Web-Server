@@ -302,7 +302,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 ```
 - This directory can be overridden by adding the LogDirectory field to the configuration file, this new path will not be relative to the **WebDirectory** path.
 ```xml
-<LogDirectory>/path/to/different/log/</LogDirectory>
+<LogDirectory>/path/to/different/log</LogDirectory>
 ```
 
 - The logs are formatted with readability in mind:
@@ -316,24 +316,6 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 - Some additional log levels are also supported, all of which append the (file:line function):
     - **TRACE**: The most verbose level.
-    - **DEBUG**: Slightly less verbose than trace, currently logs information useful troubleshooting administrators.
+    - **DEBUG**: Slightly less verbose than trace, currently logs information useful for troubleshooting administrators.
     - **WARN**: Higher severity than error.
-    - **FATAL**: This level is reserved for critical errors that result in the server exiting. The FATAL level will also write the stack trace, and the pid of the exiting server process.
-
-## To Do
-
-1. POST Request.
-    - Add support for resource uploads, as well as task submission, e.g.) streaming.
-2. PUT Request.
-    - Allow upload of resource.
-3. OPTIONS Request.
-    - Allow preflight for resource creation (use with POST).
-4. CONNECT Support.
-    - For tunneling (HTTPS).
-5. Default endpoints.
-    - Endpoints for health or status metrics, e.g.) /health, /status.
-6. Add rate limiting, especially for POST.
-7. Add example files config, static gifs, scripts etc for example usage.
-8. Add documentation to the code base.
-
-
+    - **FATAL**: This level is reserved for critical errors that result in the server exiting. The FATAL level will also write the stack trace, and the pid of the exiting process.
