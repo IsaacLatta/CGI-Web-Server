@@ -69,6 +69,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - SSL: Configures SSL settings, including certificate and key paths.
     - JWT: Configures the JWT setting used for generating secrets.
     - ErrorPages: Allows serving of predefined error pages for various error codes.
+    - RateLimit: Allows rate limit settings based on the client ip address.
 
 - Example xml configuration: 
    ```xml
@@ -140,6 +141,15 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
         <!-- Load the JWT secret from a file -->
 	    <SecretFile>/path/to/jwt_secret.txt</SecretFile>
     </JWT>
+
+    <RateLimit>
+        <!-- IP based fixed window rate limiting, 200req/hr -->
+        <Global disable="false" max_requests="200" window="1hr"/>
+        
+        <!-- Also valid, see Rate Limiting section for available options -->
+        <!-- <Global max_requests="200" window="3600s"/> -->
+        <!-- <Global disable="false" max_requests="4000" window="1d"/> -->
+    </RateLimit>
 
 </ServerConfig>
 
@@ -218,6 +228,56 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
         <Length>128</Length>
     </GenerateSecret>
     ```
+
+### Rate Limit Configuration
+
+- Currently the server supports the fixed window algorithm and rate limits based on the clients ip address. There is no per endpoint rate limiting, which is why in all example configurations the settings are under **"Global"**
+- By default, the window length will be **60s**, with a maximum number of **5000 requests**.
+    - If one attribute is not present, the server will choose the default value for the attribute, regardless if the other is/isn't present:
+    ```xml
+    <!-- 'window' attribute is not present, server will set window to 60s, resulting in 300req/min -->
+    <Global max_requests="300"/>
+
+    <!-- max_requests attribute is not present, server will set max_requests to 5000, resulting in 5000req/12min -->
+    <Global window="12min"/>
+    ```
+
+    - If the time unit in the window attribute is not supported/specified (see unit section below), the server assumes seconds:
+  ```xml
+    <!-- 'minutes' not supported, will default to 12s, resulting in 500req/12s -->
+    <Global max_requests="500" window="12minutes"/>
+
+    <!-- No unit provided, will default to 12s, resulting in 500req/12s -->
+    <Global max_requests="500" window="12"/>
+
+    <!-- Correct units (m, min, mins), results in 500req/12min -->
+    <Global max_request"500" window="12m"/>
+
+- The Global RateLimit section has 3 attributes:
+  - **max_requests**: The maximum number of requests the server will allow per ip in the given window length.
+  - **window**: The time frame over which the requests counter will increment.
+  - **disable**: An optional true/false field that allows Global ip rate limiting to be disabled entirely:
+    ```xml
+    <!-- Disabled rate limiting -->
+    <Global disable="true"/>
+    ```
+        - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
+
+- The configuration supports windowing time units of seconds, minutes, hours, and days (no decimals or fractions):
+    - **seconds**: s, sec, secs
+    - **minutes**: m , min, mins
+    - **hours**: hr, hour, hours
+    - **days**: d, day, days
+
+- All rate limiting sections must appear in the **RateLimit** element of the **ServerConfig**. under the element **Global**:
+```xml
+<ServerConfig>
+    <RateLimit>
+        <!-- 100 req/hr -->
+        <Global max_requests="100" window="1hr"/>
+    </RateLimit>
+</ServerConfig>
+```
 
 ### Server File Structure
 
