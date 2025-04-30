@@ -12,8 +12,6 @@ static http::ErrorPage DEFAULT_ERROR_PAGE;
 Router Router::INSTANCE;
 
 Router::Router() {
-    // DEFAULT_ENDPOINT.setEndpointURL("/");
-
     ROOT_ENDPOINT.addMethod({
     .m = http::method::Get,
     .access_role = VIEWER_ROLE_HASH,

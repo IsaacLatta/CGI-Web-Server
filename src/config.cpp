@@ -1,12 +1,18 @@
 #include "config.h"
 #include "Router.h"
 #include "Middleware.h"
+#include "Transaction.h"
 
 using namespace cfg;
 
 Config Config::INSTANCE;
 std::once_flag Config::initFlag;
 mw::Pipeline PIPELINE;
+
+std::string cfg::DEFAULT_MAKE_KEY(Transaction* txn) {
+    return txn->getSocket()->getIP();
+};
+
 
 Config::Config() {}
 
@@ -31,12 +37,6 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     );
     TRACE("Server", "%s", msg.c_str());
 }
-
-#include <string>
-#include <sstream>
-#include <algorithm>
-#include <cctype>
-#include <stdexcept>
 
 static int get_seconds_from_time_str(const char* data) {
     if(!data) {
@@ -107,17 +107,18 @@ void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
         return;
     }
 
-    cfg::FixedWindowRateSetting global_setting;
+    cfg::FixedWindowSetting global_setting;
     auto global_elem = rate_limit_elem->FirstChildElement("Global");
     if(!global_elem) {
-        PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
+        PIPELINE.components.push_back(std::make_unique<mw::FixedWindowLimiter>());
         DEBUG("Server", "no global rate limit configuration: defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
     } else if(!(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true"))) {
         global_setting.max_requests = load_int(global_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
             std::format("failed to parse max_requests for global rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
         global_setting.window_seconds = global_elem->Attribute("window") ? get_seconds_from_time_str(global_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
         DEBUG("Server", "global rate limit [max_requests=%d window=%ds] loaded", global_setting.max_requests, global_setting.window_seconds);
-        PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>(global_setting));
+        // PIPELINE.components.push_back(std::make_unique<mw::FixedWindowLimiter>(global_setting));
+        PIPELINE.components.push_back(std::make_unique<mw::TokenBucketLimiter>(TokenBucketSetting()));
     } else {
         DEBUG("Server", "global rate limit disabled");
     }

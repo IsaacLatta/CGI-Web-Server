@@ -19,7 +19,7 @@ namespace cfg {
     struct TokenBucketRateSetting;
 }
 
-class Transaction;
+struct Transaction;
 
 namespace http { 
 
@@ -46,7 +46,7 @@ namespace http {
         bool has_script{false};
         http::arg_type args{arg_type::None};
         Handler handler;
-        Limiter limiter;
+        Limiter limiter{};
     };
 
     class Endpoint {

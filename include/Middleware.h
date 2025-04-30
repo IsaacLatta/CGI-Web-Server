@@ -59,20 +59,25 @@ class Authenticator: public Middleware
     void validate(Transaction* txn, const http::EndpointMethod* route);
 };
 
+class RateLimiter: public Middleware
+{
+    asio::awaitable<void> process(Transaction* txn, Next next) override;
+};
+
 struct IpInfo {
     /* upper 32 bits window, lower 32 bits counter */
     std::atomic<std::uint64_t> window_and_count; 
 }; 
 
-class IPRateLimiter: public Middleware
+class FixedWindowLimiter: public Middleware
 {
     public:
-    IPRateLimiter(cfg::FixedWindowRateSetting setting): setting(setting) {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
-    IPRateLimiter() {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
+    FixedWindowLimiter(cfg::FixedWindowSetting setting): setting(setting) {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
+    FixedWindowLimiter() {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
     std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
-    cfg::FixedWindowRateSetting setting;
+    cfg::FixedWindowSetting setting;
     std::mutex clients_mutex;
 
     private:

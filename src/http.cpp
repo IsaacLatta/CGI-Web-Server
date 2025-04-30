@@ -106,30 +106,6 @@ http::code http::determine_content_type(const std::string& resource, std::string
     return http::code::Forbidden;
 }
 
-    //     Not_A_Status = -1,
-    //     OK = 200,
-    //     Created = 201,
-    //     Accepted = 202,
-    //     No_Content = 204,
-    //     Moved_Permanently = 301,
-    //     Found = 302,
-    //     See_Other = 303,
-    //     Not_Modified = 304,
-    //     Bad_Request = 400,
-    //     Unauthorized = 401,
-    //     Forbidden = 403,
-    //     Not_Found = 404,
-    //     Method_Not_Allowed = 405,
-    //     Unsupported_Media_Type = 415,
-    //     Too_Many_Requests = 429,
-    //     Client_Closed_Request = 499,
-    //     Internal_Server_Error = 500,
-    //     Not_Implemented = 501,
-    //     Bad_Gateway = 502,
-    //     Service_Unavailable = 503,
-    //     Gateway_Timeout = 504,
-    //     Insufficient_Storage = 507
-
 std::string_view http::get_status_msg(http::code http_code) {
     switch (http_code) {
     case http::code::OK: return "HTTP/1.1 200 OK";
@@ -146,7 +122,7 @@ std::string_view http::get_status_msg(http::code http_code) {
     case http::code::Not_Found: return "HTTP/1.1 404 Not Found";
     case http::code::Method_Not_Allowed: return "HTTP/1.1 405 Method Not Allowed";
     case http::code::Unsupported_Media_Type: return "HTTP/1.1 415 Unsupported Media Type";
-    case http::code::Too_Many_Requests: return "HTTP/1.1 419 Too Many Requests";
+    case http::code::Too_Many_Requests: return "HTTP/1.1 429 Too Many Requests";
     case http::code::Client_Closed_Request: return "HTTP/1.1 499 Client Closed Request";
     case http::code::Internal_Server_Error: return "HTTP/1.1 500 Internal Server Error";
     case http::code::Not_Implemented: return "HTTP/1.1 501 Not Implemented";

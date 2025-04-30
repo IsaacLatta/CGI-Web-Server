@@ -8,9 +8,15 @@
 #include <mutex>
 #include <format>
 #include <openssl/rand.h>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <stdexcept>
 
 #include "logger_macros.h"
 #include "http.h"
+
+struct Transaction;
 
 namespace mw {
     class Middleware;
@@ -21,10 +27,11 @@ namespace cfg {
 
 constexpr int DEFAULT_WINDOW_SECONDS = 60;
 constexpr int DEFAULT_MAX_REQUESTS = 5000;
-constexpr int DEFAULT_TOKEN_CAPACITY = 10;
-constexpr int DEFAULT_REFILL_RATE = 1; /* In tokens/s, i.e. 1 token/s */
+constexpr int DEFAULT_TOKEN_CAPACITY = 2;
+constexpr int DEFAULT_REFILL_RATE = 1; /* in tokens/s, i.e. 1 token/s */
 
-using Endpoint = std::string;
+/* Returns the sockets ip address */
+std::string DEFAULT_MAKE_KEY(Transaction* txn);
 
 struct Role {
     std::string title;
@@ -36,16 +43,15 @@ struct Role {
 };
 
 struct RateSetting {
-    std::function<std::string(Transaction* txn)> make_key;
+    std::function<std::string(Transaction*)> make_key{DEFAULT_MAKE_KEY};
 };
 
 struct TokenBucketSetting: public RateSetting {
-    int capacity{10};
-    int refill_rate{1}; // tokens per second
+    int capacity{DEFAULT_TOKEN_CAPACITY};
+    int refill_rate{DEFAULT_REFILL_RATE}; // tokens per second
 };
 
-// TODO: Update IPRateLimiter to a dedicated fixed window that calls 'make_key'
-struct FixedWindowRateSetting: public RateSetting {
+struct FixedWindowSetting: public RateSetting {
     int window_seconds{DEFAULT_WINDOW_SECONDS};
     int max_requests{DEFAULT_MAX_REQUESTS};  
 };
