@@ -16,11 +16,12 @@ namespace http {
 
 namespace cfg {
     class Config;
+    struct TokenBucketRateSetting;
 }
 
 class Transaction;
 
-namespace http {
+namespace http { 
 
     enum class arg_type {
         None, Any, Body_Any, Body_JSON, Body_URL, Query_String
@@ -28,6 +29,7 @@ namespace http {
     arg_type arg_str_to_enum(const std::string& args_str) noexcept;
 
     using Handler = std::function<asio::awaitable<void>(Transaction*)>;
+    using Limiter = std::function<asio::awaitable<void>(Transaction*)>;
 
     struct ErrorPage {
         http::code status;
@@ -44,6 +46,7 @@ namespace http {
         bool has_script{false};
         http::arg_type args{arg_type::None};
         Handler handler;
+        Limiter limiter;
     };
 
     class Endpoint {

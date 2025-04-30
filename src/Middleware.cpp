@@ -190,6 +190,72 @@ asio::awaitable<void> mw::IPRateLimiter::process(Transaction* txn, Next next) {
     co_await next();
 }
 
+Bucket* mw::TokenBucketLimiter::findBucket(const std::string& key) {
+    auto it = buckets.find(key);
+    if(it != buckets.end()) {
+        return it->second.get();
+    }
 
+    std::lock_guard lock(buckets_mutex);
+    it = buckets.find(key);
+    if(it != buckets.end()) {
+        return it->second.get();
+    }
+
+    auto new_bucket = std::make_unique<Bucket>();
+
+    auto now_s = std::uint32_t(std::chrono::duration_cast<std::chrono::seconds>
+                (std::chrono::steady_clock::now().time_since_epoch()).count());
+    std::uint64_t init = (std::uint64_t(setting.capacity) << 32) | now_s;
+    new_bucket->tokens_and_refill.store(init, std::memory_order_relaxed);  
+
+    auto raw = new_bucket.get();
+    buckets.emplace(key, std::move(new_bucket));
+    return raw;
+}
+
+asio::awaitable<void> mw::TokenBucketLimiter::process(Transaction* txn, Next next) {
+    std::string key = setting.make_key(txn);
+    auto bucket = findBucket(key);
+
+    auto now = std::chrono::steady_clock::now();
+    auto secs = std::uint32_t(std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+
+    std::uint32_t updated_tokens, new_refill;
+    std::uint64_t desired;
+    std::uint64_t old = bucket->tokens_and_refill.load(std::memory_order_relaxed);
+    do {
+        std::uint32_t old_tokens = std::uint32_t(old >> 32); // extract upper 32
+        std::uint32_t old_refill = std::uint32_t(old); // extract lower 32
+        std::uint32_t elapsed = secs > old_refill ? secs - old_refill : 0; // check on multiple req/s, overflow on secs
+        std::uint64_t new_tokens = old_tokens + setting.refill_rate*elapsed;
+        if(new_tokens > setting.capacity) {
+            new_tokens = setting.capacity;
+        }
+
+        new_refill = elapsed > 0 ? secs : old_refill; // has a second passed ?
+
+        if(new_tokens < 1) {
+            std::unordered_map<std::string, std::string> headers;
+            std::uint32_t retry_after = new_refill + 1 > secs ? (new_refill + 1 - secs) : 0;
+            headers["Retry-After"] = std::to_string(retry_after); 
+            throw http::HTTPException(http::code::Too_Many_Requests, 
+                std::format("client={} has exceeded rate limit on [{} {}] ({} req/s cap={})", 
+                txn->getSocket()->getIP(), http::method_enum_to_str(txn->getRequest()->method), 
+                txn->getRequest()->endpoint_url, setting.refill_rate, setting.capacity), std::move(headers));
+        }
+
+        updated_tokens = std::uint32_t(new_tokens - 1);
+        desired = (std::uint64_t(updated_tokens) << 32) | new_refill;
+    } while(!bucket->tokens_and_refill.compare_exchange_weak(old, desired, std::memory_order_relaxed, std::memory_order_relaxed));
+
+
+    auto response = txn->getResponse();
+    response->addHeader("X-RateLimit-Limit", std::to_string(setting.capacity));
+    response->addHeader("X-RateLimit-Remaining", std::to_string(updated_tokens));
+    response->addHeader("X-RateLimit-Reset", std::to_string(new_refill + 1));
+
+    co_await next();
+}
 
  

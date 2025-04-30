@@ -30,6 +30,7 @@ Visit my personal website:  [lattadata.com](https://lattadata.com)
   - Asio (header-only, included in the `third_party` folder).
   - jwt-cpp (included in the `third_party` folder).
   - TinyXML2 (included in the `third_party` folder).
+  - nlohmann (included in the `third_party` folder).
   - OpenSSL (likely included on most linux machines).
 
 All dependencies(aside from cmake) are included in the `third_party` folder; no external installations are required.

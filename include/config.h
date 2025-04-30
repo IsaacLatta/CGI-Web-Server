@@ -21,6 +21,8 @@ namespace cfg {
 
 constexpr int DEFAULT_WINDOW_SECONDS = 60;
 constexpr int DEFAULT_MAX_REQUESTS = 5000;
+constexpr int DEFAULT_TOKEN_CAPACITY = 10;
+constexpr int DEFAULT_REFILL_RATE = 1; /* In tokens/s, i.e. 1 token/s */
 
 using Endpoint = std::string;
 
@@ -34,6 +36,16 @@ struct Role {
 };
 
 struct RateSetting {
+    std::function<std::string(Transaction* txn)> make_key;
+};
+
+struct TokenBucketSetting: public RateSetting {
+    int capacity{10};
+    int refill_rate{1}; // tokens per second
+};
+
+// TODO: Update IPRateLimiter to a dedicated fixed window that calls 'make_key'
+struct FixedWindowRateSetting: public RateSetting {
     int window_seconds{DEFAULT_WINDOW_SECONDS};
     int max_requests{DEFAULT_MAX_REQUESTS};  
 };

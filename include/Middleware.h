@@ -60,23 +60,43 @@ class Authenticator: public Middleware
 };
 
 struct IpInfo {
+    /* upper 32 bits window, lower 32 bits counter */
     std::atomic<std::uint64_t> window_and_count; 
 }; 
 
 class IPRateLimiter: public Middleware
 {
     public:
-    IPRateLimiter(cfg::RateSetting setting): setting(setting) {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
+    IPRateLimiter(cfg::FixedWindowRateSetting setting): setting(setting) {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
     IPRateLimiter() {clients.reserve(2048);} // avoid reshashing, could possibly add expired client removal
     asio::awaitable<void> process(Transaction* txn, Next next) override;
     private:
     std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
-    cfg::RateSetting setting;
+    cfg::FixedWindowRateSetting setting;
     std::mutex clients_mutex;
 
     private:
     IpInfo* findClient(const std::string& ip);
 };
 
+struct Bucket {
+    /* upper 32 bits = tokens, lower 32 bits = refill timestamp */
+    std::atomic<std::uint64_t> tokens_and_refill;
+};
+
+class TokenBucketLimiter: public Middleware
+{
+    public:
+    TokenBucketLimiter(cfg::TokenBucketSetting&& setting): setting(setting) {buckets.reserve(2048);}
+    asio::awaitable<void> process(Transaction* txn, Next next) override;
+
+    private:
+    cfg::TokenBucketSetting setting;
+    std::unordered_map<std::string, std::unique_ptr<Bucket>> buckets;
+    std::mutex buckets_mutex;
+
+    private:
+    Bucket* findBucket(const std::string& identifier);
+};
 };
 #endif

@@ -107,7 +107,7 @@ void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
         return;
     }
 
-    cfg::RateSetting global_setting;
+    cfg::FixedWindowRateSetting global_setting;
     auto global_elem = rate_limit_elem->FirstChildElement("Global");
     if(!global_elem) {
         PIPELINE.components.push_back(std::make_unique<mw::IPRateLimiter>());
