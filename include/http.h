@@ -166,6 +166,7 @@ namespace http
 
     struct Request {
         http::method method;
+        std::string_view query;
         std::string_view args;
         std::string endpoint_url;
         const http::Endpoint* endpoint{nullptr};

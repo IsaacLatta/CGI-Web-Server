@@ -134,21 +134,119 @@ static int load_refill_rate(const char* buf) {
     return value / get_seconds_multiplier(rate_str.substr(pos + 1));
 }
 
+
+static std::string trim(const std::string& s) {
+    auto l = s.find_first_not_of(" \t\r\n");
+    if (l == std::string::npos) return "";
+    auto r = s.find_last_not_of(" \t\r\n");
+    return s.substr(l, r - l + 1);
+}
+
+static std::string parseXff(const std::string& xff) {
+    std::istringstream in(xff);
+    std::string part;
+    if (std::getline(in, part, ',')) {
+        return trim(part);
+    }
+    return trim(xff);
+}
+
+/* by default it is assumed that 'uses_ip' is true, 'uses_ip' is here only for the ordering of the global rate limiter in the pipeline */
+static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
+    if(uses_ip) *uses_ip = true;
+    
+    tinyxml2::XMLElement* key_elem = algo_elem->FirstChildElement("Key");
+    if(!key_elem) {
+        DEBUG("Server", "missing key type for RateLimit, defaulting to type='ip'");
+        return cfg::DEFAULT_MAKE_KEY;
+    }
+    
+    std::string key_type = key_elem->Attribute("type") ? key_elem->Attribute("type") : "";
+    if(key_type.empty()) {
+        DEBUG("Server", "RateLimit is missing 'type' attribute, defaulting to type='ip'");
+        return cfg::DEFAULT_MAKE_KEY;
+    }
+    std::transform(key_type.begin(), key_type.end(), key_type.begin(), [](unsigned char c){return static_cast<char>(std::tolower(c));});
+
+    bool ip_fallback = key_elem->Attribute("fallback") ? (!std::strcmp(key_elem->Attribute("fallback"), "ip") ? true : false) : true;
+    if(!key_elem->Attribute("fallback")) {
+        TRACE("Server", "RateLimit is missing 'fallback' attribute, defaulting to fallback='ip'");
+    }
+
+    if(key_type == "header") {
+        std::string header_name = key_elem->Attribute("name") ? key_elem->Attribute("name") : "";
+        if(header_name.empty()) {
+            DEBUG("Server", "rate limit has requested Key type='header': missing 'name' attribute, defaulting to name='ip'");
+            return cfg::DEFAULT_MAKE_KEY;
+        } 
+
+        if(uses_ip) *uses_ip = false;
+        return [header_name, ip_fallback](Transaction* txn) -> std::string {
+            auto request = txn->getRequest();
+            std::string header = request->getHeader(header_name);
+            if(!header.empty()) {
+                return header;
+            }
+            if(!ip_fallback) {
+                throw http::HTTPException(http::code::Bad_Request, 
+                std::format("client={} is missing header={}, unable to rate limit", txn->getSocket()->getIP(), header_name));
+            }
+            return txn->getSocket()->getIP();
+        };
+    } else if (key_type == "ip") {
+        return [](Transaction* txn) -> std::string {
+            return txn->getSocket()->getIP();
+        };
+    } else if (key_type == "xff") {
+        
+        if(uses_ip) *uses_ip = false;
+        return [ip_fallback](Transaction* txn) -> std::string {
+            auto header = txn->getRequest()->getHeader("X-Forwarded-For");
+            if (!header.empty()) {
+                return parseXff(header);
+            }
+            if(!ip_fallback) {
+                throw http::HTTPException(http::code::Bad_Request, 
+                std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->getSocket()->getIP()));
+            }
+            return txn->getSocket()->getIP();
+        };
+    } else if (key_type == "query") {
+        if(uses_ip) *uses_ip = false;
+        return [ip_fallback](Transaction* txn) -> std::string {
+            std::string_view query = txn->getRequest()->query;
+            if(!query.empty()) {
+                return std::string(query);
+            }
+            if(!ip_fallback) {
+                throw http::HTTPException(http::code::Bad_Request, 
+                std::format("client={}, missing query string, unable to rate limit", txn->getSocket()->getIP()));
+            }
+            return txn->getSocket()->getIP();
+        };
+    } 
+    else {
+        DEBUG("Server", "unsupported Key type='%s', defaulting to type='ip'", key_type.c_str());
+        return cfg::DEFAULT_MAKE_KEY;
+    }
+}
+
 static std::unique_ptr<mw::Middleware> load_token_bucket(tinyxml2::XMLElement* algo_elem, bool* uses_ip) {
     cfg::TokenBucketSetting setting;
     setting.capacity = load_int(algo_elem->Attribute("capacity"), cfg::DEFAULT_TOKEN_CAPACITY, 
         std::format("failed to parse capacity for rate limit, defaulting to capacity=%d tokens", cfg::DEFAULT_TOKEN_CAPACITY));
     setting.refill_rate = load_refill_rate(algo_elem->Attribute("refill_rate"));
+    setting.make_key = get_key_func(algo_elem, uses_ip);
     DEBUG("Server", "RateLimit [algorithm='token bucket' capacity=%d refill_rate=%d tokens/second]", setting.capacity, setting.refill_rate);
     return std::make_unique<mw::TokenBucketLimiter>(std::move(setting));
 }
 
-static std::unique_ptr<mw::Middleware> load_fixed_window(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
+static std::unique_ptr<mw::Middleware> load_fixed_window(tinyxml2::XMLElement* algo_elem, bool* uses_ip) {
     cfg::FixedWindowSetting setting;
     setting.max_requests = load_int(algo_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
         std::format("failed to parse max_requests for rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
     setting.window_seconds = algo_elem->Attribute("window") ? get_seconds_from_time_str(algo_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
-
+    setting.make_key = get_key_func(algo_elem, uses_ip);
     DEBUG("Server", "RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", setting.max_requests, setting.window_seconds);
     return std::make_unique<mw::FixedWindowLimiter>(setting);
 }

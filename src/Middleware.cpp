@@ -66,6 +66,7 @@ asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     request.args = http::extract_args(*buffer, request.endpoint->getArgType(request.method));
     request.headers = http::extract_headers(*buffer);
     request.body = http::extract_body(*buffer);
+    request.query = http::extract_query_string(*buffer);
     request.route = router->getEndpointMethod(request.endpoint_url, request.method);
 
     TRACE("MW Parser", "Hit for endpoint: %s", request.endpoint_url.c_str());
