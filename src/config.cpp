@@ -13,7 +13,6 @@ std::string cfg::DEFAULT_MAKE_KEY(Transaction* txn) {
     return txn->getSocket()->getIP();
 };
 
-
 Config::Config() {}
 
 const Config* Config::getInstance(const std::string& config_path) {
@@ -133,7 +132,6 @@ static int load_refill_rate(const char* buf) {
     }
     return value / get_seconds_multiplier(rate_str.substr(pos + 1));
 }
-
 
 static std::string trim(const std::string& s) {
     auto l = s.find_first_not_of(" \t\r\n");
@@ -274,22 +272,22 @@ static std::unique_ptr<mw::Middleware> load_limiter(tinyxml2::XMLElement* algo_e
 }
 
 std::unique_ptr<mw::Middleware> Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc, bool* uses_ip = nullptr) {
-    auto rate_limit_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("RateLimit");
-    if(!rate_limit_elem) {
-        DEBUG("Server", "no global rate limit configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
-        return std::make_unique<mw::FixedWindowLimiter>();
-    }
-
-    auto global_elem = rate_limit_elem->FirstChildElement("Global");
+    auto global_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("Global");
     if(!global_elem) {
-        DEBUG("Server", "no global rate limit configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        DEBUG("Server", "no global configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
         return std::make_unique<mw::FixedWindowLimiter>();
-    } else if(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true")) {
+    } 
+    
+    auto rate_elem = global_elem->FirstChildElement("RateLimit");
+    if(!rate_elem) {
+        DEBUG("Server", "no global configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        return std::make_unique<mw::FixedWindowLimiter>();
+    } if(rate_elem->Attribute("disable") && !std::strcmp(rate_elem->Attribute("disable"), "true")) {
         DEBUG("Server", "global rate limit disabled");
         return nullptr;
     } else {
         TRACE("Server", "loading global rate limiter ...");
-        return load_limiter(global_elem->FirstChildElement("Algorithm"), uses_ip);
+        return load_limiter(rate_elem, uses_ip);
     }
 }
 
@@ -303,6 +301,7 @@ void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
     }
     PIPELINE.components.push_back(std::make_unique<mw::Parser>());
     if(limiter && !global_uses_ip) {
+        TRACE("Server", "global rate limiting requires parsing");
         PIPELINE.components.push_back(std::move(limiter));
     }
     PIPELINE.components.push_back(std::make_unique<mw::RateLimiter>());
@@ -398,7 +397,6 @@ void display_role(cfg::Role* role) {
     std::string final_msg = std::format("role [{}]\n\t{}\n", role->title, includes);
     TRACE("Server", "%s", final_msg.c_str());
 }
-
 
 void Config::loadRoles(tinyxml2::XMLDocument* doc) {
     roles[ADMIN_ROLE_HASH] = ADMIN;
