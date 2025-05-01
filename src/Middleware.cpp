@@ -148,9 +148,11 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
 
 
 asio::awaitable<void> RateLimiter::process(Transaction* txn, Next next) {
-    auto limiter = txn->getRequest()->route->limiter;
+    auto limiter = txn->getRequest()->route->rate_limiter.get();
     if(limiter) {
-        co_await limiter(txn);
+        co_await limiter->process(txn, next);
+    } else {
+        co_await next();
     }
     co_return;
 }
@@ -187,8 +189,13 @@ asio::awaitable<void> mw::FixedWindowLimiter::process(Transaction* txn, Next nex
         
         if(old_window_id == this_window_id) {
             if(old_count >= setting.max_requests) {
+                std::unordered_map<std::string,std::string> headers;
+                uint32_t window_start = this_window_id * setting.window_seconds;
+                uint32_t reset_time   = window_start + setting.window_seconds;
+                uint32_t retry_after  = (reset_time > secs) ? (reset_time - secs) : 0;
+                headers["Retry-After"] = std::to_string(retry_after);
                 throw http::HTTPException(http::code::Too_Many_Requests, 
-                std::format("client={} has exceeded {} requests in {}s", key, setting.max_requests, setting.window_seconds));
+                std::format("client={} has exceeded {} requests in {}s", key, setting.max_requests, setting.window_seconds), std::move(headers));
             } 
             desired = (std::uint64_t(this_window_id) << 32) | (old_count + 1); // increment by 1
         } else {
@@ -196,7 +203,18 @@ asio::awaitable<void> mw::FixedWindowLimiter::process(Transaction* txn, Next nex
         }
     } while(client_info->window_and_count.compare_exchange_weak(old, desired, std::memory_order_relaxed, std::memory_order_relaxed));
 
-    co_await next();
+    std::uint32_t new_count = std::uint32_t(desired);
+    std::uint32_t window_start = this_window_id * setting.window_seconds;
+    std::uint32_t reset_time   = window_start + setting.window_seconds;
+    auto resp = txn->getResponse();
+    resp->addHeader("X-RateLimit-Limit",     std::to_string(setting.max_requests));
+    resp->addHeader("X-RateLimit-Remaining", std::to_string(setting.max_requests - new_count));
+    resp->addHeader("X-RateLimit-Reset",     std::to_string(reset_time));
+
+    if(next) {
+        co_await next();
+    }
+    co_return;
 }
 
 Bucket* mw::TokenBucketLimiter::findBucket(const std::string& key) {
@@ -269,7 +287,10 @@ asio::awaitable<void> mw::TokenBucketLimiter::process(Transaction* txn, Next nex
     response->addHeader("X-RateLimit-Reset", std::to_string(reset_epoch));
     response->addHeader("Retry-After", std::to_string(delay));
 
-    co_await next();
+    if(next) {
+        co_await next();
+    }
+    co_return;
 }
 
  

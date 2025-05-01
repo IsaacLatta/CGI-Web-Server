@@ -3,6 +3,7 @@
 #include "http.h"
 #include "Transaction.h"
 #include "MethodHandler.h"
+#include "Middleware.h"
 
 using namespace http;
 using namespace cfg;
@@ -23,7 +24,8 @@ Router::Router() {
         GetHandler handler(txn);
         co_await handler.handle();
         co_return;
-        }
+        },
+    .rate_limiter = {}
     });
 
     ROOT_ENDPOINT.addMethod({
@@ -37,7 +39,8 @@ Router::Router() {
             HeadHandler handler(txn);
             co_await handler.handle();
             co_return;
-        }
+        },
+    .rate_limiter = {}
     });
     endpoints["/"] = ROOT_ENDPOINT;
 
@@ -105,7 +108,7 @@ static http::Handler assign_handler(method m) {
 }
 
 static http::EndpointMethod create_default_endpoint_method(const std::string& endpoint, method m) {
-    return http::EndpointMethod{m, cfg::VIEWER_ROLE_HASH, "", false, false, endpoint, false, arg_type::None, assign_handler(m)};
+    return http::EndpointMethod{m, cfg::VIEWER_ROLE_HASH, "", false, false, endpoint, false, arg_type::None, assign_handler(m), {}};
 }
 
 const http::Endpoint* Router::getEndpoint(const std::string& endpoint) {

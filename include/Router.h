@@ -1,6 +1,7 @@
 #ifndef ROUTER_H
 #define ROUTER_H
 
+#include <memory>
 #include <unordered_map>
 #include <string>
 #include <functional>
@@ -17,6 +18,10 @@ namespace http {
 namespace cfg {
     class Config;
     struct TokenBucketRateSetting;
+}
+
+namespace mw {
+    class Middleware;
 }
 
 struct Transaction;
@@ -46,7 +51,7 @@ namespace http {
         bool has_script{false};
         http::arg_type args{arg_type::None};
         Handler handler;
-        Limiter limiter{};
+        std::shared_ptr<mw::Middleware> rate_limiter;
     };
 
     class Endpoint {

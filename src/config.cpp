@@ -38,6 +38,21 @@ static void print_endpoint(const http::EndpointMethod& method, const std::string
     TRACE("Server", "%s", msg.c_str());
 }
 
+static int get_seconds_multiplier(const std::string& unit) {
+    if (unit == "d" || unit == "day" || unit == "days") {
+        return 24*3600;
+    } else if (unit == "h" || unit == "hr" || unit == "hour" || unit == "hours") {
+        return 3600;
+    } else if (unit == "m"   || unit == "min" || unit == "mins") {
+        return 60;
+    } else if (unit == "s" || unit == "sec" || unit == "secs") {
+        return 1;
+    } else {
+        WARN("Server", "unknown time unit '%s' for rate limit, assuming seconds", unit.c_str());
+        return 1;
+    }
+}
+
 static int get_seconds_from_time_str(const char* data) {
     if(!data) {
         DEBUG("Server", "empty time field, resulting to default %s seconds", cfg::DEFAULT_WINDOW_SECONDS);
@@ -74,18 +89,7 @@ static int get_seconds_from_time_str(const char* data) {
     std::string unit = token.substr(pos);
     std::transform(unit.begin(), unit.end(), unit.begin(), [](unsigned char c){ return std::tolower(c); });
 
-    if (unit == "d" || unit == "day" || unit == "days") {
-        return value*24*3600;
-    } else if (unit == "h" || unit == "hr" || unit == "hour" || unit == "hours") {
-        return value*3600;
-    } else if (unit == "m"   || unit == "min" || unit == "mins") {
-        return value*60;
-    } else if (unit == "s" || unit == "sec" || unit == "secs") {
-        return value;
-    } else {
-        WARN("Server", "unknown time unit '%s' for rate limit, treating %d as seconds", unit.c_str(), value);
-        return value;
-    }
+    return get_seconds_multiplier(unit)*value;
 }
 
 static int load_int(const char* int_str, int fallback, const std::string& fallback_log) {
@@ -101,34 +105,109 @@ static int load_int(const char* int_str, int fallback, const std::string& fallba
     }
 }
 
-void Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc) {
+static int load_refill_rate(const char* buf) {
+    if(!buf) {
+        DEBUG("Server", "failed to parse refill_rate, defaulting to %d tokens/second", cfg::DEFAULT_REFILL_RATE);
+        return cfg::DEFAULT_REFILL_RATE;
+    }
+    std::string rate_str(buf);
+    std::size_t pos(0);
+    while(pos < rate_str.size() && std::isdigit(static_cast<unsigned char>(rate_str[pos]))) {
+        ++pos;
+    }
+    if(pos == 0) {
+        DEBUG("Server", "failed to parse refill_rate, defaulting to %d tokens/second", cfg::DEFAULT_REFILL_RATE);
+        return cfg::DEFAULT_REFILL_RATE;
+    }
+    std::string digit_str = rate_str.substr(0, pos);
+    int value(0);
+    try {
+        value = std::stoi(digit_str);
+    } catch (const std::exception& e) {
+        WARN("Server", "couldn't parse numeric part of '%s' for rate limit, defaulting to %d tokens/second",
+             rate_str.c_str(), cfg::DEFAULT_REFILL_RATE);
+    }
+    if((pos = rate_str.find("/")) == std::string::npos) {
+        WARN("Server", "couldn't parse refill_rate missing '/' for tokens/time, defaulting to %d tokens/second",
+             rate_str.c_str(), cfg::DEFAULT_REFILL_RATE);
+    }
+    return value / get_seconds_multiplier(rate_str.substr(pos + 1));
+}
+
+static std::unique_ptr<mw::Middleware> load_token_bucket(tinyxml2::XMLElement* algo_elem, bool* uses_ip) {
+    cfg::TokenBucketSetting setting;
+    setting.capacity = load_int(algo_elem->Attribute("capacity"), cfg::DEFAULT_TOKEN_CAPACITY, 
+        std::format("failed to parse capacity for rate limit, defaulting to capacity=%d tokens", cfg::DEFAULT_TOKEN_CAPACITY));
+    setting.refill_rate = load_refill_rate(algo_elem->Attribute("refill_rate"));
+    DEBUG("Server", "RateLimit [algorithm='token bucket' capacity=%d refill_rate=%d tokens/second]", setting.capacity, setting.refill_rate);
+    return std::make_unique<mw::TokenBucketLimiter>(std::move(setting));
+}
+
+static std::unique_ptr<mw::Middleware> load_fixed_window(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
+    cfg::FixedWindowSetting setting;
+    setting.max_requests = load_int(algo_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
+        std::format("failed to parse max_requests for rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
+    setting.window_seconds = algo_elem->Attribute("window") ? get_seconds_from_time_str(algo_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
+
+    DEBUG("Server", "RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", setting.max_requests, setting.window_seconds);
+    return std::make_unique<mw::FixedWindowLimiter>(setting);
+}
+
+static std::unique_ptr<mw::Middleware> load_limiter(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
+    if(!algo_elem) {
+        WARN("Server", "parsing error with RateLimit, default RateLimit [algo='fixed window' max_requests=%d window=%ds] loaded", 
+        cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        return std::make_unique<mw::FixedWindowLimiter>(FixedWindowSetting());
+    }
+    
+    std::string algo = algo_elem->Attribute("algorithm") ? algo_elem->Attribute("algorithm") : "";
+    if(algo.empty()) {
+        WARN("Server", "rate limiting algorithm is empty, defaulting to algorithm='fixed window'");
+        return load_fixed_window(algo_elem, uses_ip);
+    }  else if (algo == "fixed window" || algo == "fixed_window") {
+        return load_fixed_window(algo_elem, uses_ip);
+    } else if (algo == "token bucket" || algo == "token_bucket") {
+        return load_token_bucket(algo_elem, uses_ip);
+    } else {
+        WARN("Server", "rate limiting algo=%s not supported, default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", 
+        cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        return std::make_unique<mw::FixedWindowLimiter>(FixedWindowSetting());
+    }
+}
+
+std::unique_ptr<mw::Middleware> Config::loadGlobalRateLimit(tinyxml2::XMLDocument* doc, bool* uses_ip = nullptr) {
     auto rate_limit_elem = doc->FirstChildElement("ServerConfig")->FirstChildElement("RateLimit");
     if(!rate_limit_elem) {
-        return;
+        DEBUG("Server", "no global rate limit configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        return std::make_unique<mw::FixedWindowLimiter>();
     }
 
-    cfg::FixedWindowSetting global_setting;
     auto global_elem = rate_limit_elem->FirstChildElement("Global");
     if(!global_elem) {
-        PIPELINE.components.push_back(std::make_unique<mw::FixedWindowLimiter>());
-        DEBUG("Server", "no global rate limit configuration: defaulting to max_requests=%d, window=%ds", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
-    } else if(!(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true"))) {
-        global_setting.max_requests = load_int(global_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
-            std::format("failed to parse max_requests for global rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
-        global_setting.window_seconds = global_elem->Attribute("window") ? get_seconds_from_time_str(global_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
-        DEBUG("Server", "global rate limit [max_requests=%d window=%ds] loaded", global_setting.max_requests, global_setting.window_seconds);
-        // PIPELINE.components.push_back(std::make_unique<mw::FixedWindowLimiter>(global_setting));
-        PIPELINE.components.push_back(std::make_unique<mw::TokenBucketLimiter>(TokenBucketSetting()));
-    } else {
+        DEBUG("Server", "no global rate limit configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
+        return std::make_unique<mw::FixedWindowLimiter>();
+    } else if(global_elem->Attribute("disable") && !std::strcmp(global_elem->Attribute("disable"), "true")) {
         DEBUG("Server", "global rate limit disabled");
+        return nullptr;
+    } else {
+        TRACE("Server", "loading global rate limiter ...");
+        return load_limiter(global_elem->FirstChildElement("Algorithm"), uses_ip);
     }
 }
 
 void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
+    bool global_uses_ip = true;
+    auto limiter = loadGlobalRateLimit(doc, &global_uses_ip);
     PIPELINE.components.push_back(std::make_unique<mw::Logger>());
     PIPELINE.components.push_back(std::make_unique<mw::ErrorHandler>());
-    loadGlobalRateLimit(doc);
+    if(limiter && global_uses_ip) {
+        PIPELINE.components.push_back(std::move(limiter));
+    }
     PIPELINE.components.push_back(std::make_unique<mw::Parser>());
+    if(limiter && !global_uses_ip) {
+        PIPELINE.components.push_back(std::move(limiter));
+    }
+    PIPELINE.components.push_back(std::make_unique<mw::RateLimiter>());
     PIPELINE.components.push_back(std::make_unique<mw::Authenticator>());
     TRACE("Server", "pipeline loaded");
 }
@@ -186,6 +265,11 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
         }
         method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
         if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
+                tinyxml2::XMLElement* rate_limit_el = route_el->FirstChildElement("RateLimit");
+                if(rate_limit_el) {
+                    TRACE("Server", "loading rate limiter for [%s %s] ...", method_str.c_str(), endpoint_url.c_str());
+                    method.rate_limiter = std::shared_ptr<mw::Middleware>(load_limiter(rate_limit_el));
+                }
                 print_endpoint(method, endpoint_url);
                 router->updateEndpoint(endpoint_url, std::move(method));
             } 

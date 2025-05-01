@@ -42,7 +42,10 @@ struct Role {
     }
 };
 
+
 struct RateSetting {
+    enum class KeyType { IP, Header };
+    KeyType key_type{KeyType::IP};
     std::function<std::string(Transaction*)> make_key{DEFAULT_MAKE_KEY};
 };
 
@@ -109,7 +112,7 @@ class Config
     void loadThreads(tinyxml2::XMLDocument* doc);
     void loadErrorPages(tinyxml2::XMLDocument* doc);
     void loadPipeline(tinyxml2::XMLDocument* doc);
-    void loadGlobalRateLimit(tinyxml2::XMLDocument* doc);
+    std::unique_ptr<mw::Middleware> loadGlobalRateLimit(tinyxml2::XMLDocument* doc, bool* is_ip);
 
     private:
     std::size_t thread_count{0};
