@@ -235,7 +235,7 @@ static std::unique_ptr<mw::Middleware> load_token_bucket(tinyxml2::XMLElement* a
         std::format("failed to parse capacity for rate limit, defaulting to capacity=%d tokens", cfg::DEFAULT_TOKEN_CAPACITY));
     setting.refill_rate = load_refill_rate(algo_elem->Attribute("refill_rate"));
     setting.make_key = get_key_func(algo_elem, uses_ip);
-    DEBUG("Server", "RateLimit [algorithm='token bucket' capacity=%d refill_rate=%d tokens/second]", setting.capacity, setting.refill_rate);
+    DEBUG("Server", "RateLimit [algorithm='token bucket' capacity=%d refill_rate=%d tokens/second] loaded", setting.capacity, setting.refill_rate);
     return std::make_unique<mw::TokenBucketLimiter>(std::move(setting));
 }
 

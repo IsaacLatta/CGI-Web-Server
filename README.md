@@ -16,7 +16,7 @@ Visit my personal website:  [lattadata.com](https://lattadata.com)
 - **Dynamic Content Execution**: Executes scripts in response to POST and GET requests using POSIX system calls.
 - **SSL Support**: Optional HTTPS support using OpenSSL.
 - **Logging**: Detailed logging of request and response details, including latency and round-trip times.
-- **Configuration**: XML-based configuration for routes, SSL, roles, and permissions.
+- **Configuration**: XML-based configuration for routes, SSL, jwt permission roles, rate limiting and more.
 
 ## Requirements
 
@@ -114,8 +114,33 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
     <!-- Route definitions -->
     <Routes>
-        <!-- POST route for admin login, creates admin cookie -->
-        <Route method="POST" endpoint="/login" script="scripts/login.py" auth_role="admin" authenticator="true" args="json"/>
+        <!-- POST route for admin login, creates jwt token -->
+        <Route method="POST" endpoint="/login" script="scripts/login.py" auth_role="admin" authenticator="true" args="json">
+            <!-- Fixed window rate limiting, 200req/60s -->
+            <RateLimit algorithm="fixed window" max_requests="200" window="60s">
+                <!-- Rate limits clients based on the query string, if no query string is present, the server will return a 400 Bad Request -->
+                <Key type="query" fallback="error"/>
+            </RateLimit>
+        </Route>
+
+        <!-- POST route for staff endpoint, server forwards no arguments, requires 'editor' privileges -->
+        <Route method="POST" endpoint="/staff" script="scripts/staff.php" protected="true" access_role="editor" args="none">
+        <!-- Token bucket rate limiting, maximum of 10 tokens, refilling at a rate of 2 tokens/second -->
+            <RateLimit algorithm="token bucket" capacity="10" refill_rate="2/s">
+            <!-- Rate limits clients based off of the client component in the 'X-Forwarded-For' header, will fallback to IP by default if header is missing -->
+                <Key type="xff"/>
+            </RateLimit>
+        </Route>
+
+        <!-- GET route for endpoint /api, will forward the query string to the script, requires the default Role 'admin' to access -->
+        <Route method="GET" endpoint="/api" script="scripts/api.py" protected="true" access_role="admin" args="query">
+            <!-- Token bucket rate limiting, gives clients 960 token capacity, with a refill rate of 10 tokens/second -->
+            <RateLimit algorithm="token bucket" capacity="960" refill_rate="10/s">
+                <!-- Rate limits clients based off of the 'x-api-key' header, will return a 400 Bad Request if the header is missing -->
+                <Key type="header" name="x-api-key" fallback="error"/>
+            </RateLimit>
+        </Route> 
+
         <!-- GET route with protection, server forwards no arguments, requires admin privilege to access -->
         <Route method="GET" endpoint="/admin" script="scripts/admin.php" args="none" protected="true" access_role="admin"/>
         <!-- GET route with protection, server will forward a query string from the client, requires admin privilege to access -->
@@ -143,14 +168,13 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 	    <SecretFile>/path/to/jwt_secret.txt</SecretFile>
     </JWT>
 
-    <RateLimit>
-        <!-- IP based fixed window rate limiting, 200req/hr -->
-        <Global disable="false" max_requests="200" window="1hr"/>
-        
-        <!-- Also valid, see Rate Limiting section for available options -->
-        <!-- <Global max_requests="200" window="3600s"/> -->
-        <!-- <Global disable="false" max_requests="4000" window="1d"/> -->
-    </RateLimit>
+    <!-- Global rate limit applies to all requests, can be disabled by setting disable="true" -->
+    <Global disable="false">
+    <!-- Fixed window rate limiting algorithm, allowing a total of 10000 requests per hour, results in 2 requests per second (10000/3600)  -->
+        <RateLimit algorithm="fixed window" max_requests="10000" window="1hr">
+            <Key type="xff" fallback="ip"/>
+        </RateLimit>
+    </Global>
 
 </ServerConfig>
 
@@ -171,7 +195,7 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ### Endpoint Configuration
 
-- Endpoints can be set with the following options:
+- Endpoints can be set with the following attributes:
     - **authenticator**
         - Generates a Cookie for the client based on the "auth_role" set in the config.
     - **protected**
@@ -195,6 +219,17 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
           - **any** or '**\***': will forward any argument type. This option prioritizes forwarding a query string, if no query string is present, the server forwards the body in the exact same way as the **body** option.
           - **none**: no data gets forwarded to the script.
 
+- Additionally Endpoints can be rate limited via either the `fixed window` or `token bucket` algorithm:
+  ```xml
+    <Route method="GET" endpoint="/my_api" script="scripts/my_api_script.py" protected="true" access_role="api_client" args="query">
+        <RateLimit algorithm="token bucket" capacity="960" refill_rate="10/s">
+            <Key type="header" name="x-api-key" fallback="error"/>
+        </RateLimit>
+    </Route>
+    ```
+- See the **Rate Limit Configuration** section below for more details. 
+
+
 ### Script Configuration
 
 - The server expects the following of the script:
@@ -209,6 +244,30 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
     - The server provides the arguments to the script over **stdin(fd 0)**, and expects the response over **stdout(fd 1)**.
     - The server provides the arguments in the format provided in the endpoint configuration.
 - The server will only validate json and url-form content types.
+
+#### Troubleshooting Scripts
+
+- Ensure that the script path in the config file is relative to the WebDirectory.
+- Ensure executable permissions are set on the script for the user the server process is running under.
+- The server expects the script to be executable as is.
+    - The script must either be a compiled binary.
+    - Or the script must contain a valid shebang line, e.g:
+        ```c++
+        # PHP
+        #!/usr/bin/env php
+
+        # Python
+        #!/usr/bin/env python3
+
+        # Perl
+        #!/usr/bin/env perl
+
+        # Ruby
+        #!/usr/bin/env ruby
+
+        # Node.js
+        #!/usr/bin/env node
+        ```
 
 ### JWT Configuration
 
@@ -232,58 +291,158 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
 
 ### Rate Limit Configuration
 
-- Currently the server supports the fixed window algorithm and rate limits based on the clients ip address. There is no per endpoint rate limiting, which is why in all example configurations the settings are under **_"Global"_**.
+- Currently the server supports the **fixed window** and **token bucket** algorithm and identifies clients based off of an optional Key element, if not the present the server will identify clients based on their IP address. 
+- RateLimit's can be set within each **Route** config, or under the **Global** config(seen below). 
 
-- The Global RateLimit section has 3 attributes:
-  - **max_requests**: The maximum number of requests the server will allow per ip in the given window length.
-  - **window**: The time frame over which the requests counter will increment.
-  - **disable**: An optional true/false field that allows Global ip rate limiting to be disabled entirely:
+#### Token Bucket
+
+- The token bucket algorithm can be set with the following attributes:
+  - **capacity**: The maximum number of tokens a client can have.
+  - **refill_rate**: The rate at which tokens are replenished to the client. In tokens per unit time
+    - **NOTE**: Do not add an integer to the unit of time.
+    - **NOTE**: It is highly recommended to configure the rate in units of seconds (s), or ensure that the value of tokens squarely divides the time unit's seconds representation. This is because internally the server represents the rate as an integer in tok/s. Meaning, if one sets a rate of for example `90/m` (90 tokens per minute), this is then calculated to be `90 tok/60s = 1.5 tok/s => 1 tok/s (Integer)`.
+    - For example:
     ```xml
-    <!-- Disabled rate limiting -->
+    <Route method="POST" endpoint="/endpoint" script="scripts/endpoint_handler.rb" args="json">
+            <!-- Recommended: results in a refill_rate of 2 tok/s -->
+            <RateLimit algorithm="token bucket" capacity="200" refill_rate="2/s"/>
+
+            <!-- Results in a refill_rate of 2 tok/s -->
+            <RateLimit algorithm="token bucket" capacity="200" refill_rate="120/m"/>
+
+            <!-- BAD: Will result in a refill_rate of 0 tok/s, since floor(30/60) = 0 -->
+            <RateLimit algorithm="token bucket" capacity="200" refill_rate="30/m"/>
+
+            <!-- BAD: Will fail to parse due to the '/2s' in '30/2s', instead choose '15/s' -->
+            <RateLimit algorithm="token bucket" capacity="200" refill_rate="30/2s"/>
+    </Route>
+    ```
+
+- **NOTE**: If any attribute is missing, the server will result to choosing the default values (see **Defaults** section below).
+
+#### Fixed Window
+   
+- The fixed window algorithm can be set with the following attributes:
+  - **max_requests**: The maximum number of requests served to the client within the window.
+  - **window**: The time between max_requests resets.
+  - For example:
+  ```xml
+    <Route method="POST" endpoint="/endpoint" script="scripts/endpoint_handler.rb" args="json">
+        <!-- Note that only the first 'RateLimit' element will be parsed -->
+        <RateLimit algorithm="fixed window" max_requests="1000" window="1hr"/>
+        
+        <RateLimit algorithm="fixed window" max_requests="1000" window="60m"/>
+
+        <RateLimit algorithm="fixed window" max_requests="1000" window="3600s"/>
+    </Route>
+    ```
+- **NOTE**: If any attribute is missing, the server will result to the default values (see **Defaults** section below).
+
+
+#### Keys
+
+- Rate limits can be further configured to choose the method of identifying the client, this is done through adding a Key element to the RateLimit, if no key is present, the server will default to the clients IP address.
+- Keys can be set with the following attributes:
+  - **type**: The method of identifying the client, supported options are:
+    - **xff**: Identifies clients by the `X-Forwarded-For` header, specifically the client field within it.
+    - **ip**: Identifies clients based on their IP address.
+    - **query**: Identifies clients based on the query string present in the request uri.
+    - **header**: Identifies clients based on a specific header. This option requires an additional attribute:
+      - **name**: The name of the header used to identify the client, for example— `X-Api-Key`.
+  - **fallback**: A fallback option for when the **type** isn't found or accessible. Supports two options:
+    - **ip**: Fallback to identifying the client based on their IP address.
+    - **error**: Return an error, currently the server simply returns a 400 Bad Request.
+
+- The default values for both the **type** and **fallback** attributes are **"ip"**.
+
+- For example: 
+    ```xml
+    <Route method="POST" endpoint="/endpoint" script="scripts/endpoint_handler.rb" args="json">
+        <!-- Note that only the first 'RateLimit' element will be parsed, this is just an example -->
+        <RateLimit algorithm="token bucket" capacity="1000" refill_rate="2/s">
+            <!-- Identify the client based on the 'X-Api-Key' header, return a 400 if not present -->
+            <Key type="header" name="x-api-key" fallback="error"/>
+        </RateLimit>
+        <RateLimit algorithm="fixed window" max_requests="1000" window="60m">
+            <!-- Identify the client based on a query string, fallback to the client's IP address if no string present -->
+            <Key type="query" fallback="ip"/>
+        </RateLimit>
+        <RateLimit algorithm="fixed window" max_requests="1000" window="3600s">
+            <!-- Identify the client based on the client field within the 'X-Forwarded-For' header, fallback to ip if not present -->
+            <Key type="xff" fallback="ip"/>
+        </RateLimit>
+    </Route>
+    ```
+
+- Rate Limits can also be set globally within the **Global** element.
+- This setting applies rate limiting to all requests. By default, all requests will be rate limited using the **fixed window** algorithm, with a **window** of **60 seconds**, and a **max_requests** of **3000**. This is true regardless of whether the **Global** element is present.
+- Global rate limiting can be disabled by setting the **disable** attribute to **"true"**:
+    ```xml
     <Global disable="true"/>
     ```
-  - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
-
-- By default, the window length will be **60s**, with a maximum of **5000 requests**.
-    - If an attribute is missing, the server will choose the default value for the missing attribute, regardless if the other is/isn't present:
+- For example, to set global token bucket rate limiting, based off of the `X-Forwarded-For header`:
     ```xml
-    <!-- 'window' attribute is not present, server will set window to 60s, resulting in 300req/60s -->
-    <Global max_requests="300"/>
-
-    <!-- max_requests attribute is not present, server will set max_requests to 5000, resulting in 5000req/12min -->
-    <Global window="12min"/>
+    <Global disable="false">
+        <RateLimit algorithm="token bucket" capacity="1000" refill_rate="2/s">
+            <Key type="xff" fallback="ip"/>
+        </RateLimit>
+    </Global>
     ```
 
-    - If the time unit in the window attribute is not supported/specified (see unit section below), the server assumes seconds:
-  ```xml
-    <!-- 'minutes' not supported, will default to 12s, resulting in 500req/12s -->
-    <Global max_requests="500" window="12minutes"/>
+ - Note that setting **disable="false"** is redundant, the server will automatically assume it is enabled if the disable attribute is not found.
 
-    <!-- No unit provided, will default to 12s, resulting in 500req/12s -->
-    <Global max_requests="500" window="12"/>
+#### Defaults
 
-    <!-- Correct units (m, min, mins), results in 500req/12min -->
-    <Global max_requests="500" window="12m"/>
+- The default algorithm for rate limiting globally—if the `RateLimit` element is empty, or the `algorithm` attribute is empty/unrecognized—is **fixed window**, with **max_requests** set to **3000** and **window** set to **60s**.
+- For each algorithm below, if an element is unrecognized/not-present, the default value will be chosen. 
 
-- The configuration supports windowing time units of seconds, minutes, hours, and days (no decimals or fractions):
+    ##### Fixed Window
+
+    - **window**: 60s
+    - **max_requests**: 5000
+
+    ##### Token Bucket
+
+    - **refill_rate**: 2 tokens/s
+    -  **capacity**: 60 tokens
+    
+    ##### Keys
+
+    - **type**: ip
+    - **fallback**: ip
+  
+#### Time Units
+
+- The configuration supports window and refill rates in time units of seconds, minutes, hours, and days (no decimals or fractions):
     - **seconds**: s, sec, secs
     - **minutes**: m , min, mins
     - **hours**: hr, hour, hours
     - **days**: d, day, days
 
-- All rate limiting sections must appear in the **RateLimit** element within the **ServerConfig** element, under **Global**:
-```xml
-<ServerConfig>
-    .
-    .
-    <RateLimit>
-        <!-- 100 req/hr -->
-        <Global max_requests="100" window="1hr"/>
-    </RateLimit>
-    .
-    .
-</ServerConfig>
-```
+- If the the time unit is unspecified or unrecognized, the server will assume seconds:
+    ```xml
+    <!-- 'minutes' not supported, will default to 12s, resulting in 500req/12s -->
+    <RateLimit algorithm="fixed window" max_requests="500" window="12minutes"/>
+
+    <!-- No unit provided, will default to 12s, resulting in 500req/12s -->
+    <RateLimit max_requests="500" window="12"/>
+
+    <!-- Correct units (m, min, mins), results in 500req/12min -->
+    <RateLimit max_requests="500" window="12m"/>
+    ```
+
+- As mentioned earlier, when configuring the **refill_rate** attribute, it is **highly recommended** to use units of **seconds (s)**, or ensure that the value of tokens squarely divides the time unit's seconds representation. This is because internally the server represents the rate as an integer in tok/s. Meaning, if one sets a rate of—for example `90/m` (90 tokens per minute), this is then calculated to be `90 tok/60s = 1.5 tok/s => 1 tok/s (Integer)`. This may result in a loss of expected tokens, or in the worst case, 0 token refills: 
+
+    ```xml
+    <Route method="POST" endpoint="/misconfigured" script="scripts/my_script.py" args="query" protected="false">
+
+        <!-- BAD: Will result in a refill_rate of 1 tok/s, NOT 1.5 tok/s -->
+        <RateLimit algorithm="token bucket" capacity="200" refill_rate="90/m"/>
+
+        <!-- BAD: Will result in a refill_rate of 0 tok/s, since floor(30/60) = 0 -->
+        <RateLimit algorithm="token bucket" capacity="200" refill_rate="30/m"/>
+    </Route>
+    ```
 
 ### Server File Structure
 

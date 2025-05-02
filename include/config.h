@@ -26,9 +26,9 @@ namespace mw {
 namespace cfg {
 
 constexpr int DEFAULT_WINDOW_SECONDS = 60;
-constexpr int DEFAULT_MAX_REQUESTS = 5000;
-constexpr int DEFAULT_TOKEN_CAPACITY = 2;
-constexpr int DEFAULT_REFILL_RATE = 1; /* in tokens/s, i.e. 1 token/s */
+constexpr int DEFAULT_MAX_REQUESTS = 3000;
+constexpr int DEFAULT_TOKEN_CAPACITY = 60;
+constexpr int DEFAULT_REFILL_RATE = 2; /* in tokens/s, i.e. 1 token/s */
 
 /* Returns the sockets ip address */
 std::string DEFAULT_MAKE_KEY(Transaction* txn);
