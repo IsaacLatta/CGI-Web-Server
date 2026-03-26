@@ -2,6 +2,7 @@
 *.log
 *.pem
 *.vscode
+.idea/
 /TEST
 build/*
 /example
@@ -14,3 +15,4 @@ CMakeFiles/
 cmake_install.cmake
 Docs/*
 /Docs
+vcpkg_installed/

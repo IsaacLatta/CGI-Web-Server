@@ -1,0 +1,14 @@
+{
+  "name": "cgi-web-server",
+  "version": "0.1.0",
+  "dependencies": [
+    "tinyxml2",
+    "jwt-cpp",
+    "nlohmann-json",
+    "gtest",
+    {
+      "name": "asio",
+      "features": [ "openssl" ]
+    }
+  ]
+}
