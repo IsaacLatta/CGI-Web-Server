@@ -2,10 +2,7 @@
 
 ## Overview
 
-This is a custom-built CGI web server designed to serve dynamic and static content efficiently via configurable endpoint scripts. It currently powers my personal website, [lattadata.com](https://lattadata.com), which is hosted on my home server.
-
-## Demo: Live Website
-Visit my personal website:  [lattadata.com](https://lattadata.com)
+This is a custom-built CGI web server designed to serve dynamic and static content efficiently via configurable endpoint scripts. 
 
 **NOTE:** The project is a work in progress, there are many features/limitations I intend on developing/addressing, some of which are mentioned here in the README, others in the main.cpp file. The current implementation serves as prototype for a configurable, role permission based cgi-like web server.
 
@@ -18,42 +15,9 @@ Visit my personal website:  [lattadata.com](https://lattadata.com)
 - **Logging**: Detailed logging of request and response details, including latency and round-trip times.
 - **Configuration**: XML-based configuration for routes, SSL, jwt permission roles, rate limiting and more.
 
-## Requirements
+## Building and Requirements
 
-- **Operating System**: Linux (required for syscall usage).
-- **Build System**: [CMake.](https://cmake.org/download/)
-    - Install via your package manager:
-    ```bash
-    sudo apt install cmake
-    ```
-- **Libraries**:
-  - Asio (header-only, included in the `third_party` folder).
-  - jwt-cpp (included in the `third_party` folder).
-  - TinyXML2 (included in the `third_party` folder).
-  - nlohmann (included in the `third_party` folder).
-  - OpenSSL (likely included on most linux machines).
-
-All dependencies(aside from cmake) are included in the `third_party` folder; no external installations are required.
-
-## Building the Project
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/IsaacLatta/Web-Server.git
-   cd Web-Server
-   ```
-2. Create the build directory if it does not already exist:
-   ```bash
-   mkdir build && cd build
-   ```
-3. Configure the project:
-   ```bash
-   cmake ..
-   ```
-4. Build the project:
-   ```bash
-   make
-   ```
+See [BUILD.md](./BUILD.md) for details on building the project.
 
 ## Usage
 
@@ -176,7 +140,8 @@ All dependencies(aside from cmake) are included in the `third_party` folder; no 
         </RateLimit>
     </Global>
 
-</ServerConfig>
+    </ServerConfig>
+
 
 ### Role Permissions
 
