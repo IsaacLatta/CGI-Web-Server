@@ -57,7 +57,7 @@ public:
     asio::awaitable<void> process(Transaction* txn, Next next) override;
 
 private:
-    // void validate(Transaction* txn, const http::EndpointMethod* route);
+    void validate(Transaction* txn, const http::EndpointMethod* route);
 };
 
 class RateLimiter: public Middleware
