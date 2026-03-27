@@ -129,8 +129,6 @@ void mw::Authenticator::validate(Transaction* txn, const http::EndpointMethod* r
 }
 
 asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
-    co_await next();
-
     auto request = txn->getRequest();
     const cfg::Config* config = cfg::Config::getInstance();
 
