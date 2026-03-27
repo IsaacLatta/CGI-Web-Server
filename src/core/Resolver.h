@@ -35,8 +35,8 @@ public:
     template<typename FactoryAlias, typename Fallback, typename... Args>
     requires IsFactory<FactoryAlias, Resolver, Args&&...> && IsFactory<Fallback, Resolver, Args&&...>
     auto GetOrAndInvoke(Fallback&& fallback, Args&&... args) const {
-        auto factory = ResolveOr<FactoryAlias>(std::forward<Fallback>(fallback));
-        if constexpr (std::is_invocable_v<decltype(factory), const Resolver&, Args&& ...>) {
+        auto factory = GetOr<FactoryAlias>(std::forward<Fallback>(fallback));
+        if constexpr (std::is_invocable_v<decltype(factory)&, const Resolver&, Args&& ...>) {
             return std::invoke(factory, *this, std::forward<Args>(args)...);
         } else {
             return std::invoke(factory, std::forward<Args>(args)...);
