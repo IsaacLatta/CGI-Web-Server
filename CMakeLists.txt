@@ -12,9 +12,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(BUILD_TESTING "Build tests" ON)
+
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(jwt-cpp CONFIG REQUIRED)
-find_package(GTest CONFIG REQUIRED)
 find_package(asio CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -27,6 +28,7 @@ target_compile_options(core_warnings INTERFACE
 
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
 )
 list(REMOVE_ITEM CORE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
@@ -37,8 +39,6 @@ add_library(WebServer::core ALIAS core)
 
 target_include_directories(core
         PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/include"
-        PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
@@ -69,3 +69,9 @@ target_link_libraries(WebServer
         PRIVATE
         core
 )
+
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
