@@ -10,7 +10,7 @@
 #include "logger_macros.h"
 #include "http.h"
 
-class Session;
+class DefaultSession;
 
 namespace mw {
 

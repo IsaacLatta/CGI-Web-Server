@@ -20,7 +20,7 @@
 #include <array>
 #include <execinfo.h>
 
-#include "Sink.h"
+#include "../Sink.h"
 
 namespace logger 
 { 
@@ -66,9 +66,24 @@ namespace logger
         std::string build() override;
     };
 
+    class DisableGuard {
+    public:
+        DisableGuard();
+        ~DisableGuard();
+
+        DisableGuard(DisableGuard&&) = delete;
+        DisableGuard(const DisableGuard&) = delete;
+        DisableGuard& operator=(const DisableGuard&) = delete;
+        DisableGuard& operator=(DisableGuard&&) = delete;
+    };
+
+    bool enabled();
+
     class Logger {
-        public:
+    public:
         static Logger* getInstance();
+
+    public:
         void addSink(std::unique_ptr<Sink>&& sink);
         void push(std::unique_ptr<logger::Entry>&& entry);
         void start();

@@ -13,7 +13,7 @@
 #include <optional>
 #include <jwt-cpp/jwt.h>
 
-#include "Socket.h"
+#include "io/Socket.h"
 #include "config.h"
 #include "Transaction.h"
 #include "Streamer.h"
@@ -32,7 +32,7 @@ class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 
     protected:
     Transaction* txn;
-    Socket* sock;
+    io::Socket* sock;
     http::Request* request;
     http::Response* response;
     const cfg::Config* config;

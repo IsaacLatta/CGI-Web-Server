@@ -8,7 +8,6 @@
 namespace {
 
     using IntFactory = std::function<int()>;
-    using SumFactory = std::function<int(int, int)>;
     using ResolverAwareFactory = std::function<std::string(const core::Resolver&, int)>;
 
 TEST(Resolver, GetOrReturnsBoundFactoryInsteadOfFallback) {

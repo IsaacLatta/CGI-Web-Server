@@ -9,15 +9,14 @@
 #include "http.h"
 #include "logger_macros.h"
 #include "Transaction.h"
-#include "Socket.h"
-
+#include "io/Socket.h"
 
 class Streamer
 {
     public:
     long long getBytesStreamed() {return bytes_streamed;}
     virtual ~Streamer() = default;
-    virtual asio::awaitable<void> stream(Socket*) = 0;
+    virtual asio::awaitable<void> stream(io::Socket*) = 0;
 
     protected:
     long bytes_streamed{0};
@@ -27,7 +26,7 @@ class StringStreamer: public Streamer
 {
     public:
     StringStreamer(const std::string* payload): payload(payload) {}
-    asio::awaitable<void> stream(Socket*) override;
+    asio::awaitable<void> stream(io::Socket*) override;
 
     private:
     const std::string* payload;
@@ -40,7 +39,7 @@ class FileStreamer: public Streamer
     buffer(BUFFER_SIZE, 0), file_path(file_path), filefd(-1) {openFile();}
     ~FileStreamer() override;
     long getFileSize() {return file_len;}
-    asio::awaitable<void> stream(Socket*) override;
+    asio::awaitable<void> stream(io::Socket*) override;
 
     private:
     void openFile();
@@ -60,7 +59,7 @@ class ScriptStreamer: public Streamer
     : script_path(script_path), stdin_data(stdin_data), chunk_callback(chunk_callback) {} 
     ~ScriptStreamer();
 
-    asio::awaitable<void> stream(Socket* sock) override;
+    asio::awaitable<void> stream(io::Socket* sock) override;
 
     private:
     void spawn();

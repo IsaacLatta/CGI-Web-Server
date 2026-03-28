@@ -1,5 +1,5 @@
 #include "Middleware.h"
-#include "Session.h"
+#include "http/Session.h"
 #include <jwt-cpp/traits/nlohmann-json/defaults.h>
 
 using namespace mw;

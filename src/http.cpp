@@ -1,4 +1,6 @@
 #include "http.h" 
+#include "io/Socket.h"
+
 std::string url_decode(std::string&& buf) {
     std::string decoded_buf;
     char hex_code[3] = {'\0'};
@@ -497,38 +499,38 @@ std::string_view http::extract_args(std::span<const char> buffer, http::arg_type
         case http::arg_type::Body_URL: return get_args(buffer, "application/x-www-form-urlencoded", is_valid_url_form);
         case http::arg_type::Query_String: return http::extract_query_string(buffer);
         default:
-            throw http::HTTPException(http::code::Internal_Server_Error, "unknown arg type"); // should'nt ever reach, unless enum class gets updated
+            throw http::HTTPException(http::code::Internal_Server_Error, "unknown arg type");
     }
 }
 
-asio::awaitable<http::io::WriteStatus> http::io::co_write_all(Socket* sock, std::span<const char> buffer) noexcept {
-    TransferState state;
+asio::awaitable<http::WriteStatus> http::co_write_all(::io::Socket* sock, std::span<const char> buffer) noexcept {
+    ::io::TransferState state;
     state.bytes_sent = 0;
     state.total_bytes = buffer.size();
     while(state.bytes_sent < state.total_bytes) {
         auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + state.bytes_sent, state.total_bytes - state.bytes_sent);
         
-        if(http::io::is_permanent_failure(ec) || state.retry_count > TransferState::MAX_RETRIES) {
-            co_return http::io::WriteStatus{http::io::error_to_status(ec), 
+        if(http::is_permanent_failure(ec) || state.retry_count > io::TransferState::MAX_RETRIES) {
+            co_return http::WriteStatus{http::error_to_status(ec),
             std::format("error={} ({})", ec.value(), ec.message()), static_cast<std::size_t>(state.bytes_sent)};
         }
 
-        if(http::io::is_retryable(ec)) {
-            co_await http::io::backoff(ec, state.retry_count);
+        if(http::is_retryable(ec)) {
+            co_await http::backoff(ec, state.retry_count);
             state.retry_count++;
         }
 
         state.bytes_sent += bytes_written;
     }
     if(state.bytes_sent != state.total_bytes) {
-        co_return http::io::WriteStatus{http::code::Internal_Server_Error, 
+        co_return http::WriteStatus{http::code::Internal_Server_Error,
                 std::format("incomplete send, sent %zd/%zd bytes", state.bytes_sent, state.total_bytes), static_cast<std::size_t>(state.bytes_sent)};
     }
-    co_return http::io::WriteStatus{http::code::OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
+    co_return http::WriteStatus{http::code::OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
 }
 
-std::chrono::milliseconds http::io::select_backoff(const asio::error_code& ec, int attempt) noexcept {
-    if(!ec || http::io::is_client_disconnect(ec) || http::io::is_permanent_failure(ec)) {
+std::chrono::milliseconds http::select_backoff(const asio::error_code& ec, int attempt) noexcept {
+    if(!ec || http::is_client_disconnect(ec) || http::is_permanent_failure(ec)) {
         return std::chrono::milliseconds{0}; 
     }
 
@@ -550,8 +552,8 @@ std::chrono::milliseconds http::io::select_backoff(const asio::error_code& ec, i
     return exp_delay + std::chrono::milliseconds{dist(rng)};
 }
 
-asio::awaitable<void> http::io::backoff(const asio::error_code& ec, int attempt) noexcept {
-    auto delay = http::io::select_backoff(ec, attempt);
+asio::awaitable<void> http::backoff(const asio::error_code& ec, int attempt) noexcept {
+    auto delay = http::select_backoff(ec, attempt);
     if(delay.count() <= 0) {
         co_return;
     }

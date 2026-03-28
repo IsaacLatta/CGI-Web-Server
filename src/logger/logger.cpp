@@ -1,7 +1,24 @@
 #include "logger.h"
-#include "config.h"
+#include "../config.h"
+#include <atomic>
 
 using namespace logger;
+
+namespace {
+    std::atomic<uint64_t> s_depth { 0u };
+}
+
+DisableGuard::DisableGuard() {
+    s_depth.fetch_add(1, std::memory_order_acq_rel);
+}
+
+DisableGuard::~DisableGuard() {
+    s_depth.fetch_sub(1, std::memory_order_acq_rel);
+}
+
+bool enabled() {
+    return s_depth.load(std::memory_order_acquire) > 0;
+}
 
 static int duration_ms(const std::chrono::time_point<std::chrono::system_clock>& start_time, const std::chrono::time_point<std::chrono::system_clock>& end_time) {
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());

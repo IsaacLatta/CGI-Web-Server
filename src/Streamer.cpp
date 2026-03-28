@@ -1,8 +1,8 @@
 #include "Streamer.h"
 
-asio::awaitable<void> StringStreamer::stream(Socket* sock) {
+asio::awaitable<void> StringStreamer::stream(io::Socket* sock) {
     std::span<const char> buffer(payload->data(), payload->length());
-    auto result = co_await http::io::co_write_all(sock, buffer);
+    auto result = co_await http::co_write_all(sock, buffer);
     if(!http::is_success_code(result.status)) {
         throw http::HTTPException(result.status, std::move(result.message));
     }
@@ -31,12 +31,12 @@ void FileStreamer::openFile() {
     lseek(filefd, 0, SEEK_SET);
 }
 
-asio::awaitable<void> FileStreamer::stream(Socket* sock) {
+asio::awaitable<void> FileStreamer::stream(io::Socket* sock) {
     if(filefd == -1) {
         openFile();
     }
     
-    http::io::WriteStatus result;
+    http::WriteStatus result;
     std::size_t bytes_sent(0);
     while (bytes_sent < file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - bytes_sent));
@@ -50,7 +50,7 @@ asio::awaitable<void> FileStreamer::stream(Socket* sock) {
         }
 
         std::span<const char> write_buffer(buffer.data(), bytes_to_write);
-        result = co_await http::io::co_write_all(sock, write_buffer);
+        result = co_await http::co_write_all(sock, write_buffer);
         if(!http::is_success_code(result.status)) {
             throw http::HTTPException(result.status, std::move(result.message));
         }
@@ -114,14 +114,14 @@ void ScriptStreamer::spawn() {
     close(stdin_pipe[1]); // signal eof to child
 }
 
-asio::awaitable<void> ScriptStreamer::stream(Socket* sock) {
+asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
     spawn();
     
     asio::posix::stream_descriptor reader(sock->getRawSocket().get_executor(), stdout_pipe[0]);
     asio::error_code read_ec;
     std::size_t bytes_read(0), bytes_sent(0);
     std::vector<char> buffer(BUFFER_SIZE);
-    http::io::WriteStatus result;
+    http::WriteStatus result;
 
     while(true) {
         std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
@@ -141,7 +141,7 @@ asio::awaitable<void> ScriptStreamer::stream(Socket* sock) {
         }
 
         std::span<const char> write_buffer(buffer.data(), bytes_read);
-        result = co_await http::io::co_write_all(sock, write_buffer);
+        result = co_await http::co_write_all(sock, write_buffer);
         if(!http::is_success_code(result.status)) {
             throw http::HTTPException(result.status, std::move(result.message));
         }

@@ -1,5 +1,5 @@
 #include "MethodHandler.h"
-#include "Session.h"
+#include "http/Session.h"
 
 asio::awaitable<void> PostHandler::handle() {
     if(request->endpoint == nullptr || !request->route || !request->route->has_script) {
@@ -26,7 +26,7 @@ asio::awaitable<void> PostHandler::handle() {
         std::string response_str = response->build();
 
         std::span<const char> header_buf(response_str.data(), response_str.length());
-        http::io::WriteStatus result = co_await http::io::co_write_all(sock, header_buf);
+        http::WriteStatus result = co_await http::co_write_all(sock, header_buf);
         if(!http::is_success_code(result.status)) {
             throw http::HTTPException(result.status, std::move(result.message));
         }

@@ -43,6 +43,17 @@ public:
         }
     }
 
+    template<typename FactoryAlias, typename... Args>
+    requires IsFactory<FactoryAlias, Resolver, Args&&...>
+    auto GetAndInvoke(Args&&... args) const {
+        auto factory = TryResolve<FactoryAlias>();
+        if constexpr (std::is_invocable_v<decltype(factory)&, const Resolver&, Args&& ...>) {
+            return std::invoke(factory, *this, std::forward<Args>(args)...);
+        } else {
+            return std::invoke(factory, std::forward<Args>(args)...);
+        }
+    }
+
 private:
     template<typename FactoryAlias>
     FactoryAlias TryResolve() const {

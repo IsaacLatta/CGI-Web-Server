@@ -1,7 +1,7 @@
 #ifndef LOGGER_MACROS
 #define LOGGER_MACROS
 
-#include "logger.h"
+#include "logger/logger.h"
 
 #ifndef CURRENT_LOG_LEVEL
 #define CURRENT_LOG_LEVEL logger::level::Trace
@@ -95,7 +95,6 @@
             fmt ", exiting pid=%d\nSTACK TRACE:\n%s", ##__VA_ARGS__, \
             getpid(), logger::get_stack_trace().c_str()); \
         logger::Logger::getInstance()->stopAndFlush(); \
-        exit(EXIT_FAILURE); \
     } while(0)
 
 /**
