@@ -20,6 +20,6 @@ asio::awaitable<void> OptionsHandler::handle() {
     response->addHeader("Content-Length", "0");
     response->addHeader("Connection", "close");
     std::string response_str = response->build();
-    co_await txn->getSocket()->co_write(response_str.data(), response_str.length());
+    co_await txn->getSocket()->Write(response_str);
     co_return;
 }

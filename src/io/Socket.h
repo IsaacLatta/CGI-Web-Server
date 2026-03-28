@@ -3,89 +3,52 @@
 
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
-#include <asio/use_awaitable.hpp>
-#include <asio/ssl.hpp>
-#include <vector>
 
-/* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
-#define BUFFER_SIZE 262144
-#define HEADER_SIZE 8192
+#include <span>
 
 #include "io/forward.h"
 
 namespace io {
-    struct TransferState {
-        long total_bytes{0};
-        long bytes_sent{0};
-        long current_offset{0};
-        int retry_count{1};
-        static constexpr int MAX_RETRIES = 3;
-        static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
+
+class Socket {
+public:
+    struct Result {
+        asio::error_code ec;
+        size_t bytes { 0u };
     };
 
-    class Socket
-    {
-    public:
-        virtual void storeIP() = 0;
-        virtual void handshake(const std::function<void(const asio::error_code&)>& callback) = 0;
-        virtual void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) = 0;
-        virtual void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) = 0;
+public:
+    virtual ~Socket() = default;
+    virtual asio::awaitable<Result> Read(std::span<char>) = 0;
+    virtual asio::awaitable<Result> Write(std::span<const char>) = 0;
 
-        virtual asio::awaitable<asio::error_code> co_handshake() = 0;
-        virtual asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_read(char* buffer, std::size_t size) = 0;
-        virtual asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_write(const char* buffer, std::size_t size) = 0;
+    // TODO: Remove these from the interface.
+public:
+    virtual asio::ip::tcp::socket& GetRawSocket() = 0;
+    virtual std::string IpPortStr() const { return ""; }
+};
 
-        std::string getIP() const  { return address; }
-        virtual asio::ip::tcp::socket& getRawSocket() = 0;
-        virtual void close() = 0;
-        virtual ~Socket() = default;
-    protected:
-        std::string address;
-    };
+class PlainSocket: public Socket {
+public:
+    explicit PlainSocket(asio::ip::tcp::socket&&);
+    ~PlainSocket() override;
 
-    class HTTPSocket: public Socket
-    {
-    public:
-        HTTPSocket(asio::ip::tcp::socket&&);
-        ~HTTPSocket();
+    asio::awaitable<Result> Read(std::span<char>) override;
+    asio::awaitable<Result> Write(std::span<const char>) override;
 
-        asio::awaitable<asio::error_code> co_handshake() override;
-        asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_read(char* buffer, std::size_t size) override;
-        asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_write(const char* buffer, std::size_t size) override;
 
-        void handshake(const std::function<void(const asio::error_code&)>& callback) override;
-        void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
-        void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
+    std::string IpPortStr() const override;
+    asio::ip::tcp::socket& GetRawSocket() override;
 
-        void storeIP() override;
-        void close() override;
-        asio::ip::tcp::socket& getRawSocket() override;
+private:
+    void Close();
+    void TryCacheIp();
 
-    private:
-        asio::ip::tcp::socket _socket;
-    };
+private:
+    std::string client_address_;
+    asio::ip::tcp::socket socket_;
+};
 
-    class HTTPSSocket : public Socket
-    {
-    public:
-        HTTPSSocket(asio::io_context& io_context, asio::ssl::context& ssl_context);
-        ~HTTPSSocket();
-
-        asio::awaitable<asio::error_code> co_handshake() override;
-        asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_read(char* buffer, std::size_t buffer_size) override;
-        asio::awaitable<std::tuple<asio::error_code, std::size_t>> co_write(const char* buffer, std::size_t buffer_size) override;
-
-        void handshake(const std::function<void(const asio::error_code&)>& callback) override;
-        void read(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
-        void write(char* buffer, std::size_t buffer_size, const std::function<void(const asio::error_code&, std::size_t)>& callback = nullptr) override;
-
-        void storeIP() override;
-        void close();
-        asio::ip::tcp::socket& getRawSocket() override;
-
-    private:
-        asio::ssl::stream<asio::ip::tcp::socket> _socket;
-    };
 }
 
 #endif

@@ -49,14 +49,14 @@ asio::awaitable<void> mw::ErrorHandler::process(Transaction* txn, Next next) {
 
 asio::awaitable<void> mw::Parser::process(Transaction* txn, Next next) {
     auto buffer =  txn->getBuffer();
-    auto [ec, bytes] = co_await txn->getSocket()->co_read(buffer->data(), buffer->size());
+    auto [ec, bytes] = co_await txn->getSocket()->Read(*buffer);
     txn->getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
     buffer->resize(bytes);
 
     if(ec) {
         throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
-                http::HTTPException(http::code::Client_Closed_Request, std::format("Failed to read request from client: {}", txn->sock->getIP())) :
-                http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->getIP()));
+                http::HTTPException(http::code::Client_Closed_Request, std::format("Failed to read request from client: {}", txn->sock->IpPortStr())) :
+                http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn->sock->IpPortStr()));
     }
 
     auto router = http::Router::getInstance();
@@ -80,7 +80,7 @@ asio::awaitable<void> mw::Logger::process(Transaction* txn, Next next) {
     logger::SessionEntry* entry = txn->getLogEntry();
     entry->Latency_start_time = std::chrono::system_clock::now();
     entry->RTT_start_time = std::chrono::system_clock::now();
-    entry->client_addr = txn->getSocket()->getIP();
+    entry->client_addr = txn->getSocket()->IpPortStr();
     
     co_await next();
 
@@ -124,7 +124,7 @@ void mw::Authenticator::validate(Transaction* txn, const http::EndpointMethod* r
         }
     } catch (const std::exception& error) {
         throw http::HTTPException(http::code::Unauthorized,
-        std::format("[client {}] invalid token [error {}]", txn->getSocket()->getIP(), error.what()));
+        std::format("[client {}] invalid token [error {}]", txn->getSocket()->IpPortStr(), error.what()));
     }
 }
 
@@ -141,7 +141,7 @@ asio::awaitable<void> mw::Authenticator::process(Transaction* txn, Next next) {
 
     auto response = txn->getResponse();
     if(!http::is_success_code(response->status)) {
-        throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->getIP(), static_cast<int>(response->status)));
+        throw http::HTTPException(response->status, std::format("Failed to authorize client: {} [status={}]", txn->getSocket()->IpPortStr(), static_cast<int>(response->status)));
     }
 
     auto token_builder = jwt::create();
@@ -273,7 +273,7 @@ asio::awaitable<void> mw::TokenBucketLimiter::process(Transaction* txn, Next nex
             headers["Retry-After"] = std::to_string(retry_after); 
             throw http::HTTPException(http::code::Too_Many_Requests, 
                 std::format("client={} has exceeded rate limit on [{} {}] ({} tokens/s cap={} tokens)", 
-                txn->getSocket()->getIP(), http::method_enum_to_str(txn->getRequest()->method), 
+                txn->getSocket()->IpPortStr(), http::method_enum_to_str(txn->getRequest()->method),
                 txn->getRequest()->endpoint_url, setting.refill_rate, setting.capacity), std::move(headers));
         }
 

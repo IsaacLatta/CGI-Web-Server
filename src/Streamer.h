@@ -36,7 +36,7 @@ class FileStreamer: public Streamer
 {
     public:
     FileStreamer(const std::string& file_path): 
-    buffer(BUFFER_SIZE, 0), file_path(file_path), filefd(-1) {openFile();}
+    buffer(io::BUFFER_SIZE, 0), file_path(file_path), filefd(-1) {openFile();}
     ~FileStreamer() override;
     long getFileSize() {return file_len;}
     asio::awaitable<void> stream(io::Socket*) override;

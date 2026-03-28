@@ -117,10 +117,10 @@ void ScriptStreamer::spawn() {
 asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
     spawn();
     
-    asio::posix::stream_descriptor reader(sock->getRawSocket().get_executor(), stdout_pipe[0]);
+    asio::posix::stream_descriptor reader(sock->GetRawSocket().get_executor(), stdout_pipe[0]);
     asio::error_code read_ec;
     std::size_t bytes_read(0), bytes_sent(0);
-    std::vector<char> buffer(BUFFER_SIZE);
+    std::vector<char> buffer(io::BUFFER_SIZE);
     http::WriteStatus result;
 
     while(true) {

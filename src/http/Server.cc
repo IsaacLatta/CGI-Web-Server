@@ -4,21 +4,32 @@
 #include <asio/detached.hpp>
 #include <asio/use_awaitable.hpp>
 
-#include "Session.h"
-#include "forward.h"
+#include "io/Acceptor.h"
 
-#include <string>
+#include "logger/logger.h"
+#include "http.h"
 
-#include "../io/Acceptor.h"
+#include "http/Session.h"
+
+
+namespace {
+
+    bool is_fatal(asio::error_code ec) {
+        return ec.value() == asio::error::bad_descriptor ||
+            ec.value() == asio::error::access_denied ||
+            ec.value() == asio::error::address_in_use;
+    }
+
+}
 
 namespace http {
 
-Server::Server(asio::io_context& io_context, ::io::AcceptorPtr acceptor, SessionFactory session_factory)
+Server::Server(asio::io_context& io_context, io::AcceptorPtr acceptor, SessionFactory session_factory)
     :   io_context_(io_context), acceptor_(std::move(acceptor)), session_factory_(std::move(session_factory)) {}
 
 asio::awaitable<void> Server::AcceptLoop() {
     while(true) {
-        auto [socket, ec] = co_await acceptor_->Accept();
+        auto [ec, socket] = co_await acceptor_->Accept();
         if (ShouldExit(ec)) {
             co_return;
         }
@@ -33,26 +44,28 @@ asio::awaitable<void> Server::AcceptLoop() {
 }
 
 void Server::Stop() {
+    acceptor_->Close();
+
     if (!io_context_.stopped()) {
         io_context_.stop();
     }
-    acceptor_->Close();
 
-    threads_.clear();
     for (auto& thread: threads_) {
         if (thread.joinable()) {
             thread.join();
         }
     }
+    threads_.clear();
+}
+
+void Server::SignalStop() {
+    io_context_.stop();
 }
 
 void Server::RunAndBlock(size_t n_threads) {
     if (n_threads == 0) {
         throw std::invalid_argument("cannot start server with 0 threads");
     }
-
-    Stop();
-    io_context_.restart();
 
     asio::co_spawn(io_context_, AcceptLoop(), asio::detached);
 
@@ -76,21 +89,17 @@ bool Server::ShouldExit(const asio::error_code& error) {
     }
 
     DEBUG("Server", "async accept: error=%d %s", error.value(), error.message().c_str());
-    if(retries_ > MAX_RETRIES || error.value() == asio::error::bad_descriptor ||
-        error.value() == asio::error::access_denied || error.value() == asio::error::address_in_use)
-    {
+
+    if(retries_ > MAX_RETRIES || is_fatal(error)) {
         FATAL("Server", "error=%d %s", error.value(), error.message().c_str());
         return true;
     }
 
-    if(error.value() == asio::error::would_block || error.value() == asio::error::try_again || error.value() == asio::error::network_unreachable ||
-      error.value() == asio::error::connection_refused || error.value() == asio::error::timed_out || error.value() == asio::error::no_buffer_space ||
-      error.value() == asio::error::host_unreachable)
-    {
+    if(is_retryable(error)) {
         retries_++;
         const size_t backoff_time_ms = DEFAULT_BACKOFF_MS * retries_;
         WARN("Server", "error=%d %s, backing off for %ld ms", error.value(), error.message().c_str(), backoff_time_ms);
-        sleep(backoff_time_ms);
+        std::this_thread::sleep_for(std::chrono::milliseconds(backoff_time_ms));
     }
 
     return false;

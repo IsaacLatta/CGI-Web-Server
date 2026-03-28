@@ -7,25 +7,33 @@
 
 namespace io {
 
-    class Acceptor {
-    public:
-        virtual ~Acceptor() = default;
+struct AcceptResult {
+    asio::error_code ec;
+    SocketPtr socket;
+};
 
-        virtual void Close() = 0;
-        virtual asio::awaitable<std::pair<SocketPtr, asio::error_code>> Accept() = 0;
+class Acceptor {
+public:
+    virtual ~Acceptor() = default;
 
-    };
+    virtual void Close() = 0;
 
-    class DefaultAcceptor: public Acceptor {
-    public:
-        DefaultAcceptor(asio::io_context&, const asio::ip::tcp::endpoint&);
-        ~DefaultAcceptor() override;
+    virtual asio::awaitable<AcceptResult> Accept() = 0;
 
-        void Close() override;
-        asio::awaitable<std::pair<SocketPtr, asio::error_code>> Accept() override;
+};
 
-    private:
-        asio::io_context& io_context_;
-        asio::ip::tcp::acceptor acceptor_;
-    };
+class PlainAcceptor: public Acceptor {
+public:
+    PlainAcceptor(asio::io_context&, const asio::ip::tcp::endpoint&);
+
+    ~PlainAcceptor() override;
+
+    void Close() override;
+
+    asio::awaitable<AcceptResult> Accept() override;
+
+private:
+    asio::ip::tcp::acceptor acceptor_;
+};
+
 }

@@ -10,7 +10,7 @@ std::once_flag Config::initFlag;
 mw::Pipeline PIPELINE;
 
 std::string cfg::DEFAULT_MAKE_KEY(Transaction* txn) {
-    return txn->getSocket()->getIP();
+    return txn->getSocket()->IpPortStr();
 };
 
 Config::Config() {}
@@ -187,13 +187,13 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
             }
             if(!ip_fallback) {
                 throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={} is missing header={}, unable to rate limit", txn->getSocket()->getIP(), header_name));
+                std::format("client={} is missing header={}, unable to rate limit", txn->getSocket()->IpPortStr(), header_name));
             }
-            return txn->getSocket()->getIP();
+            return txn->getSocket()->IpPortStr();
         };
     } else if (key_type == "ip") {
         return [](Transaction* txn) -> std::string {
-            return txn->getSocket()->getIP();
+            return txn->getSocket()->IpPortStr();
         };
     } else if (key_type == "xff") {
         
@@ -205,9 +205,9 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
             }
             if(!ip_fallback) {
                 throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->getSocket()->getIP()));
+                std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->getSocket()->IpPortStr()));
             }
-            return txn->getSocket()->getIP();
+            return txn->getSocket()->IpPortStr();
         };
     } else if (key_type == "query") {
         if(uses_ip) *uses_ip = false;
@@ -218,9 +218,9 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
             }
             if(!ip_fallback) {
                 throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={}, missing query string, unable to rate limit", txn->getSocket()->getIP()));
+                std::format("client={}, missing query string, unable to rate limit", txn->getSocket()->IpPortStr()));
             }
-            return txn->getSocket()->getIP();
+            return txn->getSocket()->IpPortStr();
         };
     } 
     else {

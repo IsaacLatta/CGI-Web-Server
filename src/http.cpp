@@ -508,14 +508,14 @@ asio::awaitable<http::WriteStatus> http::co_write_all(::io::Socket* sock, std::s
     state.bytes_sent = 0;
     state.total_bytes = buffer.size();
     while(state.bytes_sent < state.total_bytes) {
-        auto [ec, bytes_written] = co_await sock->co_write(buffer.data() + state.bytes_sent, state.total_bytes - state.bytes_sent);
+        auto [ec, bytes_written] = co_await sock->Write(buffer.subspan(state.bytes_sent));
         
-        if(http::is_permanent_failure(ec) || state.retry_count > io::TransferState::MAX_RETRIES) {
+        if(is_permanent_failure(ec) || state.retry_count > io::TransferState::MAX_RETRIES) {
             co_return http::WriteStatus{http::error_to_status(ec),
             std::format("error={} ({})", ec.value(), ec.message()), static_cast<std::size_t>(state.bytes_sent)};
         }
 
-        if(http::is_retryable(ec)) {
+        if(is_retryable(ec)) {
             co_await http::backoff(ec, state.retry_count);
             state.retry_count++;
         }

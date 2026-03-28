@@ -19,6 +19,7 @@ target_link_libraries(testkit
 
 add_executable(core_tests
         unit/ResolverTests.cc
+        unit/ServerTestsNoNetwork.cc
 )
 
 target_link_libraries(core_tests

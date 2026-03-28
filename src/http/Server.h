@@ -1,10 +1,14 @@
 #pragma once
 
+#include <vector>
+#include <thread>
+
 #include <asio.hpp>
 
 #include "http/forward.h"
 
 namespace http {
+
 class Server {
 public:
     static constexpr size_t DEFAULT_BACKOFF_MS { 100u };
@@ -12,10 +16,13 @@ public:
 
 public:
     Server(asio::io_context&, ::io::AcceptorPtr, SessionFactory);
+
     void RunAndBlock(size_t n_threads);
-    void Stop();
+
+    void SignalStop();
 
 private:
+    void Stop();
     asio::awaitable<void> AcceptLoop();
     bool ShouldExit(const asio::error_code& error);
 
