@@ -7,6 +7,7 @@
 #include "io/Socket.h"
 
 #include "logger/logger.h"
+#include "http/Response.h"
 
 struct Transaction {
     io::Socket* sock;

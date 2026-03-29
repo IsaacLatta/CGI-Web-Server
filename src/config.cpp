@@ -1,7 +1,15 @@
 #include "config.h"
 #include "Router.h"
-#include "Middleware.h"
+#include "http/mw/Middleware.h"
 #include "Transaction.h"
+
+#include "http/mw/ErrorHandler.h"
+#include "http/mw/Logger.h"
+#include "http/mw/Authenticator.h"
+#include "http/mw/Parser.h"
+#include "http/mw/rate_limiters.h"
+
+#include "http/Exception.h"
 
 using namespace cfg;
 
@@ -292,20 +300,23 @@ std::unique_ptr<mw::Middleware> Config::loadGlobalRateLimit(tinyxml2::XMLDocumen
 }
 
 void Config::loadPipeline(tinyxml2::XMLDocument* doc) {
+    PIPELINE.AddComponent<mw::Logger>()
+            .AddComponent<mw::ErrorHandler>();
+
     bool global_uses_ip = true;
     auto limiter = loadGlobalRateLimit(doc, &global_uses_ip);
-    PIPELINE.components.push_back(std::make_unique<mw::Logger>());
-    PIPELINE.components.push_back(std::make_unique<mw::ErrorHandler>());
     if(limiter && global_uses_ip) {
-        PIPELINE.components.push_back(std::move(limiter));
+        PIPELINE.AddComponent(std::move(limiter));
     }
-    PIPELINE.components.push_back(std::make_unique<mw::Parser>());
+    PIPELINE.AddComponent<mw::Parser>();
     if(limiter && !global_uses_ip) {
         TRACE("Server", "global rate limiting requires parsing");
-        PIPELINE.components.push_back(std::move(limiter));
+        PIPELINE.AddComponent(std::move(limiter));
     }
-    PIPELINE.components.push_back(std::make_unique<mw::RateLimiter>());
-    PIPELINE.components.push_back(std::make_unique<mw::Authenticator>());
+
+    PIPELINE.AddComponent<mw::RateLimiter>();
+    PIPELINE.AddComponent<mw::Authenticator>();
+
     TRACE("Server", "pipeline loaded");
 }
 

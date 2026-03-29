@@ -1,5 +1,6 @@
 #include "MethodHandler.h"
 #include "http/Session.h"
+#include "http/Exception.h"
 
 void HeadHandler::buildResponse() {
     std::string file = request->route->resource;

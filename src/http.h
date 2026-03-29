@@ -24,8 +24,7 @@
 #include "Router.h"
 #include "io/Socket.h"
 
-namespace http
-{
+namespace http {
     using json = nlohmann::json;
 
     enum class code {
@@ -94,75 +93,7 @@ namespace http
     std::string_view get_status_msg(code http_code);
     std::string get_time_stamp();
 
-    class Response {
-        public:
-        code status{code::OK};
-        std::string status_msg{get_status_msg(code::OK)};
-        std::string body{""};
-        std::unordered_map<std::string, std::string> headers;
-        std::string built_response{""};
 
-        Response() {}
-        Response(code new_status) {setStatus(new_status);}
-
-        void setStatus(code new_status) {
-            status = new_status;
-            status_msg = http::get_status_msg(status);
-        }
-
-        void addHeaders(const std::unordered_map<std::string, std::string>& headers) {
-            for (auto& [k,v] : headers) {
-                this->headers[k] = v;
-            }
-        }
-
-        void addHeader(std::string key, const std::string& val) {
-            headers[key] = val;
-        }
-
-        std::string getStr() const {
-            return built_response;
-        }
-
-        std::string build() {
-            built_response = status_msg + "\r\n";
-
-            headers["Date"] = get_time_stamp();
-            for(auto& [key, value] : headers) {
-                built_response += key + ": " + value + "\r\n";
-            }
-            return built_response + "\r\n" + body;
-        }
-
-        http::code getStatus() const {return status;}
-    };
-
-    class HTTPException : public std::exception {
-        public:
-
-            HTTPException() {}
-
-            HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {
-                response.addHeader("Connection", "close");
-                response.addHeader("Content-Length", "0"); 
-                response.build();
-            }
-            HTTPException(code status, std::string&& message, std::unordered_map<std::string, std::string>&& headers): response(status), message(std::move(message)) {
-                response.addHeaders(headers);
-                response.addHeader("Connection", "close");
-                response.addHeader("Content-Length", "0"); 
-                response.build();
-            }
-
-            const Response* getResponse() const {return &response;}
-
-            const char* what() const noexcept override {
-                return message.c_str();
-            }
-        private:
-            Response response;
-            std::string message;
-    };
 
     struct Request {
         http::method method;

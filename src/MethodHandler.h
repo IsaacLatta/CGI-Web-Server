@@ -1,5 +1,4 @@
-#ifndef METHODHANDLER_H
-#define METHODHANDLER_H
+#pragma once
 
 #include <vector>
 #include <span>
@@ -18,7 +17,9 @@
 #include "Transaction.h"
 #include "Streamer.h"
 
-#define DEFAULT_EXPIRATION std::chrono::system_clock::now() + std::chrono::hours{1}
+#include "http/forward.h"
+#include "http/Exception.h"
+#include "http/Response.h"
 
 class MethodHandler : public std::enable_shared_from_this<MethodHandler>
 {
@@ -82,5 +83,3 @@ class OptionsHandler: public MethodHandler
 
     asio::awaitable<void> handle() override;
 };
-
-#endif

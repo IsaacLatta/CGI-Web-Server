@@ -18,10 +18,7 @@
 
 struct Transaction;
 
-namespace mw {
-    class Middleware;
-    struct Pipeline;
-}
+#include "http/forward.h"
 
 namespace cfg {
 

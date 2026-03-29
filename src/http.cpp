@@ -1,5 +1,6 @@
 #include "http.h" 
 #include "io/Socket.h"
+#include "http/Exception.h"
 
 std::string url_decode(std::string&& buf) {
     std::string decoded_buf;

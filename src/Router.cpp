@@ -3,7 +3,8 @@
 #include "http.h"
 #include "Transaction.h"
 #include "MethodHandler.h"
-#include "Middleware.h"
+#include "http/mw/Middleware.h"
+#include "http/Exception.h"
 
 using namespace http;
 using namespace cfg;

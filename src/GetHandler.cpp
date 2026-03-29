@@ -1,10 +1,11 @@
 #include "MethodHandler.h"
 #include "http/Session.h"
 #include "Streamer.h"
+#include "http/Exception.h"
 
 asio::awaitable<void> GetHandler::handleScript() {
     bool first_read = true;
-    auto chunk_callback = [first_read, response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len) -> asio::awaitable<void> {
+    auto chunk_callback = [this, first_read, response = txn->getResponse(), sock = txn->getSocket()](const char* buf, std::size_t len) -> asio::awaitable<void> {
         if(!first_read) {
             co_return;
         }

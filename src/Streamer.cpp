@@ -1,4 +1,5 @@
 #include "Streamer.h"
+#include "http/Exception.h"
 
 asio::awaitable<void> StringStreamer::stream(io::Socket* sock) {
     std::span<const char> buffer(payload->data(), payload->length());

@@ -1,5 +1,6 @@
 #include "MethodHandler.h"
 #include "http/Session.h"
+#include "http/Exception.h"
 
 asio::awaitable<void> PostHandler::handle() {
     if(request->endpoint == nullptr || !request->route || !request->route->has_script) {
