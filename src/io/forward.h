@@ -21,7 +21,7 @@ namespace io {
         long bytes_sent{0};
         long current_offset{0};
         int retry_count{1};
-        static constexpr int MAX_RETRIES = 3;
-        static constexpr auto RETRY_DELAY = std::chrono::milliseconds(100);
+        static constexpr int MAX_RETRIES { 3 };
+        static constexpr auto RETRY_DELAY { std::chrono::milliseconds(100) };
     };
 }

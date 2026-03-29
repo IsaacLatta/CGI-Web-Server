@@ -8,7 +8,7 @@ add_library(testkit STATIC ${TESTKIT_SOURCES})
 
 target_include_directories(testkit
         PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/testkit"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 target_link_libraries(testkit
@@ -20,6 +20,7 @@ target_link_libraries(testkit
 add_executable(core_tests
         unit/ResolverTests.cc
         unit/ServerTestsNoNetwork.cc
+        unit/ServerTests.cc
 )
 
 target_link_libraries(core_tests
