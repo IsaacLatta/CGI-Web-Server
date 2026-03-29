@@ -6,14 +6,14 @@ namespace mw {
 
 asio::awaitable<void> mw::Parser::Process(Transaction& txn, Next next) {
     auto buffer =  txn.getBuffer();
-    auto [ec, bytes] = co_await txn.getSocket()->Read(*buffer);
+    auto [ec, bytes] = co_await txn.GetSocket()->Read(*buffer);
     txn.getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
     buffer->resize(bytes);
 
     if(ec) {
         throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
-                http::HTTPException(http::code::Client_Closed_Request, std::format("Failed to read request from client: {}", txn.sock->IpPortStr())) :
-                http::HTTPException(http::code::Internal_Server_Error, std::format("Failed to read request from client: {}", txn.sock->IpPortStr()));
+                http::HTTPException(http::Client_Closed_Request, std::format("Failed to read request from client: {}", txn.sock->IpStr())) :
+                http::HTTPException(http::Internal_Server_Error, std::format("Failed to read request from client: {}", txn.sock->IpStr()));
     }
 
     auto router = http::Router::getInstance();

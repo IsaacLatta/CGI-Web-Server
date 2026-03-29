@@ -9,7 +9,7 @@ public:
     asio::awaitable<void> Process(Transaction& txn, Next next) override;
 
 private:
-    void validate(Transaction& txn, const http::EndpointMethod* route);
+    void validate(Transaction& txn, const http::EndpointMethod* route) const;
 
 private:
 

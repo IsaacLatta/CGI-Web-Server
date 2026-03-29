@@ -6,6 +6,7 @@
 #include "io/Socket.h"
 
 #include "http/forward.h"
+#include "Transaction.h"
 
 namespace http {
 
@@ -18,12 +19,14 @@ public:
 
 class DefaultSession : public Session {
 public:
-    explicit DefaultSession(io::SocketPtr&& sock) : sock_(std::move(sock)){};
+    explicit DefaultSession(const mw::Pipeline& pipeline, io::SocketPtr&& sock)
+        : pipeline_(pipeline), transaction_(std::move(sock)){};
 
     asio::awaitable<void> Start() override;
 
 private:
-    io::SocketPtr sock_;
+    const mw::Pipeline& pipeline_;
+    Transaction transaction_;
 };
 
 } // namespace http

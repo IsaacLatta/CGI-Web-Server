@@ -9,11 +9,7 @@
 #include <asio/awaitable.hpp>
 #include <asio/use_awaitable.hpp>
 
-namespace http {
-    class Request;
-    enum class method : int;
-    enum class code : int;
-}
+#include "http/forward.h"
 
 namespace cfg {
     class Config;
@@ -37,12 +33,12 @@ namespace http {
     using Limiter = std::function<asio::awaitable<void>(Transaction*)>;
 
     struct ErrorPage {
-        http::code status;
+        Code status;
         Handler handler;
     };
 
     struct EndpointMethod {
-        method m;
+        Method m;
         std::string access_role; // role required to access the endpoint
         std::string auth_role;
         bool is_protected{false};
@@ -57,21 +53,21 @@ namespace http {
     class Endpoint {
         public:
         Endpoint();
-        const EndpointMethod* getMethod(method m) const;
-        bool isMethodProtected(method m) const;
-        bool isMethodAuthenticator(method m) const;
-        bool hasScript(method m) const;
-        std::string getAuthRole(method m) const;
-        std::string getAccessRole(method m) const;
-        std::string getResource(method m) const;
-        arg_type getArgType(method m) const;
-        Handler getHandler(method m) const;
-        std::vector<method> getMethods() const;
-        void addMethod(EndpointMethod&& method);
+        const EndpointMethod* getMethod(Method m) const;
+        bool isMethodProtected(Method m) const;
+        bool isMethodAuthenticator(Method m) const;
+        bool hasScript(Method m) const;
+        std::string getAuthRole(Method m) const;
+        std::string getAccessRole(Method m) const;
+        std::string getResource(Method m) const;
+        arg_type getArgType(Method m) const;
+        Handler getHandler(Method m) const;
+        std::vector<Method> getMethods() const;
+        void addMethod(EndpointMethod&& Method);
         void setEndpointURL(const std::string& url);
 
         private:
-        std::unordered_map<method, EndpointMethod> methods;
+        std::unordered_map<Method, EndpointMethod> methods;
         std::string endpoint{""};
     };
 
@@ -82,16 +78,16 @@ namespace http {
         public:
         static Router* getInstance();
         const Endpoint* getEndpoint(const std::string& endpoint);
-        const EndpointMethod* getEndpointMethod(const std::string& endpoint_url, http::method m);
-        const ErrorPage* getErrorPage(http::code status) const;
+        const EndpointMethod* getEndpointMethod(const std::string& endpoint_url, http::Method m);
+        const ErrorPage* getErrorPage(Code status) const;
 
         private:
         static Router INSTANCE;
         std::unordered_map<std::string, Endpoint> endpoints;
-        std::unordered_map<http::code, ErrorPage> error_pages;
+        std::unordered_map<Code, ErrorPage> error_pages;
 
         private:
-        void updateEndpoint(const std::string& endpoint_url, EndpointMethod&& method);
+        void updateEndpoint(const std::string& endpoint_url, EndpointMethod&& Method);
         void addErrorPage(ErrorPage&& error_page, std::string&& file);
         Router();
         Router(const Router&) = delete;

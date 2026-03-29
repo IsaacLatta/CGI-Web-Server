@@ -14,7 +14,10 @@
 class Streamer
 {
     public:
-    long long getBytesStreamed() {return bytes_streamed;}
+    long long getBytesStreamed() {
+        return bytes_streamed;
+    }
+
     virtual ~Streamer() = default;
     virtual asio::awaitable<void> stream(io::Socket*) = 0;
 

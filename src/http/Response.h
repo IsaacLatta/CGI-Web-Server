@@ -7,50 +7,65 @@
 #include "http.h"
 
 namespace http {
-
     class Response {
     public:
-        code status{code::OK};
-        std::string status_msg{get_status_msg(code::OK)};
-        std::string body{""};
-        std::unordered_map<std::string, std::string> headers;
-        std::string built_response{""};
+        Code Status { OK };
 
-        Response() {}
-        Response(code new_status) {setStatus(new_status);}
+    public:
+        Response() = default;
 
-        void setStatus(code new_status) {
-            status = new_status;
-            status_msg = http::get_status_msg(status);
+        explicit Response(Code new_status) {
+            SetStatus(new_status);
         }
 
-        void addHeaders(const Headers& headers) {
+        Response& SetBody(std::string body) {
+            body_ = std::move(body);
+            return *this;
+        }
+
+        const std::string& GetBody() const {
+            return body_;
+        }
+
+        Response& SetStatus(Code new_status) {
+            Status = new_status;
+            return *this;
+        }
+
+        Response& AddHeaders(const Headers& headers) {
             for (auto& [k,v] : headers) {
-                this->headers[k] = v;
+                this->headers_[k] = v;
             }
+            return *this;
         }
 
-        void addHeader(std::string key, const std::string& val) {
-            headers[key] = val;
+        Response& AddHeader(std::string key, const std::string& val) {
+            headers_[key] = val;
+            return *this;
         }
 
-        std::string getStr() const {
-            return built_response;
+        // TODO: Figure out wtf is going
+        // on with these two methods, is
+        // there some weird dependency on this
+        // behavior somewhere?
+
+        const std::string& AsString() const {
+            return built_response_;
         }
 
-        std::string build() {
-            built_response = status_msg + "\r\n";
+        std::string Build() {
+            built_response_ = std::string(get_status_msg(Status)) + "\r\n";
 
-            headers["Date"] = get_time_stamp();
-            for(auto& [key, value] : headers) {
-                built_response += key + ": " + value + "\r\n";
+            headers_["Date"] = get_time_stamp();
+            for(auto& [key, value] : headers_) {
+                built_response_ += key + ": " + value + "\r\n";
             }
-            return built_response + "\r\n" + body;
+            return built_response_ + "\r\n" + body_;
         }
 
-        code getStatus() const {
-            return status;
-        }
+    private:
+        std::string built_response_;
+        std::string body_;
+        Headers headers_;
     };
-
 }

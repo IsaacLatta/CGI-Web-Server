@@ -24,47 +24,15 @@
 #include "Router.h"
 #include "io/Socket.h"
 
+#include "http/forward.h"
+
 namespace http {
     using json = nlohmann::json;
 
-    enum class code {
-        Not_A_Status = -1,
-        OK = 200,
-        Created = 201,
-        Accepted = 202,
-        No_Content = 204,
-        Moved_Permanently = 301,
-        Found = 302,
-        See_Other = 303,
-        Not_Modified = 304,
-        Bad_Request = 400,
-        Unauthorized = 401,
-        Forbidden = 403,
-        Not_Found = 404,
-        Method_Not_Allowed = 405,
-        Unsupported_Media_Type = 415,
-        Too_Many_Requests = 429,
-        Client_Closed_Request = 499,
-        Internal_Server_Error = 500,
-        Not_Implemented = 501,
-        Bad_Gateway = 502,
-        Service_Unavailable = 503,
-        Gateway_Timeout = 504,
-        Insufficient_Storage = 507
-    };
+    Code code_str_to_enum(const char* code_str);
 
-    code code_str_to_enum(const char* code_str);
-
-    enum class method : int {
-        Get,
-        Head,
-        Post,
-        Options,
-        Not_Allowed
-    };
-
-    method method_str_to_enum(const std::string& method_str);
-    std::string_view method_enum_to_str(method m);
+    Method method_str_to_enum(const std::string& method_str);
+    std::string_view method_enum_to_str(Method m);
 
     const std::vector<std::pair<std::string, std::string>> FILE_EXTENSIONS = {
         // HTML, CSS, JS
@@ -90,56 +58,33 @@ namespace http {
         {".otf",   "font/otf"}
     };
 
-    std::string_view get_status_msg(code http_code);
+    std::string_view get_status_msg(Code http_code);
     std::string get_time_stamp();
 
+    bool is_success_code(http::Code status) noexcept;
 
-
-    struct Request {
-        http::method method;
-        std::string_view query;
-        std::string_view args;
-        std::string endpoint_url;
-        const http::Endpoint* endpoint{nullptr};
-        const http::EndpointMethod* route{nullptr};
-        std::unordered_map<std::string, std::string> headers;
-        std::string_view body;
-
-        void addHeader(std::string key, std::string value) {headers[key] = value;}
-
-        std::string getHeader(std::string key) {
-            auto it = headers.find(key);
-            if(it == headers.end()) {
-                return "";
-            }
-            return it->second;
-        }
-    };
-
-    bool is_success_code(http::code status) noexcept;
-
-    method extract_method(std::span<const char> buffer);
-    code extract_token(const std::vector<char>& buffer, std::string& token);
+    Method extract_method(std::span<const char> buffer);
+    Code extract_token(const std::vector<char>& buffer, std::string& token);
     std::unordered_map<std::string, std::string> extract_headers(std::span<const char> buffer);
-    code extract_status_code(std::span<const char> buffer) noexcept;
+    Code extract_status_code(std::span<const char> buffer) noexcept;
     std::string extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);
 
-    code build_json(std::span<const char> buffer, json& json_array);
+    Code build_json(std::span<const char> buffer, json& json_array);
     json parse_url_form(const std::string& body);
     std::string_view extract_header_line(std::span<const char> buffer);
     std::string_view extract_body(std::span<const char> buffer);
-    code find_content_type(std::span<const char> buffer, std::string& content_type) noexcept;
+    Code find_content_type(std::span<const char> buffer, std::string& content_type) noexcept;
     std::string_view get_request_target(std::span<const char> buffer);
     std::string extract_endpoint(std::span<const char> buffer);
     std::string_view extract_query_string(std::span<const char> buffer);
-    code determine_content_type(const std::string& resource, std::string& content_type);
+    Code determine_content_type(const std::string& resource, std::string& content_type);
     std::string_view extract_args(std::span<const char> buffer, http::arg_type arg);
 
     struct WriteStatus {
-        http::code status{code::OK};
+        http::Code status{Code::OK};
         std::string message{"Success"};
         std::size_t bytes{0};
     };
@@ -162,21 +107,21 @@ namespace http {
             || ec == asio::error::no_buffer_space;
     }
 
-    inline http::code error_to_status(const asio::error_code& ec) noexcept {
+    inline http::Code error_to_status(const asio::error_code& ec) noexcept {
         if (!ec) {
-            return http::code::OK;
+            return http::Code::OK;
         } else if (is_client_disconnect(ec)) {
-            return http::code::Client_Closed_Request;
+            return http::Code::Client_Closed_Request;
         } else if (ec == asio::error::access_denied) {
-            return http::code::Forbidden;
+            return http::Code::Forbidden;
         } else if (is_permanent_failure(ec)) {
-            return http::code::Internal_Server_Error;
+            return http::Code::Internal_Server_Error;
         } else if (ec == asio::error::no_buffer_space) {
-            return http::code::Insufficient_Storage;
+            return http::Code::Insufficient_Storage;
         } else if (ec == asio::error::timed_out) {
-            return http::code::Gateway_Timeout;
+            return http::Code::Gateway_Timeout;
         }
-        return http::code::Service_Unavailable;
+        return http::Code::Service_Unavailable;
     }
 } //namespace http
 

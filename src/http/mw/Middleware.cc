@@ -9,7 +9,7 @@ asio::awaitable<void> Pipeline::RunOne(Transaction& txn, size_t index) const {
     }
 
     Middleware& mw = *components_[index];
-    Next next = [this, txn, index]() mutable -> asio::awaitable<void> {
+    Next next = [this, &txn, index]() mutable -> asio::awaitable<void> {
         co_await RunOne(txn, index + 1);
     };
 

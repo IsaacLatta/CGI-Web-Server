@@ -11,27 +11,31 @@ namespace http {
     public:
         HTTPException() = default;
 
-        HTTPException(code status, std::string&& message): response(status), message(std::move(message)) {
-            response.addHeader("Connection", "close");
-            response.addHeader("Content-Length", "0");
-            response.build();
+        HTTPException(Code status, std::string&& message): message_(std::move(message)) {
+            response_.SetStatus(status)
+                    .AddHeader("Connection", "close")
+                    .AddHeader("Content-Length", "0")
+                    .Build();
         }
 
-        HTTPException(code status, std::string&& message, std::unordered_map<std::string, std::string>&& headers): response(status), message(std::move(message)) {
-            response.addHeaders(headers);
-            response.addHeader("Connection", "close");
-            response.addHeader("Content-Length", "0");
-            response.build();
+        HTTPException(Code status, std::string&& message, Headers&& headers): message_(std::move(message)) {
+            response_.SetStatus(status)
+                    .AddHeaders(headers)
+                    .AddHeader("Connection", "close")
+                    .AddHeader("Content-Length", "0")
+                    .Build();
         }
 
-        const Response* getResponse() const {return &response;}
+        const Response* getResponse() const {
+            return &response_;
+        }
 
         const char* what() const noexcept override {
-            return message.c_str();
+            return message_.c_str();
         }
     private:
-        Response response;
-        std::string message;
+        Response response_;
+        std::string message_;
     };
 
 }

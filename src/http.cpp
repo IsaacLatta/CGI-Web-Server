@@ -31,39 +31,39 @@ std::string http::get_time_stamp() {
     return oss.str();
 }
 
-http::code http::code_str_to_enum(const char* code_str) {
+http::Code http::code_str_to_enum(const char* code_str) {
     if (!code_str) {
-        return http::code::Not_A_Status;
+        return Not_A_Status;
     }
     try {
         int numeric_code = std::stoi(code_str);
-        return static_cast<http::code>(numeric_code);
+        return static_cast<http::Code>(numeric_code);
     } catch (const std::exception& e) {
-        return http::code::Not_A_Status;
+        return Not_A_Status;
     }
 }
 
-std::string_view http::method_enum_to_str(method m) {
+std::string_view http::method_enum_to_str(Method m) {
     switch (m) {
-        case method::Get: return "GET";
-        case method::Head: return "HEAD";
-        case method::Post: return "POST";
-        case method::Options: return "OPTIONS";
+        case Method::Get: return "GET";
+        case Method::Head: return "HEAD";
+        case Method::Post: return "POST";
+        case Method::Options: return "OPTIONS";
         default: return "";
     }
 }
 
-http::method http::method_str_to_enum(const std::string& method_str) {
+http::Method http::method_str_to_enum(const std::string& method_str) {
     if(method_str == "GET" || method_str == "get") {
-        return http::method::Get;
+        return http::Method::Get;
     } else if (method_str == "POST" || method_str == "post") {
-        return http::method::Post;
+        return http::Method::Post;
     } else if (method_str == "HEAD" || method_str == "head") {
-        return http::method::Head;
+        return http::Method::Head;
     } else if (method_str == "OPTIONS" || method_str == "options") {
-        return http::method::Options;
+        return http::Method::Options;
     } else {
-        return http::method::Not_Allowed;
+        return http::Method::Not_Allowed;
     }
 } 
 
@@ -89,50 +89,50 @@ std::string http::trim_to_upper(std::string_view& str_param) {
     return result;
 }
 
-bool http::is_success_code(http::code status) noexcept {
-    return (status >= http::code::OK && status < http::code::Bad_Request);
+bool http::is_success_code(http::Code status) noexcept {
+    return (status >= OK && status < Bad_Request);
 }
 
-http::code http::determine_content_type(const std::string& resource, std::string& content_type) {
+http::Code http::determine_content_type(const std::string& resource, std::string& content_type) {
     std::size_t start = resource.rfind('.');
     if (start == std::string::npos) {
-        return http::code::Forbidden;
+        return Forbidden;
     }
 
     std::string extension = resource.substr(start);
     for (const auto &ext : http::FILE_EXTENSIONS) {
         if (extension == ext.first) {
             content_type = ext.second;
-            return http::code::OK;
+            return OK;
         }
     }
-    return http::code::Forbidden;
+    return Forbidden;
 }
 
-std::string_view http::get_status_msg(http::code http_code) {
+std::string_view http::get_status_msg(http::Code http_code) {
     switch (http_code) {
-    case http::code::OK: return "HTTP/1.1 200 OK";
-    case http::code::Created: return "HTTP/1.1 201 Created";
-    case http::code::Accepted: return "HTTP/1.1 202 Accepted";
-    case http::code::No_Content: return "HTTP/1.1 204 No Content";
-    case http::code::Moved_Permanently: return "HTTP/1.1 301 Moved Permanently";
-    case http::code::Found: return "HTTP/1.1 302 Found";
-    case http::code::See_Other: return "HTTP/1.1 303 See Other";
-    case http::code::Not_Modified: return "HTTP/1.1 304 Not Modified";
-    case http::code::Bad_Request: return "HTTP/1.1 400 Bad Request";
-    case http::code::Unauthorized: return "HTTP/1.1 401 Unauthorized";
-    case http::code::Forbidden: return "HTTP/1.1 403 Forbidden";
-    case http::code::Not_Found: return "HTTP/1.1 404 Not Found";
-    case http::code::Method_Not_Allowed: return "HTTP/1.1 405 Method Not Allowed";
-    case http::code::Unsupported_Media_Type: return "HTTP/1.1 415 Unsupported Media Type";
-    case http::code::Too_Many_Requests: return "HTTP/1.1 429 Too Many Requests";
-    case http::code::Client_Closed_Request: return "HTTP/1.1 499 Client Closed Request";
-    case http::code::Internal_Server_Error: return "HTTP/1.1 500 Internal Server Error";
-    case http::code::Not_Implemented: return "HTTP/1.1 501 Not Implemented";
-    case http::code::Bad_Gateway: return "HTTP/1.1 502 Bad Gateway";
-    case http::code::Service_Unavailable: return "HTTP/1.1 503 Service Unavailable";
-    case http::code::Gateway_Timeout: return "HTTP/1.1 504 Gateway Timeout";
-    case http::code::Insufficient_Storage: return "HTTP/1.1 507 Insufficient Storage";
+    case OK: return "HTTP/1.1 200 OK";
+    case Created: return "HTTP/1.1 201 Created";
+    case Accepted: return "HTTP/1.1 202 Accepted";
+    case No_Content: return "HTTP/1.1 204 No Content";
+    case Moved_Permanently: return "HTTP/1.1 301 Moved Permanently";
+    case Found: return "HTTP/1.1 302 Found";
+    case See_Other: return "HTTP/1.1 303 See Other";
+    case Not_Modified: return "HTTP/1.1 304 Not Modified";
+    case Bad_Request: return "HTTP/1.1 400 Bad Request";
+    case Unauthorized: return "HTTP/1.1 401 Unauthorized";
+    case Forbidden: return "HTTP/1.1 403 Forbidden";
+    case Not_Found: return "HTTP/1.1 404 Not Found";
+    case Method_Not_Allowed: return "HTTP/1.1 405 Method Not Allowed";
+    case Unsupported_Media_Type: return "HTTP/1.1 415 Unsupported Media Type";
+    case Too_Many_Requests: return "HTTP/1.1 429 Too Many Requests";
+    case Client_Closed_Request: return "HTTP/1.1 499 Client Closed Request";
+    case Internal_Server_Error: return "HTTP/1.1 500 Internal Server Error";
+    case Not_Implemented: return "HTTP/1.1 501 Not Implemented";
+    case Bad_Gateway: return "HTTP/1.1 502 Bad Gateway";
+    case Service_Unavailable: return "HTTP/1.1 503 Service Unavailable";
+    case Gateway_Timeout: return "HTTP/1.1 504 Gateway Timeout";
+    case Insufficient_Storage: return "HTTP/1.1 507 Insufficient Storage";
     default: return "HTTP/1.1 500 Internal Server Error"; 
     }
 }
@@ -151,13 +151,13 @@ std::string_view http::get_request_target(std::span<const char> buffer) {
 
     auto a = req.find(' ');
     if (a == std::string_view::npos) {
-        throw HTTPException(code::Bad_Request,
+        throw HTTPException(Bad_Request,
             "malformed request: no spaces");
     }
 
     auto b = req.find(' ', a + 1);
     if (b == std::string_view::npos) {
-        throw HTTPException(code::Bad_Request,
+        throw HTTPException(Bad_Request,
             "malformed request: no second space");
     }
 
@@ -188,7 +188,7 @@ std::string_view http::extract_body(std::span<const char> buffer) {
 
     std::size_t start;
     if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
-        throw http::HTTPException(http::code::Bad_Request, "Failed to extract body from buffer");
+        throw http::HTTPException(Bad_Request, "Failed to extract body from buffer");
     }
     std::size_t offset = (header[start] == '\r') ? 4 : 2;
 
@@ -200,25 +200,25 @@ std::string_view http::extract_body(std::span<const char> buffer) {
     return header.substr(start + offset, end - (start + offset));
 }
 
-http::code http::find_content_type(std::span<const char> buffer, std::string& content_type) noexcept {
+http::Code http::find_content_type(std::span<const char> buffer, std::string& content_type) noexcept {
     std::string_view header(buffer.data(), buffer.size());
     const std::string delimiter = "Content-Type: ";
 
     std::size_t start = header.find(delimiter);
     if (start == std::string::npos) {
         content_type = "application/json";
-        return http::code::OK;
+        return OK;
     }
     start += delimiter.length();
 
     std::size_t end;
     if ((end = header.find("\r\n", start)) == std::string::npos && (end = header.find("\n", start)) == std::string::npos) {
-        return http::code::Bad_Request; 
+        return Bad_Request; 
     }
 
     std::string_view content_type_view = std::string_view(header.substr(start, end - start));
     content_type = http::trim_to_lower(content_type_view);
-    return http::code::OK;
+    return OK;
 }
 
 http::json http::parse_url_form(const std::string& body) {
@@ -237,11 +237,11 @@ http::json http::parse_url_form(const std::string& body) {
     return result;
 }
 
-http::code http::build_json(std::span<const char> buffer, http::json& json_array) {
-    http::code code;
+http::Code http::build_json(std::span<const char> buffer, http::json& json_array) {
+    http::Code code;
     std::string content_type;
 
-    if((code = http::find_content_type(buffer, content_type)) != http::code::OK) {
+    if((code = http::find_content_type(buffer, content_type)) != OK) {
         return code;
     }
 
@@ -254,23 +254,23 @@ http::code http::build_json(std::span<const char> buffer, http::json& json_array
         json_array = http::json::parse(body);
     }
     else {
-        return http::code::Not_Implemented;
+        return Not_Implemented;
     }
 
-    return http::code::OK;
+    return OK;
 }
 
- http::method http::extract_method(std::span<const char> buffer) {
+ http::Method http::extract_method(std::span<const char> buffer) {
     std::string_view header(buffer.data(), buffer.size());
     std::size_t line_end = header.find("\r\n");
     if (line_end == std::string_view::npos) {
-        throw http::HTTPException(http::code::Bad_Request, "failed to find return line feed while parsing request method");
+        throw http::HTTPException(Bad_Request, "failed to find return line feed while parsing request method");
     }
     std::string_view request_line = header.substr(0, line_end);
 
     std::size_t method_end = request_line.find(' ');
     if (method_end == std::string_view::npos) {
-        throw http::HTTPException(http::code::Bad_Request, "failed to parse request method");
+        throw http::HTTPException(Bad_Request, "failed to parse request method");
     }
     return http::method_str_to_enum(std::string(request_line.substr(0, method_end)));
     
@@ -284,13 +284,13 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
 
     std::size_t headers_end = request.find("\r\n\r\n");
     if (headers_end == std::string_view::npos) {
-        throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+        throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
     }
 
     std::size_t pos = 0;
     std::size_t end_of_request_line = request.find(line_end, pos);
     if (end_of_request_line == std::string_view::npos) {
-        throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+        throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
     }
     
     pos = end_of_request_line + line_end.size();
@@ -304,7 +304,7 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
         }
         std::size_t end = request.find(line_end, pos);
         if (end == std::string_view::npos) {
-            throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+            throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
         }
 
         std::string_view line = request.substr(pos, end - pos);
@@ -314,7 +314,7 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
 
         std::size_t splitter_pos = line.find(header_splitter);
         if (splitter_pos == std::string_view::npos) {
-            throw http::HTTPException(http::code::Bad_Request, "failed to extract headers from request buffer");
+            throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
         }
 
         std::string key = std::string(line.substr(0, splitter_pos));
@@ -337,22 +337,22 @@ std::string http::extract_jwt_from_cookie(const std::string& cookie) {
     return cookie.substr(start, end - start); 
 }
 
-http::code http::extract_status_code(std::span<const char> buffer) noexcept {
+http::Code http::extract_status_code(std::span<const char> buffer) noexcept {
     std::string_view response(buffer.data(), buffer.size());
     size_t version_end = response.find(' ');
     if (version_end == std::string::npos) {
-        return http::code::Bad_Request;
+        return Bad_Request;
     }
     size_t status_code_start = version_end + 1;
     size_t status_code_end = response.find(' ', status_code_start);
     if (status_code_end == std::string::npos) {
-        return http::code::Bad_Gateway;
+        return Bad_Gateway;
     }
     std::string status_code_str = (std::string)response.substr(status_code_start, status_code_end - status_code_start);
     try {
-        return static_cast<http::code>(std::stoi(status_code_str)); 
+        return static_cast<http::Code>(std::stoi(status_code_str)); 
     } catch (const std::exception&) {
-        return http::code::Bad_Gateway;
+        return Bad_Gateway;
     }
 }
 
@@ -367,21 +367,21 @@ static bool extract_header_field(std::span<const char> buffer, std::string field
     return true;
 }
 
-http::code http::extract_token(const std::vector<char>& buffer, std::string& token) {
+http::Code http::extract_token(const std::vector<char>& buffer, std::string& token) {
     std::string_view header(buffer.data(), buffer.size());
     std::string field;
     if(!extract_header_field(std::span<const char>(buffer), "Authorization", field)) {
-        return http::code::Bad_Request;
+        return Bad_Request;
     }
 
     std::string delim = "Bearer ";
     std::size_t start;
     if((start = field.find(delim)) == std::string::npos) {
-        return http::code::Bad_Request;
+        return Bad_Request;
     }
 
     token = field.substr(delim.length());
-    return http::code::OK;
+    return OK;
 }
 
 static bool is_valid_json(std::string_view body) {
@@ -456,13 +456,13 @@ static std::string_view get_args(std::span<const char> buffer, const std::string
     std::string content_type;
     std::string_view body = http::extract_body(buffer);
     if (!get_content_type(buffer, content_type)) {
-        throw http::HTTPException(http::code::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
+        throw http::HTTPException(http::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
     }
     if (content_type != desired) {
-        throw http::HTTPException(http::code::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
+        throw http::HTTPException(http::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
     }
     if (!filter(body)) {
-        throw http::HTTPException(http::code::Bad_Request, std::format("invalid `{}` body", desired));
+        throw http::HTTPException(http::Bad_Request, std::format("invalid `{}` body", desired));
     }
     return body;
 }
@@ -477,7 +477,7 @@ static std::string_view body_any(std::span<const char> buffer) {
     } else if(content_type == "application/x-www-form-urlencoded" && is_valid_url_form(body)) {
         return body;
     } else if (content_type == "application/json" || content_type == "application/x-www-form-urlencoded") { // supported content type, but body was invalid
-        throw http::HTTPException(http::code::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
+        throw http::HTTPException(http::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
     } else { // cannot validate this content-type, simply pass through
         return body;
     }
@@ -500,7 +500,7 @@ std::string_view http::extract_args(std::span<const char> buffer, http::arg_type
         case http::arg_type::Body_URL: return get_args(buffer, "application/x-www-form-urlencoded", is_valid_url_form);
         case http::arg_type::Query_String: return http::extract_query_string(buffer);
         default:
-            throw http::HTTPException(http::code::Internal_Server_Error, "unknown arg type");
+            throw http::HTTPException(Internal_Server_Error, "unknown arg type");
     }
 }
 
@@ -524,10 +524,10 @@ asio::awaitable<http::WriteStatus> http::co_write_all(::io::Socket* sock, std::s
         state.bytes_sent += bytes_written;
     }
     if(state.bytes_sent != state.total_bytes) {
-        co_return http::WriteStatus{http::code::Internal_Server_Error,
+        co_return http::WriteStatus{Internal_Server_Error,
                 std::format("incomplete send, sent %zd/%zd bytes", state.bytes_sent, state.total_bytes), static_cast<std::size_t>(state.bytes_sent)};
     }
-    co_return http::WriteStatus{http::code::OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
+    co_return http::WriteStatus{OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
 }
 
 std::chrono::milliseconds http::select_backoff(const asio::error_code& ec, int attempt) noexcept {

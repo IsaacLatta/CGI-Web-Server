@@ -18,7 +18,7 @@ std::once_flag Config::initFlag;
 mw::Pipeline PIPELINE;
 
 std::string cfg::DEFAULT_MAKE_KEY(Transaction* txn) {
-    return txn->getSocket()->IpPortStr();
+    return txn->GetSocket()->IpStr();
 };
 
 Config::Config() {}
@@ -188,47 +188,47 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
 
         if(uses_ip) *uses_ip = false;
         return [header_name, ip_fallback](Transaction* txn) -> std::string {
-            auto request = txn->getRequest();
-            std::string header = request->getHeader(header_name);
+            auto request = txn->GetRequest();
+            std::string header = request.GetHeader(header_name);
             if(!header.empty()) {
                 return header;
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={} is missing header={}, unable to rate limit", txn->getSocket()->IpPortStr(), header_name));
+                throw http::HTTPException(http::Code::Bad_Request, 
+                std::format("client={} is missing header={}, unable to rate limit", txn->GetSocket()->IpStr(), header_name));
             }
-            return txn->getSocket()->IpPortStr();
+            return txn->GetSocket()->IpStr();
         };
     } else if (key_type == "ip") {
         return [](Transaction* txn) -> std::string {
-            return txn->getSocket()->IpPortStr();
+            return txn->GetSocket()->IpStr();
         };
     } else if (key_type == "xff") {
         
         if(uses_ip) *uses_ip = false;
         return [ip_fallback](Transaction* txn) -> std::string {
-            auto header = txn->getRequest()->getHeader("X-Forwarded-For");
+            auto header = txn->GetRequest().GetHeader("X-Forwarded-For");
             if (!header.empty()) {
                 return parseXff(header);
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->getSocket()->IpPortStr()));
+                throw http::HTTPException(http::Code::Bad_Request, 
+                std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->GetSocket()->IpStr()));
             }
-            return txn->getSocket()->IpPortStr();
+            return txn->GetSocket()->IpStr();
         };
     } else if (key_type == "query") {
         if(uses_ip) *uses_ip = false;
         return [ip_fallback](Transaction* txn) -> std::string {
-            std::string_view query = txn->getRequest()->query;
+            std::string_view query = txn->GetRequest().query;
             if(!query.empty()) {
                 return std::string(query);
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::code::Bad_Request, 
-                std::format("client={}, missing query string, unable to rate limit", txn->getSocket()->IpPortStr()));
+                throw http::HTTPException(http::Code::Bad_Request, 
+                std::format("client={}, missing query string, unable to rate limit", txn->GetSocket()->IpStr()));
             }
-            return txn->getSocket()->IpPortStr();
+            return txn->GetSocket()->IpStr();
         };
     } 
     else {
@@ -372,7 +372,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
             }
         }
         method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
-        if (method.m != http::method::Not_Allowed && !endpoint_url.empty()) {
+        if (method.m != http::Method::Not_Allowed && !endpoint_url.empty()) {
                 tinyxml2::XMLElement* rate_limit_el = route_el->FirstChildElement("RateLimit");
                 if(rate_limit_el) {
                     TRACE("Server", "loading rate limiter for [%s %s] ...", method_str.c_str(), endpoint_url.c_str());
@@ -572,9 +572,9 @@ void Config::loadErrorPages(tinyxml2::XMLDocument* doc) {
     tinyxml2::XMLElement* error_pg = error_pg_elem->FirstChildElement("ErrorPage");
     while(error_pg) {
         http::ErrorPage error_page;
-        error_page.status = error_pg->Attribute("code") ? http::code_str_to_enum(error_pg->Attribute("code")) : http::code::Not_A_Status;
+        error_page.status = error_pg->Attribute("code") ? http::code_str_to_enum(error_pg->Attribute("code")) : http::Code::Not_A_Status;
         std::string file = error_pg->Attribute("file") ? error_pg->Attribute("file") : "";
-        if(error_page.status == http::code::Not_A_Status || file.empty()) {
+        if(error_page.status == http::Code::Not_A_Status || file.empty()) {
             WARN("Server", "loading configuration: invalid error page, code=%d, file=%s", static_cast<int>(error_page.status), file.c_str());
         } else {
             print_error_page(error_page, file);
