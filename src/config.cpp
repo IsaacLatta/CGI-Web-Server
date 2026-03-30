@@ -1,5 +1,5 @@
 #include "config.h"
-#include "Router.h"
+#include "http/routing/Router.h"
 #include "http/mw/Middleware.h"
 #include "Transaction.h"
 
@@ -65,7 +65,7 @@ static int get_seconds_from_time_str(const char* data) {
         DEBUG("Server", "empty time field, resulting to default %s seconds", cfg::DEFAULT_WINDOW_SECONDS);
         return cfg::DEFAULT_WINDOW_SECONDS;
     }
-    
+
     std::string str(data);
     std::string token;
     std::istringstream iss(str);
@@ -160,13 +160,13 @@ static std::string parseXff(const std::string& xff) {
 /* by default it is assumed that 'uses_ip' is true, 'uses_ip' is here only for the ordering of the global rate limiter in the pipeline */
 static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
     if(uses_ip) *uses_ip = true;
-    
+
     tinyxml2::XMLElement* key_elem = algo_elem->FirstChildElement("Key");
     if(!key_elem) {
         DEBUG("Server", "missing key type for RateLimit, defaulting to type='ip'");
         return cfg::DEFAULT_MAKE_KEY;
     }
-    
+
     std::string key_type = key_elem->Attribute("type") ? key_elem->Attribute("type") : "";
     if(key_type.empty()) {
         DEBUG("Server", "RateLimit is missing 'type' attribute, defaulting to type='ip'");
@@ -184,7 +184,7 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
         if(header_name.empty()) {
             DEBUG("Server", "rate limit has requested Key type='header': missing 'name' attribute, defaulting to name='ip'");
             return cfg::DEFAULT_MAKE_KEY;
-        } 
+        }
 
         if(uses_ip) *uses_ip = false;
         return [header_name, ip_fallback](Transaction* txn) -> std::string {
@@ -194,7 +194,7 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
                 return header;
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::Code::Bad_Request, 
+                throw http::Exception(http::Code::Bad_Request,
                 std::format("client={} is missing header={}, unable to rate limit", txn->GetSocket()->IpStr(), header_name));
             }
             return txn->GetSocket()->IpStr();
@@ -204,7 +204,7 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
             return txn->GetSocket()->IpStr();
         };
     } else if (key_type == "xff") {
-        
+
         if(uses_ip) *uses_ip = false;
         return [ip_fallback](Transaction* txn) -> std::string {
             auto header = txn->GetRequest().GetHeader("X-Forwarded-For");
@@ -212,7 +212,7 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
                 return parseXff(header);
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::Code::Bad_Request, 
+                throw http::Exception(http::Code::Bad_Request,
                 std::format("client={} missing header='X-Forwarded-For', unable to rate limit", txn->GetSocket()->IpStr()));
             }
             return txn->GetSocket()->IpStr();
@@ -225,12 +225,12 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
                 return std::string(query);
             }
             if(!ip_fallback) {
-                throw http::HTTPException(http::Code::Bad_Request, 
+                throw http::Exception(http::Code::Bad_Request,
                 std::format("client={}, missing query string, unable to rate limit", txn->GetSocket()->IpStr()));
             }
             return txn->GetSocket()->IpStr();
         };
-    } 
+    }
     else {
         DEBUG("Server", "unsupported Key type='%s', defaulting to type='ip'", key_type.c_str());
         return cfg::DEFAULT_MAKE_KEY;
@@ -239,7 +239,7 @@ static std::function<std::string(Transaction*)> get_key_func(tinyxml2::XMLElemen
 
 static std::unique_ptr<mw::Middleware> load_token_bucket(tinyxml2::XMLElement* algo_elem, bool* uses_ip) {
     cfg::TokenBucketSetting setting;
-    setting.capacity = load_int(algo_elem->Attribute("capacity"), cfg::DEFAULT_TOKEN_CAPACITY, 
+    setting.capacity = load_int(algo_elem->Attribute("capacity"), cfg::DEFAULT_TOKEN_CAPACITY,
         std::format("failed to parse capacity for rate limit, defaulting to capacity=%d tokens", cfg::DEFAULT_TOKEN_CAPACITY));
     setting.refill_rate = load_refill_rate(algo_elem->Attribute("refill_rate"));
     setting.make_key = get_key_func(algo_elem, uses_ip);
@@ -249,7 +249,7 @@ static std::unique_ptr<mw::Middleware> load_token_bucket(tinyxml2::XMLElement* a
 
 static std::unique_ptr<mw::Middleware> load_fixed_window(tinyxml2::XMLElement* algo_elem, bool* uses_ip) {
     cfg::FixedWindowSetting setting;
-    setting.max_requests = load_int(algo_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS, 
+    setting.max_requests = load_int(algo_elem->Attribute("max_requests"), cfg::DEFAULT_MAX_REQUESTS,
         std::format("failed to parse max_requests for rate limit, defaulting to {} requests", cfg::DEFAULT_MAX_REQUESTS));
     setting.window_seconds = algo_elem->Attribute("window") ? get_seconds_from_time_str(algo_elem->Attribute("window")) : cfg::DEFAULT_WINDOW_SECONDS;
     setting.make_key = get_key_func(algo_elem, uses_ip);
@@ -259,11 +259,11 @@ static std::unique_ptr<mw::Middleware> load_fixed_window(tinyxml2::XMLElement* a
 
 static std::unique_ptr<mw::Middleware> load_limiter(tinyxml2::XMLElement* algo_elem, bool* uses_ip = nullptr) {
     if(!algo_elem) {
-        WARN("Server", "parsing error with RateLimit, default RateLimit [algo='fixed window' max_requests=%d window=%ds] loaded", 
+        WARN("Server", "parsing error with RateLimit, default RateLimit [algo='fixed window' max_requests=%d window=%ds] loaded",
         cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
         return std::make_unique<mw::FixedWindowLimiter>(FixedWindowSetting());
     }
-    
+
     std::string algo = algo_elem->Attribute("algorithm") ? algo_elem->Attribute("algorithm") : "";
     if(algo.empty()) {
         WARN("Server", "rate limiting algorithm is empty, defaulting to algorithm='fixed window'");
@@ -273,7 +273,7 @@ static std::unique_ptr<mw::Middleware> load_limiter(tinyxml2::XMLElement* algo_e
     } else if (algo == "token bucket" || algo == "token_bucket") {
         return load_token_bucket(algo_elem, uses_ip);
     } else {
-        WARN("Server", "rate limiting algo=%s not supported, default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", 
+        WARN("Server", "rate limiting algo=%s not supported, default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded",
         cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
         return std::make_unique<mw::FixedWindowLimiter>(FixedWindowSetting());
     }
@@ -284,8 +284,8 @@ std::unique_ptr<mw::Middleware> Config::loadGlobalRateLimit(tinyxml2::XMLDocumen
     if(!global_elem) {
         DEBUG("Server", "no global configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
         return std::make_unique<mw::FixedWindowLimiter>();
-    } 
-    
+    }
+
     auto rate_elem = global_elem->FirstChildElement("RateLimit");
     if(!rate_elem) {
         DEBUG("Server", "no global configuration: default RateLimit [algorithm='fixed window' max_requests=%d window=%ds] loaded", cfg::DEFAULT_MAX_REQUESTS, cfg::DEFAULT_WINDOW_SECONDS);
@@ -327,7 +327,7 @@ mw::Pipeline* Config::getPipeline() const {
 void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_path) {
     using namespace tinyxml2;
     using namespace cfg;
-    
+
     http::Router* router = &http::Router::INSTANCE;
 
     XMLElement* doc_routes = doc->FirstChildElement("ServerConfig")->FirstChildElement("Routes");
@@ -347,14 +347,14 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
 
         std::string method_str = route_el->Attribute("method") ? route_el->Attribute("method") : "";
         method.m = http::method_str_to_enum(method_str);
-        
+
         method.resource = route_el->Attribute("script") ? content_path + "/" + route_el->Attribute("script") : "";
         method.has_script = !method.resource.empty();
         method.is_protected = route_el->Attribute("protected") && std::string(route_el->Attribute("protected")) == "true";
         if(method.is_protected) {
             method.access_role = route_el->Attribute("access_role") ? route_el->Attribute("access_role") : "";
             if (method.access_role.empty()) {
-                WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to admin", 
+                WARN("Server", "protected route[%s %s] is missing access role attribute, defaulting to admin",
                     method_str.c_str(), endpoint_url.c_str());
                 method.access_role = ADMIN_ROLE_HASH;
             }
@@ -371,7 +371,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
                 method.auth_role = cfg::VIEWER_ROLE_HASH;
             }
         }
-        method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::arg_type::None;
+        method.args = route_el->Attribute("args") ? http::arg_str_to_enum(route_el->Attribute("args")) : http::ArgumentType::None;
         if (method.m != http::Method::Not_Allowed && !endpoint_url.empty()) {
                 tinyxml2::XMLElement* rate_limit_el = route_el->FirstChildElement("RateLimit");
                 if(rate_limit_el) {
@@ -380,7 +380,7 @@ void Config::loadRoutes(tinyxml2::XMLDocument* doc, const std::string& content_p
                 }
                 print_endpoint(method, endpoint_url);
                 router->updateEndpoint(endpoint_url, std::move(method));
-            } 
+            }
         else {
             ERROR("Server", "incomplete route attribute: parsed method[%s] and endpoint[%s], both required", method_str.c_str(), endpoint_url.c_str());
         }
@@ -402,8 +402,8 @@ void display_role(cfg::Role* role) {
         includes += "include=" + include + "\n\t";
     }
     if (!includes.empty()) {
-        includes.pop_back(); 
-        includes.pop_back(); 
+        includes.pop_back();
+        includes.pop_back();
     }
     std::string final_msg = std::format("role [{}]\n\t{}\n", role->title, includes);
     TRACE("Server", "%s", final_msg.c_str());
@@ -416,7 +416,7 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
 
     tinyxml2::XMLElement* role_config = doc->FirstChildElement("ServerConfig")->FirstChildElement("Roles");
     if (!role_config) {
-        return; 
+        return;
     }
 
     std::vector<Role*> full_include_roles;
@@ -437,7 +437,7 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
             const char* include_role = include_el->GetText();
             if (include_role && std::string(include_role) == "*") {
                 add_to_full_include_roles = true;
-                break; 
+                break;
             } else if (include_role) {
                 role.includes.push_back(get_role_hash(include_role));
             }
@@ -445,7 +445,7 @@ void Config::loadRoles(tinyxml2::XMLDocument* doc) {
         }
 
         roles[role.title] = role;
-       
+
         if (add_to_full_include_roles) {
             full_include_roles.push_back(&roles[role.title]);
         }
@@ -468,7 +468,7 @@ void Config::loadJWTSecretFromFile(tinyxml2::XMLElement* secret_elem) {
     if(filefd < 0) {
         FATAL("Server", "failed to open jwt secret file[%s], errno=%d %s", file_path.c_str(), errno, strerror(errno));
     }
-    
+
     struct stat file_stat;
     if(fstat(filefd, &file_stat) < 0) {
         close(filefd);
@@ -523,7 +523,7 @@ void Config::generateJWTSecret(tinyxml2::XMLElement* secret_elem) {
 
     tinyxml2::XMLElement* len_elem;
     if((len_elem = secret_elem->FirstChildElement("Length")) && len_elem->GetText()) {
-        secret_len = std::stoi(len_elem->GetText()); 
+        secret_len = std::stoi(len_elem->GetText());
     }
 
     this->secret = generate_rand_secret(secret_len);
@@ -534,10 +534,10 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
     if(!jwt_elem) {
         return;
     }
-    
+
     tinyxml2::XMLElement* secret_elem;
-    if((secret_elem = jwt_elem->FirstChildElement("SecretFile"))) { 
-        loadJWTSecretFromFile(secret_elem); 
+    if((secret_elem = jwt_elem->FirstChildElement("SecretFile"))) {
+        loadJWTSecretFromFile(secret_elem);
         return;
     }
 
@@ -545,7 +545,7 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
         this->secret = secret_elem->GetText() == nullptr ? "" : secret_elem->GetText();
         if(this->secret.empty()) {
             FATAL("Server", "loading configuration: jwt secret string is invalid");
-        } 
+        }
         return;
     }
 
@@ -553,7 +553,7 @@ void Config::loadJWTSecret(tinyxml2::XMLDocument* doc) {
         generateJWTSecret(secret_elem);
         return;
     }
-    
+
     WARN("Server", "ignoring jwt configuration: no options set");
 }
 
@@ -596,7 +596,7 @@ void Config::loadThreads(tinyxml2::XMLDocument* doc) {
         DEBUG("Server", "allocating %zu threads", thread_count);
         return;
     }
-    
+
     const char* txt = threads_el->GetText();
     if (txt && *txt) {
         std::size_t tmp = 0;
@@ -626,7 +626,7 @@ static std::string resolve_log_path(const std::string& path) {
 
 void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLDocument doc;
-    
+
     auto logger = logger::Logger::getInstance();
     logger->addSink(std::move(std::make_unique<logger::ConsoleSink>()));
     logger->start();
@@ -667,7 +667,7 @@ void Config::initialize(const std::string& config_path) {
     tinyxml2::XMLElement* log_dir = doc.FirstChildElement("ServerConfig")->FirstChildElement("LogDirectory");
     if(log_dir && log_dir->GetText()) {
         this->log_path = resolve_log_path(log_dir->GetText());
-    } 
+    }
     else {
         this->log_path = resolve_log_path("./log");
     }
@@ -718,7 +718,7 @@ void cfg::Config::loadHostIP() {
 
     for (auto it = endpoints; it != asio::ip::tcp::resolver::iterator(); ++it) {
         auto endpoint = it->endpoint();
-        if (endpoint.address().is_v4()) { 
+        if (endpoint.address().is_v4()) {
             host_address = endpoint.address().to_string();
             return;
         }

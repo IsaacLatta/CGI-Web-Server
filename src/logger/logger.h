@@ -20,15 +20,17 @@
 #include <array>
 #include <execinfo.h>
 
-#include "../Sink.h"
+#include "Sink.h"
+
+#include "core/time.h"
 
 namespace logger 
 { 
     std::string get_time();
     std::string fmt_msg(const char* fmt, ...);
     std::string get_stack_trace();
-    std::string get_user_agent(const char* buffer, std::size_t size);
-    std::string get_header_line(const char* buffer, std::size_t size);
+    std::string get_user_agent(std::span<const char>);
+    std::string get_header_line(std::span<const char>);
 
     constexpr std::size_t MAX_SINKS = 1024;
     constexpr std::size_t LOG_BUFFER_SIZE = 1024;
@@ -40,6 +42,8 @@ namespace logger
     };
 
     struct Entry {
+        virtual ~Entry() = default;
+
         int line;
         const char* file;
         const char* function;
@@ -54,30 +58,16 @@ namespace logger
     };
 
     struct SessionEntry : public Entry {
-        unsigned long bytes{0};
-        std::string user_agent{""}; 
-        std::string request{""};
-        std::string response{""};
-        std::string client_addr{""};
-        std::chrono::time_point<std::chrono::system_clock> Latency_start_time;
-        std::chrono::time_point<std::chrono::system_clock> Latency_end_time;
-        std::chrono::time_point<std::chrono::system_clock> RTT_start_time;
-        std::chrono::time_point<std::chrono::system_clock> RTT_end_time;
+        size_t BytesServed { 0u };
+        std::string UserAgent;
+        std::string RequestLine;
+        std::string ResponseLine;
+        std::string RemoteIpPortString;
+        core::WallTimePoint RttStart { core::WallClock::now() };
+        core::WallTimePoint RttEnd;
+
         std::string build() override;
     };
-
-    class DisableGuard {
-    public:
-        DisableGuard();
-        ~DisableGuard();
-
-        DisableGuard(DisableGuard&&) = delete;
-        DisableGuard(const DisableGuard&) = delete;
-        DisableGuard& operator=(const DisableGuard&) = delete;
-        DisableGuard& operator=(DisableGuard&&) = delete;
-    };
-
-    bool enabled();
 
     class Logger {
     public:

@@ -31,14 +31,37 @@ constexpr int DEFAULT_REFILL_RATE = 2; /* in tokens/s, i.e. 1 token/s */
 std::string DEFAULT_MAKE_KEY(Transaction* txn);
 
 struct Role {
-    std::string title;
-    std::vector<std::string> includes;
+    std::string Title;
+    std::vector<std::string> Includes;
 
-    bool includesRole(const std::string& role) const {
-        return (title == role) || (std::find(includes.begin(), includes.end(), role) != includes.end());
+    [[nodiscard]] bool IncludesRole(const std::string& role) const {
+        return (Title == role) || (std::ranges::find(Includes, role) != Includes.end());
     }
 };
 
+struct AccessControl {
+    std::string Secret;
+    std::string Issuer;
+    std::vector<Role> Roles;
+
+    [[nodiscard]] std::optional<Role> GetRole(const std::string& title) const {
+        for (const auto& role : Roles) {
+            if (role.Title == title) {
+                return role;
+            }
+        }
+        return std::nullopt;
+    }
+
+    [[nodiscard]] bool IncludesRole(const std::string& target_role, const std::string& queried_role) const {
+        const auto role = GetRole(target_role);
+        if (!role) {
+            return false;
+        }
+        return role->IncludesRole(queried_role);
+    }
+
+};
 
 struct RateSetting {
     enum class KeyType { IP, Header };
@@ -53,7 +76,7 @@ struct TokenBucketSetting: public RateSetting {
 
 struct FixedWindowSetting: public RateSetting {
     int window_seconds{DEFAULT_WINDOW_SECONDS};
-    int max_requests{DEFAULT_MAX_REQUESTS};  
+    int max_requests{DEFAULT_MAX_REQUESTS};
 };
 
 std::string get_role_hash(std::string role_title);
@@ -76,7 +99,7 @@ struct SSLConfig {
 
 using Roles = std::unordered_map<std::string, Role>;
 
-class Config 
+class Config
 {
     public:
     static const Config* getInstance(const std::string& config_path = "");
@@ -94,7 +117,7 @@ class Config
     std::size_t getThreadCount() const {return thread_count;}
 
     private:
-    Config(); 
+    Config();
 
     Config(Config&) = delete;
     void operator=(Config&) = delete;
@@ -115,7 +138,7 @@ class Config
     std::size_t thread_count{0};
     static Config INSTANCE;
     static std::once_flag initFlag;
-    
+
     Roles roles;
     SSLConfig ssl;
     std::string secret;

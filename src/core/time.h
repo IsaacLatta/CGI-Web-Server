@@ -5,6 +5,7 @@
 namespace core {
 
     using Secs = std::chrono::seconds;
+    using Ms = std::chrono::milliseconds;
     using Mins = std::chrono::minutes;
     using Hrs = std::chrono::hours;
 

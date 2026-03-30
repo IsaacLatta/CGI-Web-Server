@@ -1,9 +1,10 @@
 #include "Middleware.h"
 #include "http/Exception.h"
+#include "http/Transaction.h"
 
 namespace mw {
 
-asio::awaitable<void> Pipeline::RunOne(Transaction& txn, size_t index) const {
+asio::awaitable<void> Pipeline::RunOne(http::Transaction& txn, size_t index) const {
     if (index >= components_.size()) {
         co_return;
     }
@@ -16,7 +17,7 @@ asio::awaitable<void> Pipeline::RunOne(Transaction& txn, size_t index) const {
     co_await mw.Process(txn, std::move(next));
 }
 
-asio::awaitable<void> Pipeline::Run(Transaction& txn) const {
+asio::awaitable<void> Pipeline::Run(http::Transaction& txn) const {
     co_return co_await RunOne(txn, 0u);
 }
 

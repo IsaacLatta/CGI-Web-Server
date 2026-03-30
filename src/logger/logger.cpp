@@ -34,17 +34,20 @@ std::string logger::get_time() {
     return oss.str();
 }
 
-static std::string format_bytes(long bytes) {
-    if(bytes == 1) return " byte"; 
+static std::string format_bytes(size_t bytes) {
+    if(bytes == 1u) {
+        return " byte";
+    }
 
-    std::string units[] = {" bytes", " KB", " MB", " GB", " TB"};
-    int i = 0;
-    double double_bytes = static_cast<double>(bytes);
-    for(i = 0; i < 5 && double_bytes > 1024; i++)
-    {
+    static constexpr std::string_view units[] = {" bytes", " KB", " MB", " GB", " TB"};
+    auto double_bytes = static_cast<double>(bytes);
+
+    uint32_t i = 0u;
+    for(; i < 5u && double_bytes > 1024; i++) {
         double_bytes /= 1024;
     }
-    return std::to_string(static_cast<int>(double_bytes)) + units[i];
+
+    return std::to_string(static_cast<int>(double_bytes)) + std::string(units[i]);
 }
 
 
@@ -58,7 +61,7 @@ static void trim_user_agent(std::string& user_agent) {
 
 static std::string get_identifier(const std::string& user_agent) {
     std::string result;
-    std::size_t identifier_end = user_agent.find("(");
+    size_t identifier_end = user_agent.find("(");
     if (identifier_end != std::string::npos) 
     {
         result = user_agent.substr(0, identifier_end - 1); 
@@ -68,8 +71,8 @@ static std::string get_identifier(const std::string& user_agent) {
 
 static std::string get_os(const std::string& user_agent) {
     std::string result;
-    std::size_t os_start = user_agent.find("(");
-    std::size_t os_end = user_agent.find(")", os_start);
+    size_t os_start = user_agent.find("(");
+    size_t os_end = user_agent.find(")", os_start);
 
     if (os_start != std::string::npos && os_end != std::string::npos) 
     {
@@ -81,7 +84,7 @@ static std::string get_os(const std::string& user_agent) {
 
 static std::string get_browser(const std::string user_agent) {   
     std::string result = "";
-    std::size_t browser_start = std::string::npos;
+    size_t browser_start = std::string::npos;
     std::string browser_info;
     std::vector<std::string> browsers = {"Chrome/", "Firefox/", "Safari/", "Edge/", "Opera/", "Brave/", "Chromium/"};
     for (const auto& browser : browsers) 
@@ -89,7 +92,7 @@ static std::string get_browser(const std::string user_agent) {
         browser_start = user_agent.find(browser);
         if (browser_start != std::string::npos) 
         {
-            std::size_t browser_end = user_agent.find(" ", browser_start);
+            size_t browser_end = user_agent.find(" ", browser_start);
             browser_info = user_agent.substr(browser_start, browser_end - browser_start);
             break; 
         }
@@ -132,9 +135,9 @@ std::string logger::get_stack_trace() {
     return oss.str();
 }
 
-std::string logger::get_user_agent(const char* buffer, std::size_t size) {
-    std::size_t ua_start, ua_end;
-    std::string_view buffer_str(buffer, size);
+std::string logger::get_user_agent(std::span<const char> buffer) {
+    size_t ua_start, ua_end;
+    std::string_view buffer_str(buffer.data(), buffer.size());
     if((ua_start = buffer_str.find("User-Agent")) == std::string::npos)
         return "";
     if((ua_end = buffer_str.find("\r\n", ua_start)) == std::string::npos)
@@ -145,9 +148,9 @@ std::string logger::get_user_agent(const char* buffer, std::size_t size) {
     return get_identifier(user_agent) + get_os(user_agent) + get_browser(user_agent);
 }
 
-std::string logger::get_header_line(const char* buffer, std::size_t size) {
-    std::size_t end;
-    std::string_view header(buffer, size);
+std::string logger::get_header_line(std::span<const char> buffer) {
+    size_t end;
+    std::string_view header(buffer.data(), buffer.size());
     if((end = header.find("\r\n")) == std::string::npos)
         return "";
     return std::string(header.substr(0, end));
@@ -177,17 +180,16 @@ std::string InlineEntry::build() {
 }
 
 std::string SessionEntry::build() {
-    std::string time = "[" + get_time() + "] ";
-    std::string client = " [client " + client_addr + "] "; 
-    std::string request_str = "\"" + request + "\" ";
-    std::string latency_RTT_size = " [Latency: " + std::to_string(duration_ms(Latency_start_time, Latency_end_time)) 
-                                 + " ms RTT: "  + std::to_string(duration_ms(RTT_start_time, RTT_end_time)) + " ms";
-    if(bytes != 0) {
-        latency_RTT_size += " Size: " + format_bytes(bytes); 
+    const std::string time = "[" + get_time() + "] ";
+    const std::string client = " [client " + RemoteIpPortString + "] ";
+    const std::string request_str = "\"" + RequestLine + "\" ";
+    std::string latency_RTT_size = " [RTT: "  + std::to_string(duration_ms(RttStart, RttEnd)) + " ms";
+    if(BytesServed > 0) {
+        latency_RTT_size += " Size: " + format_bytes(BytesServed);
     }
     latency_RTT_size += "] ";
     
-    return time + level_to_str(level) + client + request_str + user_agent + latency_RTT_size + response + "\n";
+    return time + level_to_str(level) + client + request_str + UserAgent + latency_RTT_size + ResponseLine + "\n";
 }
 
 Logger Logger::INSTANCE;
@@ -206,17 +208,17 @@ void Logger::addSink(std::unique_ptr<Sink>&& sink) {
 }
 
 void Logger::push(std::unique_ptr<logger::Entry>&& entry) {
-    std::size_t pos = head.fetch_add(1, std::memory_order_release);
-    std::size_t index = pos % logger::LOG_BUFFER_SIZE; 
+    const size_t pos = head.fetch_add(1, std::memory_order_release);
+    const size_t index = pos % logger::LOG_BUFFER_SIZE;
     log_buffer[index] = std::move(entry);
 }
 
 std::unique_ptr<logger::Entry> Logger::pop() {
-    std::size_t curr_tail = tail.load(std::memory_order_relaxed);
-    std::size_t curr_head = head.load(std::memory_order_acquire);
+    size_t curr_tail = tail.load(std::memory_order_relaxed);
+    const size_t curr_head = head.load(std::memory_order_acquire);
 
-    std::size_t entries_not_flushed = curr_head - curr_tail;
-    if(entries_not_flushed >= logger::LOG_BUFFER_SIZE) { // buffer overun, drop old entries
+    size_t entries_not_flushed = curr_head - curr_tail;
+    if(entries_not_flushed >= logger::LOG_BUFFER_SIZE) { // buffer overrun, drop old entries
         tail.store(curr_head - logger::LOG_BUFFER_SIZE + 1, std::memory_order_relaxed);
         curr_tail = tail.load(std::memory_order_relaxed);
     }
@@ -238,10 +240,9 @@ void Logger::stopAndFlush() {
         flush();
     }
 
-    std::string log = "";
     std::unique_ptr<logger::Entry> entry;
     while((entry = pop()) != nullptr) {
-        log = entry->build();
+        std::string log = entry->build();
         for(int i = 0; i < sink_count; ++i) { // flush remaining one by one
             sinks[i]->write(log);
         }
@@ -249,7 +250,7 @@ void Logger::stopAndFlush() {
 }
 
 void Logger::flush() {
-    std::string logs = "";
+    std::string logs;
     for(int i = 0; i < entries; ++i) {
         logs += batch[i]->build();
     }   

@@ -1,19 +1,26 @@
 #pragma once
 
+#include <string>
+
+#include <asio.hpp>
+
 #include "http/mw/Middleware.h"
+#include "config.h"
 
 namespace mw {
 
 class Authenticator: public Middleware {
 public:
-    asio::awaitable<void> Process(Transaction& txn, Next next) override;
+    Authenticator(const cfg::AccessControl& config)
+        : config_(config) {}
+
+    asio::awaitable<void> Process(http::Transaction&, Next) override;
 
 private:
-    void validate(Transaction& txn, const http::EndpointMethod* route) const;
+    void Validate(http::Transaction&, const http::Endpoint&) const;
 
 private:
-
-
+    const cfg::AccessControl& config_;
 };
 
 } // namespace mw

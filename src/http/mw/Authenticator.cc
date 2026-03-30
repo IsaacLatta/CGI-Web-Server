@@ -1,77 +1,58 @@
 #include "http/mw/Authenticator.h"
 
+#include <cassert>
+
 #include <jwt-cpp/jwt.h>
 #include <jwt-cpp/traits/nlohmann-json/defaults.h>
 
 #include "core/time.h"
 
 #include "http/Exception.h"
-
-namespace {
-    core::WallTimePoint default_expiry() {
-        return core::WallClock::now() + core::Hrs { 1 };
-    }
-}
+#include "http/Transaction.h"
 
 namespace mw {
 
-    void Authenticator::validate(Transaction& txn, const http::EndpointMethod* route) const {
-        auto request = txn.GetRequest();
+    void Authenticator::Validate(http::Transaction& txn, const http::Endpoint& endpoint) const {
+        const auto& request = txn.GetRequest();
 
-        if(!route->is_protected) {
+        if(!endpoint.IsProtected) {
             return;
         }
 
-        std::string cookie, token;
-        if ((cookie = request.GetHeader("Cookie")).empty() || (token = http::extract_jwt_from_cookie(cookie)).empty()) {
-            throw http::HTTPException(http::Unauthorized, "missing or invalid authentication token");
+        const auto token = http::extract_jwt_from_cookie(request.GetHeader("Cookie"));
+        if (!token) {
+            throw http::Exception(http::Unauthorized, "missing or invalid authentication token");
         }
 
         try {
-            auto decoded_token = jwt::decode(token);
-            auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{config->getSecret()}).with_issuer(config->getServerName());
+            const auto decoded_token = jwt::decode(*token);
+            const auto verifier = jwt::verify().allow_algorithm(
+                jwt::algorithm::hs256{config_.Secret}).with_issuer(config_.Issuer);
+
             verifier.verify(decoded_token);
 
-            if(decoded_token.has_expires_at() && std::chrono::system_clock::now() > decoded_token.get_expires_at()) {
-                throw http::HTTPException(http::Unauthorized, "expired token");
+            if(decoded_token.has_expires_at() && core::WallClock::now() > decoded_token.get_expires_at()) {
+                throw http::Exception(http::Unauthorized, "expired token");
             }
 
             auto role_claim = decoded_token.get_payload_claim("role");
-            const cfg::Role* role;
-            if(!((role = config->findRole(role_claim.as_string())) && role->includesRole(route->access_role))) {
-                throw http::HTTPException(http::Unauthorized, "insufficient permissions");
+            if (!config_.IncludesRole(endpoint.AccessRole, role_claim.as_string())) {
+                throw http::Exception(http::Unauthorized, "insufficient permissions");
             }
-        } catch (const std::exception& error) {
-            throw http::HTTPException(http::Unauthorized,
-            std::format("[client {}] invalid token [error {}]", txn.GetSocket()->IpStr(), error.what()));
+
+        } catch (const std::exception& e) {
+            throw http::Exception(http::Unauthorized, std::format("authorization failed: {}", e.what()));
         }
     }
 
-    asio::awaitable<void> Authenticator::Process(Transaction& txn, Next next) {
-        auto& request = txn.GetRequest();
-        const cfg::Config* config = cfg::Config::getInstance();
+    asio::awaitable<void> Authenticator::Process(http::Transaction& txn, Next next) {
+        if (!txn.Endpoint) {
+            throw http::Exception(http::Internal_Server_Error, "mw::Authenticator, routing failure!");
+        }
 
-        validate(txn, request.route);
+        Validate(txn, *txn.Endpoint);
         co_await next();
-
-        if(!request.route->is_authenticator) {
-            co_return;
-        }
-
-        auto response = txn.GetResponse();
-        if(!http::is_success_code(response.Status)) {
-            throw http::HTTPException(response.Status, std::format("Failed to authorize client: {} [status={}]", txn.GetSocket()->IpStr(), static_cast<int>(response.Status)));
-        }
-
-        auto token_builder = jwt::create();
-        std::string token = token_builder.set_issuer(config->getServerName()).set_subject("auth-token").set_expires_at(default_expiry())
-                            .set_payload_claim("role",
-                                jwt::claim(cfg::get_role_hash(request.endpoint->getAuthRole(request.method))))
-                                    .sign(jwt::algorithm::hs256{config->getSecret()});
-
-        response.AddHeader("Set-Cookie", std::format("jwt={}; HttpOnly; Secure; SameSite=Strict;", token));
         co_return;
     }
-
 
 }

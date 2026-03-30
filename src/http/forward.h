@@ -8,28 +8,6 @@
 
 namespace http {
 
-    class Session;
-
-    using SessionPtr = std::shared_ptr<Session>;
-
-    using SessionFactory = std::function<SessionPtr(::io::SocketPtr&&)>;
-
-    class Server;
-
-    using SocketFactory = std::function<::io::SocketPtr(const asio::io_context&)>;
-
-    class Server;
-
-    class Response;
-
-    class Request;
-
-    class HTTPException;
-
-    using Headers = std::unordered_map<std::string, std::string>;
-
-    class MethodHandler;
-
     enum class Code {
         Not_A_Status = -1,
         OK = 200,
@@ -57,6 +35,7 @@ namespace http {
     }; using enum Code;
 
     enum class Method {
+        Unassigned = -1,
         Get,
         Head,
         Post,
@@ -64,6 +43,57 @@ namespace http {
         Not_Allowed
     }; using enum Method;
 
+    enum class ArgumentType {
+        None = 0,
+        Any,
+        Body_Any,
+        Body_JSON,
+        Body_URL,
+        Query_String
+    };
+
+    class Session;
+
+    using SessionPtr = std::shared_ptr<Session>;
+
+    using SessionFactory = std::function<SessionPtr(::io::SocketPtr&&)>;
+
+    class Server;
+
+    using SocketFactory = std::function<::io::SocketPtr(const asio::io_context&)>;
+
+    class Server;
+
+    class Response;
+
+    class Request;
+
+    class Exception;
+
+    using Headers = std::unordered_map<std::string, std::string>;
+
+    using QueryParams = std::unordered_map<std::string_view, std::string_view>;
+
+    class MethodHandler;
+
+    class Transaction;
+
+    struct ErrorPage;
+
+    struct Endpoint;
+
+    class Route;
+
+    class Router;
+
+    using EndpointFactory = std::function<Route(std::string path)>;
+
+    using ErrorPageFactory = std::function<ErrorPage(Code)>;
+
+    using Handler = std::function<asio::awaitable<void>(Transaction*)>;
+    using Limiter = std::function<asio::awaitable<void>(Transaction*)>;
+
+    using HandlerFactory = std::function<Handler(Method)>;
 }
 
 namespace mw {

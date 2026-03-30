@@ -4,32 +4,31 @@
 
 namespace mw {
 
-asio::awaitable<void> mw::Parser::Process(Transaction& txn, Next next) {
-    auto buffer =  txn.getBuffer();
-    auto [ec, bytes] = co_await txn.GetSocket()->Read(*buffer);
-    txn.getLogEntry()->Latency_end_time = std::chrono::system_clock::now();
-    buffer->resize(bytes);
+asio::awaitable<void> Parser::Process(http::Transaction& txn, Next next) {
+    txn.GetLogEntry()->Latency_end_time = std::chrono::system_clock::now();
 
+    auto& buffer = txn.GetBuffer();
+    auto [ec, bytes] = co_await txn.GetSocket().Read(buffer);
     if(ec) {
         throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
-                http::HTTPException(http::Client_Closed_Request, std::format("Failed to read request from client: {}", txn.sock->IpStr())) :
-                http::HTTPException(http::Internal_Server_Error, std::format("Failed to read request from client: {}", txn.sock->IpStr()));
+                http::Exception(http::Client_Closed_Request) : http::Exception(http::Internal_Server_Error);
     }
+    buffer.resize(bytes);
 
-    auto router = http::Router::getInstance();
     http::Request request;
-    request.endpoint_url = http::extract_endpoint(*buffer);
-    request.endpoint = router->getEndpoint(request.endpoint_url);
-    request.method = http::extract_method(*buffer);
-    request.args = http::extract_args(*buffer, request.endpoint->getArgType(request.method));
-    request.headers = http::extract_headers(*buffer);
-    request.body = http::extract_body(*buffer);
-    request.query = http::extract_query_string(*buffer);
-    request.route = router->getEndpointMethod(request.endpoint_url, request.method);
+    request.SetPath(http::extract_endpoint(buffer))
+        .SetMethod(http::extract_method(buffer))
+        .SetHeaders(http::extract_headers(buffer))
+        .SetQueryParams(http::extract_query_params(buffer))
+        .SetBody(http::extract_body(buffer));
 
-    TRACE("MW Parser", "Hit for endpoint: %s", request.endpoint_url.c_str());
+    TRACE("MW Parser", "Hit for endpoint: %s", request.GetPath().c_str());
 
-    txn.setRequest(std::move(request));
+    txn.Route = &router_.GetRoute(request.GetPath());
+    txn.Endpoint = &txn.Route->GetEndpoint(request.GetMethod());
+
+    txn.SetRequest(std::move(request));
+
     co_await next();
 }
 

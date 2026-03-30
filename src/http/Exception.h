@@ -7,18 +7,15 @@
 
 namespace http {
 
-    class HTTPException : public std::exception {
+    class Exception : public std::exception {
     public:
-        HTTPException() = default;
+        Exception() = default;
 
-        HTTPException(Code status, std::string&& message): message_(std::move(message)) {
-            response_.SetStatus(status)
-                    .AddHeader("Connection", "close")
-                    .AddHeader("Content-Length", "0")
-                    .Build();
-        }
+        Exception(Code status) : Exception(status, {}) {}
 
-        HTTPException(Code status, std::string&& message, Headers&& headers): message_(std::move(message)) {
+        Exception(Code status, std::string&& message): Exception(status, std::move(message), {}) {}
+
+        Exception(Code status, std::string&& message, Headers&& headers): message_(std::move(message)) {
             response_.SetStatus(status)
                     .AddHeaders(headers)
                     .AddHeader("Connection", "close")
@@ -26,13 +23,17 @@ namespace http {
                     .Build();
         }
 
-        const Response* getResponse() const {
-            return &response_;
+        const Response& GetResponse() const {
+            return response_;
         }
 
         const char* what() const noexcept override {
-            return message_.c_str();
+            if (!message_.empty()) {
+                return message_.c_str();
+            }
+            return get_status_msg(response_.Status).data();
         }
+
     private:
         Response response_;
         std::string message_;

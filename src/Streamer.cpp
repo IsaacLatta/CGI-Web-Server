@@ -5,35 +5,35 @@ asio::awaitable<void> StringStreamer::stream(io::Socket* sock) {
     std::span<const char> buffer(payload->data(), payload->length());
     auto result = co_await http::co_write_all(sock, buffer);
     if(!http::is_success_code(result.status)) {
-        throw http::HTTPException(result.status, std::move(result.message));
+        throw http::Exception(result.status, std::move(result.message));
     }
     bytes_streamed = result.bytes;
     co_return;
 }
 
 FileStreamer::~FileStreamer() {
-    if(filefd != -1) {
-        close(filefd);
+    if(filefd_ != -1) {
+        close(filefd_);
     }
 }
 
 void FileStreamer::openFile() {
-    filefd = open(file_path.c_str(), O_RDONLY);
-    if(filefd == -1) {
-        throw http::HTTPException(http::Code::Not_Found, 
+    filefd_ = open(file_path.c_str(), O_RDONLY);
+    if(filefd_ == -1) {
+        throw http::Exception(http::Code::Not_Found, 
                 std::format("Failed to open resource: {}, errno={} ({})", file_path, errno, strerror(errno)));
     }
 
-    file_len = (long)lseek(filefd, (off_t)0, SEEK_END);
+    file_len = (long)lseek(filefd_, (off_t)0, SEEK_END);
     if(file_len <= 0) {
-        throw http::HTTPException(http::Code::Not_Found, 
+        throw http::Exception(http::Code::Not_Found, 
                 std::format("Failed to open endpoint={}, errno={} ({})", file_path, errno, strerror(errno)));
     }
-    lseek(filefd, 0, SEEK_SET);
+    lseek(filefd_, 0, SEEK_SET);
 }
 
 asio::awaitable<void> FileStreamer::stream(io::Socket* sock) {
-    if(filefd == -1) {
+    if(filefd_ == -1) {
         openFile();
     }
     
@@ -41,19 +41,19 @@ asio::awaitable<void> FileStreamer::stream(io::Socket* sock) {
     std::size_t bytes_sent(0);
     while (bytes_sent < file_len) {
         std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - bytes_sent));
-        ssize_t bytes_to_write = read(filefd, buffer.data(), bytes_to_read);
+        ssize_t bytes_to_write = read(filefd_, buffer.data(), bytes_to_read);
         if (bytes_to_write == 0) {
             DEBUG("File Streamer", "EOF reached prematurely while sending resource[%s]", file_path.c_str());
             break;
         }
         if(bytes_to_write < 0) {
-            throw http::HTTPException(http::Code::Internal_Server_Error, std::format("Failed reading file {}", file_path));
+            throw http::Exception(http::Code::Internal_Server_Error, std::format("Failed reading file {}", file_path));
         }
 
         std::span<const char> write_buffer(buffer.data(), bytes_to_write);
         result = co_await http::co_write_all(sock, write_buffer);
         if(!http::is_success_code(result.status)) {
-            throw http::HTTPException(result.status, std::move(result.message));
+            throw http::Exception(result.status, std::move(result.message));
         }
         bytes_sent += result.bytes;
     }
@@ -61,64 +61,64 @@ asio::awaitable<void> FileStreamer::stream(io::Socket* sock) {
 }
 
 ScriptStreamer::~ScriptStreamer() {
-    close(stdin_pipe[0]);
-    close(stdin_pipe[1]);
-    close(stdout_pipe[0]);
-    close(stdout_pipe[1]);
+    close(stdin_pipe_[0]);
+    close(stdin_pipe_[1]);
+    close(stdout_pipe_[0]);
+    close(stdout_pipe_[1]);
 }
 
 extern char** environ;
 
-void ScriptStreamer::spawnProcess() {
+void ScriptStreamer::SpawnProcess() {
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     
-    if (posix_spawn_file_actions_adddup2(&actions, stdin_pipe[0], STDIN_FILENO) != 0 ||
-        posix_spawn_file_actions_adddup2(&actions, stdout_pipe[1], STDOUT_FILENO) != 0) {
+    if (posix_spawn_file_actions_adddup2(&actions, stdin_pipe_[0], STDIN_FILENO) != 0 ||
+        posix_spawn_file_actions_adddup2(&actions, stdout_pipe_[1], STDOUT_FILENO) != 0) {
         posix_spawn_file_actions_destroy(&actions);
-        throw http::HTTPException(http::Code::Internal_Server_Error, 
-        std::format("failed to add file action dup2 for script={}, error={} ({})", script_path.c_str(), status, strerror(status)));
+        throw http::Exception(http::Code::Internal_Server_Error, 
+        std::format("failed to add file action dup2 for script={}, error={} ({})", script_path_.c_str(), status_, strerror(status_)));
     }
 
-    if (posix_spawn_file_actions_addclose(&actions, stdin_pipe[1]) != 0 ||
-        posix_spawn_file_actions_addclose(&actions, stdout_pipe[0]) != 0) {
+    if (posix_spawn_file_actions_addclose(&actions, stdin_pipe_[1]) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, stdout_pipe_[0]) != 0) {
         posix_spawn_file_actions_destroy(&actions);
-        throw http::HTTPException(http::Code::Internal_Server_Error, 
-        std::format("failed to add file action close for script={}, error={} ({})", script_path.c_str(), status, strerror(status)));
+        throw http::Exception(http::Code::Internal_Server_Error, 
+        std::format("failed to add file action close for script={}, error={} ({})", script_path_.c_str(), status_, strerror(status_)));
     }
 
-    char* argv[] = {const_cast<char*>(script_path.c_str()), (char*)0};
-    if((status = posix_spawn(&pid, script_path.c_str(), &actions, nullptr, argv, environ)) != 0) {
+    char* argv[] = {const_cast<char*>(script_path_.c_str()), (char*)0};
+    if((status_ = posix_spawn(&pid_, script_path_.c_str(), &actions, nullptr, argv, environ)) != 0) {
         posix_spawn_file_actions_destroy(&actions);
-        throw http::HTTPException(http::Code::Internal_Server_Error, 
-        std::format("failed to launch script={} with posix spawn, error={} ({})", script_path.c_str(), status, strerror(status)));
+        throw http::Exception(http::Code::Internal_Server_Error, 
+        std::format("failed to launch script={} with posix spawn, error={} ({})", script_path_.c_str(), status_, strerror(status_)));
     }
     posix_spawn_file_actions_destroy(&actions);
-    close(stdin_pipe[0]);
-    close(stdout_pipe[1]);
+    close(stdin_pipe_[0]);
+    close(stdout_pipe_[1]);
 }
 
-void ScriptStreamer::spawn() {
-    if(pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0) {
-        throw http::HTTPException(http::Code::Internal_Server_Error, 
-        std::format("Failed to create pipes for script={}, errno={} ({})", script_path, errno, strerror(errno)));  
+void ScriptStreamer::Spawn() {
+    if(pipe(stdin_pipe_) < 0 || pipe(stdout_pipe_) < 0) {
+        throw http::Exception(http::Code::Internal_Server_Error, 
+        std::format("Failed to create pipes for script={}, errno={} ({})", script_path_, errno, strerror(errno)));
     }
 
-    spawnProcess();
+    SpawnProcess();
 
     ssize_t bytes;
-    if ((bytes = write(stdin_pipe[1], stdin_data.c_str(), stdin_data.length())) < 0) {
-        throw http::HTTPException(http::Code::Internal_Server_Error, 
+    if ((bytes = write(stdin_pipe_[1], stdin_data_.c_str(), stdin_data_.length())) < 0) {
+        throw http::Exception(http::Code::Internal_Server_Error, 
         std::format("Failed to write args to script {} (pid={}), errno={}, ({})", 
-        script_path.c_str(), pid, errno, strerror(errno)));
+        script_path_.c_str(), pid_, errno, strerror(errno)));
     }
-    close(stdin_pipe[1]); // signal eof to child
+    close(stdin_pipe_[1]); // signal eof to child
 }
 
 asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
-    spawn();
+    Spawn();
     
-    asio::posix::stream_descriptor reader(sock->GetRawSocket().get_executor(), stdout_pipe[0]);
+    asio::posix::stream_descriptor reader(sock->GetRawSocket().get_executor(), stdout_pipe_[0]);
     asio::error_code read_ec;
     std::size_t bytes_read(0), bytes_sent(0);
     std::vector<char> buffer(io::BUFFER_SIZE);
@@ -131,24 +131,24 @@ asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
             break;
         } 
         if(read_ec && read_ec != asio::error::eof) {
-            throw http::HTTPException(http::Code::Internal_Server_Error, 
+            throw http::Exception(http::Code::Internal_Server_Error, 
             std::format("Failed to read response from subprocess={}, pid={}, asio::error={}, ({})", 
-            script_path, pid, read_ec.value(), read_ec.message()));
+            script_path_, pid_, read_ec.value(), read_ec.message()));
         }
-        if(chunk_callback) {
-            co_await chunk_callback(buffer.data(), bytes_read);
+        if(chunk_callback_) {
+            co_await chunk_callback_(buffer.data(), bytes_read);
             bytes_sent += bytes_read;
             continue;
         }
 
         std::span<const char> write_buffer(buffer.data(), bytes_read);
-        result = co_await http::co_write_all(sock, write_buffer);
+        result = co_await io::co_write_all(*sock, write_buffer);
         if(!http::is_success_code(result.status)) {
-            throw http::HTTPException(result.status, std::move(result.message));
+            throw http::Exception(result.status, std::move(result.message));
         }
         bytes_sent += result.bytes;
     }
-    waitpid(pid, &status, 0);
+    waitpid(pid_, &status_, 0);
     bytes_streamed = bytes_sent;
     co_return;
 }

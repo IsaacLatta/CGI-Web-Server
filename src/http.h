@@ -21,8 +21,9 @@
 #include <jwt-cpp/jwt.h>
 
 #include "config.h"
-#include "Router.h"
+#include "http/routing/Router.h"
 #include "io/Socket.h"
+#include "io/io.h"
 
 #include "http/forward.h"
 
@@ -67,7 +68,7 @@ namespace http {
     Code extract_token(const std::vector<char>& buffer, std::string& token);
     std::unordered_map<std::string, std::string> extract_headers(std::span<const char> buffer);
     Code extract_status_code(std::span<const char> buffer) noexcept;
-    std::string extract_jwt_from_cookie(const std::string& cookie);
+    std::optional<std::string> extract_jwt_from_cookie(const std::string& cookie);
 
     std::string trim_to_lower(std::string_view& str);
     std::string trim_to_upper(std::string_view& str);
@@ -81,48 +82,35 @@ namespace http {
     std::string extract_endpoint(std::span<const char> buffer);
     std::string_view extract_query_string(std::span<const char> buffer);
     Code determine_content_type(const std::string& resource, std::string& content_type);
-    std::string_view extract_args(std::span<const char> buffer, http::arg_type arg);
+    std::string_view extract_args(std::span<const char> buffer, http::ArgumentType arg);
 
-    struct WriteStatus {
-        http::Code status{Code::OK};
-        std::string message{"Success"};
-        std::size_t bytes{0};
-    };
+    ArgumentType arg_str_to_enum(const std::string& args_str) noexcept;
 
-    asio::awaitable<WriteStatus> co_write_all(::io::Socket* sock, std::span<const char> buffer) noexcept;
-    std::chrono::milliseconds select_backoff(const asio::error_code& ec, int retry) noexcept;
-    asio::awaitable<void> backoff(const asio::error_code& ec, int retry) noexcept;
-
-    inline bool is_client_disconnect(const asio::error_code& ec) noexcept {
-        return ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof;
-    }
-
-    inline bool is_permanent_failure(const asio::error_code& ec) noexcept {
-        return ec == asio::error::bad_descriptor || ec == asio::error::address_in_use;
-    }
-
-    inline bool is_retryable(const asio::error_code& ec) noexcept {
-        return ec == asio::error::would_block || ec == asio::error::try_again || ec == asio::error::network_unreachable
-            || ec == asio::error::host_unreachable || ec == asio::error::connection_refused || ec == asio::error::timed_out
-            || ec == asio::error::no_buffer_space;
-    }
+    QueryParams http::extract_query_params(std::span<const char>);
 
     inline http::Code error_to_status(const asio::error_code& ec) noexcept {
         if (!ec) {
-            return http::Code::OK;
-        } else if (is_client_disconnect(ec)) {
-            return http::Code::Client_Closed_Request;
+            return OK;
+        } else if (io::is_client_disconnect(ec)) {
+            return Client_Closed_Request;
         } else if (ec == asio::error::access_denied) {
-            return http::Code::Forbidden;
-        } else if (is_permanent_failure(ec)) {
-            return http::Code::Internal_Server_Error;
+            return Forbidden;
+        } else if (io::is_permanent_failure(ec)) {
+            return Internal_Server_Error;
         } else if (ec == asio::error::no_buffer_space) {
-            return http::Code::Insufficient_Storage;
+            return Insufficient_Storage;
         } else if (ec == asio::error::timed_out) {
-            return http::Code::Gateway_Timeout;
+            return Gateway_Timeout;
         }
-        return http::Code::Service_Unavailable;
+        return Service_Unavailable;
     }
+
+    namespace detail {
+        Handler assign_handler(Method);
+    }
+
+
+
 } //namespace http
 
 #endif

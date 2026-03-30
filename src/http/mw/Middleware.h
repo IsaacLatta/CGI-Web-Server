@@ -2,29 +2,32 @@
 
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
-#include "Transaction.h"
-#include "config.h"
+#include "http/Transaction.h"
 
 #include "http/forward.h"
-
-class DefaultSession;
 
 namespace mw {
 
 class Middleware {
 public:
     virtual ~Middleware() = default;
-    virtual asio::awaitable<void> Process(Transaction& txn, Next next) = 0;
+    virtual asio::awaitable<void> Process(http::Transaction& txn, Next next) = 0;
+};
 
-    // TODO: get rid of these
-    Middleware(): config(cfg::Config::getInstance()) {}
-protected:
-    const cfg::Config* config;
+class NoOpMiddleware : public Middleware {
+public:
+    NoOpMiddleware() = default;
+
+    asio::awaitable<void> Process(http::Transaction& txn, Next next) override {
+        if (next) {
+            co_await next();
+        }
+    }
 };
 
 class Pipeline {
 public:
-    asio::awaitable<void> Run(Transaction&) const;
+    asio::awaitable<void> Run(http::Transaction&) const;
 
     template<typename Component, typename... Args>
     Pipeline& AddComponent(Args&&... args) {
@@ -38,7 +41,7 @@ public:
     }
 
 private:
-    asio::awaitable<void> RunOne(Transaction&, size_t index) const;
+    asio::awaitable<void> RunOne(http::Transaction&, size_t index) const;
 
 private:
     std::vector<std::unique_ptr<Middleware>> components_;

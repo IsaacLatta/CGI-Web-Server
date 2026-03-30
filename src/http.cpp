@@ -1,6 +1,7 @@
 #include "http.h" 
 #include "io/Socket.h"
 #include "http/Exception.h"
+#include "http/handlers/MethodHandler.h"
 
 std::string url_decode(std::string&& buf) {
     std::string decoded_buf;
@@ -151,13 +152,13 @@ std::string_view http::get_request_target(std::span<const char> buffer) {
 
     auto a = req.find(' ');
     if (a == std::string_view::npos) {
-        throw HTTPException(Bad_Request,
+        throw Exception(Bad_Request,
             "malformed request: no spaces");
     }
 
     auto b = req.find(' ', a + 1);
     if (b == std::string_view::npos) {
-        throw HTTPException(Bad_Request,
+        throw Exception(Bad_Request,
             "malformed request: no second space");
     }
 
@@ -183,12 +184,49 @@ std::string_view http::extract_query_string(std::span<const char> buffer) {
     return target.substr(qpos + 1);
 }
 
+http::QueryParams http::extract_query_params(std::span<const char> buffer) {
+    std::unordered_map<std::string_view, std::string_view> params;
+
+    const std::string_view query = extract_query_string(buffer);
+    if (query.empty()) {
+        return params;
+    }
+
+    std::size_t pos = 0;
+    while (pos < query.size()) {
+        const std::size_t amp = query.find('&', pos);
+        const std::string_view pair = (amp == std::string_view::npos)
+            ? query.substr(pos)
+            : query.substr(pos, amp - pos);
+
+        if (!pair.empty()) {
+            const std::size_t eq = pair.find('=');
+
+            if (eq == std::string_view::npos) {
+                // key with no value: ?foo&bar=1
+                params.emplace(pair, std::string_view{});
+            } else {
+                const std::string_view key = pair.substr(0, eq);
+                const std::string_view value = pair.substr(eq + 1);
+                params.emplace(key, value);
+            }
+        }
+
+        if (amp == std::string_view::npos) {
+            break;
+        }
+        pos = amp + 1;
+    }
+
+    return params;
+}
+
 std::string_view http::extract_body(std::span<const char> buffer) {
     std::string_view header(buffer.data(), buffer.size());
 
     std::size_t start;
     if ((start = header.find("\r\n\r\n")) == std::string::npos && (start = header.find("\n\n")) == std::string::npos) {
-        throw http::HTTPException(Bad_Request, "Failed to extract body from buffer");
+        throw http::Exception(Bad_Request, "Failed to extract body from buffer");
     }
     std::size_t offset = (header[start] == '\r') ? 4 : 2;
 
@@ -264,13 +302,13 @@ http::Code http::build_json(std::span<const char> buffer, http::json& json_array
     std::string_view header(buffer.data(), buffer.size());
     std::size_t line_end = header.find("\r\n");
     if (line_end == std::string_view::npos) {
-        throw http::HTTPException(Bad_Request, "failed to find return line feed while parsing request method");
+        throw http::Exception(Bad_Request, "failed to find return line feed while parsing request method");
     }
     std::string_view request_line = header.substr(0, line_end);
 
     std::size_t method_end = request_line.find(' ');
     if (method_end == std::string_view::npos) {
-        throw http::HTTPException(Bad_Request, "failed to parse request method");
+        throw http::Exception(Bad_Request, "failed to parse request method");
     }
     return http::method_str_to_enum(std::string(request_line.substr(0, method_end)));
     
@@ -284,13 +322,13 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
 
     std::size_t headers_end = request.find("\r\n\r\n");
     if (headers_end == std::string_view::npos) {
-        throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
+        throw http::Exception(Bad_Request, "failed to extract headers from request buffer");
     }
 
     std::size_t pos = 0;
     std::size_t end_of_request_line = request.find(line_end, pos);
     if (end_of_request_line == std::string_view::npos) {
-        throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
+        throw http::Exception(Bad_Request, "failed to extract headers from request buffer");
     }
     
     pos = end_of_request_line + line_end.size();
@@ -304,7 +342,7 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
         }
         std::size_t end = request.find(line_end, pos);
         if (end == std::string_view::npos) {
-            throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
+            throw http::Exception(Bad_Request, "failed to extract headers from request buffer");
         }
 
         std::string_view line = request.substr(pos, end - pos);
@@ -314,7 +352,7 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
 
         std::size_t splitter_pos = line.find(header_splitter);
         if (splitter_pos == std::string_view::npos) {
-            throw http::HTTPException(Bad_Request, "failed to extract headers from request buffer");
+            throw http::Exception(Bad_Request, "failed to extract headers from request buffer");
         }
 
         std::string key = std::string(line.substr(0, splitter_pos));
@@ -326,11 +364,15 @@ std::unordered_map<std::string, std::string> http::extract_headers(std::span<con
     return headers;
 }
 
-std::string http::extract_jwt_from_cookie(const std::string& cookie) {
+std::optional<std::string> http::extract_jwt_from_cookie(const std::string& cookie) {
+    if (cookie.empty()) {
+        return std::nullopt;
+    }
+
     const std::string jwt_key = "jwt=";
     size_t start = cookie.find(jwt_key);
     if (start == std::string::npos) {
-        return "";
+        return std::nullopt;
     }
     start += jwt_key.size(); 
     size_t end = cookie.find(";", start);
@@ -456,13 +498,13 @@ static std::string_view get_args(std::span<const char> buffer, const std::string
     std::string content_type;
     std::string_view body = http::extract_body(buffer);
     if (!get_content_type(buffer, content_type)) {
-        throw http::HTTPException(http::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
+        throw http::Exception(http::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
     }
     if (content_type != desired) {
-        throw http::HTTPException(http::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
+        throw http::Exception(http::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
     }
     if (!filter(body)) {
-        throw http::HTTPException(http::Bad_Request, std::format("invalid `{}` body", desired));
+        throw http::Exception(http::Bad_Request, std::format("invalid `{}` body", desired));
     }
     return body;
 }
@@ -477,91 +519,78 @@ static std::string_view body_any(std::span<const char> buffer) {
     } else if(content_type == "application/x-www-form-urlencoded" && is_valid_url_form(body)) {
         return body;
     } else if (content_type == "application/json" || content_type == "application/x-www-form-urlencoded") { // supported content type, but body was invalid
-        throw http::HTTPException(http::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
+        throw http::Exception(http::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
     } else { // cannot validate this content-type, simply pass through
         return body;
     }
 }
 
 static std::string_view args_any(std::span<const char> buffer) {
-    std::string_view result;
-    if(!(result = http::extract_query_string(buffer)).empty()) {
+    const std::string_view result = http::extract_query_string(buffer);
+    if(!result.empty()) {
         return result; // prioritize query string
     }
     return body_any(buffer);
 }
 
-std::string_view http::extract_args(std::span<const char> buffer, http::arg_type arg) {
+std::string_view http::extract_args(std::span<const char> buffer, http::ArgumentType arg) {
     switch(arg) {
-        case http::arg_type::None: return {};
-        case http::arg_type::Any: return args_any(buffer);
-        case http::arg_type::Body_Any: return body_any(buffer);
-        case http::arg_type::Body_JSON: return get_args(buffer, "application/json", is_valid_json);
-        case http::arg_type::Body_URL: return get_args(buffer, "application/x-www-form-urlencoded", is_valid_url_form);
-        case http::arg_type::Query_String: return http::extract_query_string(buffer);
+        case http::ArgumentType::None: return {};
+        case http::ArgumentType::Any: return args_any(buffer);
+        case http::ArgumentType::Body_Any: return body_any(buffer);
+        case http::ArgumentType::Body_JSON: return get_args(buffer, "application/json", is_valid_json);
+        case http::ArgumentType::Body_URL: return get_args(buffer, "application/x-www-form-urlencoded", is_valid_url_form);
+        case http::ArgumentType::Query_String: return http::extract_query_string(buffer);
         default:
-            throw http::HTTPException(Internal_Server_Error, "unknown arg type");
+            throw http::Exception(Internal_Server_Error, "unknown arg type");
     }
 }
 
-asio::awaitable<http::WriteStatus> http::co_write_all(::io::Socket* sock, std::span<const char> buffer) noexcept {
-    ::io::TransferState state;
-    state.bytes_sent = 0;
-    state.total_bytes = buffer.size();
-    while(state.bytes_sent < state.total_bytes) {
-        auto [ec, bytes_written] = co_await sock->Write(buffer.subspan(state.bytes_sent));
-        
-        if(is_permanent_failure(ec) || state.retry_count > io::TransferState::MAX_RETRIES) {
-            co_return http::WriteStatus{http::error_to_status(ec),
-            std::format("error={} ({})", ec.value(), ec.message()), static_cast<std::size_t>(state.bytes_sent)};
-        }
 
-        if(is_retryable(ec)) {
-            co_await http::backoff(ec, state.retry_count);
-            state.retry_count++;
-        }
-
-        state.bytes_sent += bytes_written;
+http::ArgumentType arg_str_to_enum(const std::string& args_str) noexcept {
+    std::string_view args = args_str;
+    std::string args_upper = http::trim_to_upper(args);
+    if(args_upper == "JSON") {
+        return http::ArgumentType::Body_JSON;
+    } else if (args_upper == "QUERY") {
+        return http::ArgumentType::Query_String;
+    } else if (args_upper == "URL") {
+        return http::ArgumentType::Body_URL;
+    } else if(args_upper == "*" || args_upper == "ANY") {
+        return http::ArgumentType::Any;
+    } else if(args_upper == "BODY") {
+        return http::ArgumentType::Body_Any;
     }
-    if(state.bytes_sent != state.total_bytes) {
-        co_return http::WriteStatus{Internal_Server_Error,
-                std::format("incomplete send, sent %zd/%zd bytes", state.bytes_sent, state.total_bytes), static_cast<std::size_t>(state.bytes_sent)};
-    }
-    co_return http::WriteStatus{OK, "Success", static_cast<std::size_t>(state.bytes_sent)};
+    return http::ArgumentType::None;
 }
 
-std::chrono::milliseconds http::select_backoff(const asio::error_code& ec, int attempt) noexcept {
-    if(!ec || http::is_client_disconnect(ec) || http::is_permanent_failure(ec)) {
-        return std::chrono::milliseconds{0}; 
-    }
+namespace http::detail {
 
-    if(ec == asio::error::no_buffer_space) {
-        return std::chrono::milliseconds{1000}*attempt;
+Handler assign_handler(Method m) {
+    switch (m) {
+        case http::Method::Get: return [](Transaction* txn) -> asio::awaitable<void> {
+            GetHandler handler(*txn);
+            co_await handler.Handle();
+            co_return;
+        };
+        case http::Method::Post: return [](Transaction* txn) -> asio::awaitable<void> {
+            PostHandler handler(*txn);
+            co_await handler.Handle();
+            co_return;
+        };
+        case http::Method::Head: return [](Transaction* txn) -> asio::awaitable<void> {
+            HeadHandler handler(*txn);
+            co_await handler.Handle();
+            co_return;
+        };
+        case http::Method::Options: return [](Transaction* txn) -> asio::awaitable<void> {
+            OptionsHandler handler(*txn);
+            co_await handler.Handle();
+            co_return;
+        };
+        default:
+            throw http::Exception(http::Not_Implemented, "request Method not supported");
     }
-
-    constexpr int MAX_ATTEMPTS = 6;
-    constexpr auto BASE_DELAY_MS = std::chrono::milliseconds{50};
-    constexpr auto MAX_DELAY_MS = std::chrono::milliseconds{2000};
-    static thread_local std::mt19937_64 rng(std::random_device{}());
-
-    auto exp_delay = BASE_DELAY_MS * (1 << std::min(attempt, MAX_ATTEMPTS)); // multiply by 2^attempt
-    if(exp_delay > MAX_DELAY_MS) {
-        exp_delay = MAX_DELAY_MS;
-    }
-    auto jitter_range = exp_delay.count() / 10; // 10% of the ticks for the delay, to avoid contention on wake ups
-    std::uniform_int_distribution<int64_t> dist(-jitter_range, jitter_range);
-    return exp_delay + std::chrono::milliseconds{dist(rng)};
 }
 
-asio::awaitable<void> http::backoff(const asio::error_code& ec, int attempt) noexcept {
-    auto delay = http::select_backoff(ec, attempt);
-    if(delay.count() <= 0) {
-        co_return;
-    }
-
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    timer.expires_after(delay);
-    co_await timer.async_wait(asio::use_awaitable);
-    co_return;
 }
-

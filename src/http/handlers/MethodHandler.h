@@ -5,7 +5,6 @@
 #include <asio.hpp>
 
 #include "io/Socket.h"
-#include "Transaction.h"
 
 #include "http/forward.h"
 
@@ -17,7 +16,7 @@ public:
 
 class GetHandler: public MethodHandler {
 public:
-    GetHandler(Transaction& txn) : txn_(txn) {}
+    GetHandler(http::Transaction& txn) : txn_(txn) {}
     
     asio::awaitable<void> Handle() override;
 
@@ -26,12 +25,12 @@ private:
     asio::awaitable<void> handleFile();
 
 private:
-    Transaction& txn_;
+    http::Transaction& txn_;
 };
 
 class HeadHandler: public MethodHandler {
 public:
-    HeadHandler(Transaction& txn) : txn_(txn) {}
+    HeadHandler(http::Transaction& txn) : txn_(txn) {}
     
     asio::awaitable<void> Handle() override;
 
@@ -39,27 +38,27 @@ private:
     void buildResponse();
 
 private:
-    Transaction& txn_;
+    http::Transaction& txn_;
 };
 
 class PostHandler: public MethodHandler  {
 public:
-    PostHandler(Transaction& txn) : txn_(txn) {}
+    PostHandler(http::Transaction& txn) : txn_(txn) {}
     
     asio::awaitable<void> Handle() override;
 
 private:
-    Transaction& txn_;
-    long total_bytes { 0 };
+    http::Transaction& txn_;
+    size_t total_bytes { 0u };
     std::string response_header;
 };
 
 class OptionsHandler: public MethodHandler {
 public:
-    OptionsHandler(Transaction& txn): txn_(txn) {};
+    OptionsHandler(http::Transaction& txn): txn_(txn) {};
 
     asio::awaitable<void> Handle() override;
 
 private:
-    Transaction& txn_;
+    http::Transaction& txn_;
 };

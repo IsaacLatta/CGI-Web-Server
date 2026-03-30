@@ -17,7 +17,7 @@ asio::awaitable<void> OptionsHandler::Handle() {
     auto& request = txn_.GetRequest();
 
     if(!request.endpoint) {
-        throw http::HTTPException(http::Internal_Server_Error, "OPTIONS request for unexpected missing route or endpoint");
+        throw http::Exception(http::Internal_Server_Error, "OPTIONS request for unexpected missing route or endpoint");
     }
 
     std::string response_str = txn_.GetResponse()

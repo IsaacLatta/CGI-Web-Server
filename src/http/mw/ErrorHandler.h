@@ -6,7 +6,12 @@ namespace mw {
 
 class ErrorHandler: public Middleware {
 public:
-    asio::awaitable<void> Process(Transaction& txn, Next next) override;
+    ErrorHandler(const http::Router& router) : router_(router) {}
+
+    asio::awaitable<void> Process(http::Transaction& txn, Next next) override;
+
+private:
+    const http::Router& router_;
 };
 
 }

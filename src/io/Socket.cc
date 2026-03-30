@@ -27,7 +27,7 @@ namespace io {
     }
 
     asio::awaitable<Socket::Result> PlainSocket::Read(std::span<char> buffer) {
-        auto [ec, bytes_read] = co_await socket_.async_read_some( asio::buffer(buffer), asio::as_tuple(asio::use_awaitable));
+        auto [ec, bytes_read] = co_await socket_.async_read_some(asio::buffer(buffer), asio::as_tuple(asio::use_awaitable));
         co_return Result { ec, bytes_read };
     }
 

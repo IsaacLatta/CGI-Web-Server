@@ -42,7 +42,7 @@ namespace mw {
                     uint32_t reset_time   = window_start + setting.window_seconds;
                     uint32_t retry_after  = (reset_time > secs) ? (reset_time - secs) : 0;
                     headers["Retry-After"] = std::to_string(retry_after);
-                    throw http::HTTPException(http::Too_Many_Requests,
+                    throw http::Exception(http::Too_Many_Requests,
                         std::format("client={} has exceeded {} requests in {}s", key, setting.max_requests, setting.window_seconds), std::move(headers));
                 }
                 desired = (uint64_t(this_window_id) << 32) | (old_count + 1); // increment by 1
@@ -114,9 +114,9 @@ namespace mw {
                 std::unordered_map<std::string, std::string> headers;
                 uint32_t retry_after = new_refill + 1 > secs ? (new_refill + 1 - secs) : 0;
                 headers["Retry-After"] = std::to_string(retry_after);
-                throw http::HTTPException(http::Too_Many_Requests,
+                throw http::Exception(http::Too_Many_Requests,
                     std::format("client={} has exceeded rate limit on [{} {}] ({} tokens/s cap={} tokens)",
-                    txn.GetSocket()->IpStr(), http::method_enum_to_str(txn.GetRequest().method),
+                    txn.GetSocket()->IpStr(), http::method_enum_to_str(txn.GetRequest().GetMethod()),
                     txn.GetRequest().endpoint_url, setting.refill_rate, setting.capacity), std::move(headers));
             }
 
@@ -142,12 +142,7 @@ namespace mw {
     }
 
     asio::awaitable<void> RateLimiter::Process(Transaction& txn, Next next) {
-        auto limiter = txn.GetRequest().route->rate_limiter.get();
-        if(limiter) {
-            co_await limiter->Process(txn, next);
-        } else {
-            co_await next();
-        }
+        co_await txn.GetRequest().GetEndpoint().RateLimiter->Process(txn, next);
         co_return;
     }
 }
