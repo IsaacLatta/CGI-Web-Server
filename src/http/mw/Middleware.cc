@@ -4,7 +4,7 @@
 
 namespace mw {
 
-asio::awaitable<void> Pipeline::RunOne(http::Transaction& txn, size_t index) const {
+asio::awaitable<void> Pipeline::RunOne(Context&, size_t index, CompletionCallback) const {
     if (index >= components_.size()) {
         co_return;
     }

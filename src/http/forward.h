@@ -98,8 +98,10 @@ namespace http {
 
 namespace mw {
 
+    template<typename Context>
     class Middleware;
 
+    template<typename Context>
     class Pipeline;
 
     using Next = std::function<asio::awaitable<void>()>;
