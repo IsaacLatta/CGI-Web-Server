@@ -1,5 +1,10 @@
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
 
@@ -22,13 +27,13 @@ template<typename Context>
 class Pipeline {
 public:
     using MiddlewareType = Middleware<Context>;
-    using FinishCallback = MiddlewareType::FinishCallback;
-    using CompletionCallback = MiddlewareType::NextCallback;
-    using NextCallback = MiddlewareType::NextCallback;
+    using FinishCallback = typename MiddlewareType::FinishCallback;
+    using CompletionCallback = typename MiddlewareType::NextCallback;
+    using NextCallback = typename MiddlewareType::NextCallback;
 
 public:
-    asio::awaitable<void> Run(Context& ctx, FinishCallback on_finish, CompletionCallback on_complete) const {
-        co_await RunOne(ctx, 0u, std::move(on_finish), std::move(on_complete));
+    asio::awaitable<void> Run(Context& ctx, const FinishCallback& on_finish, const CompletionCallback& on_complete) const {
+        co_await RunOne(ctx, 0u, on_finish, on_complete);
     }
 
     template<typename Component, typename... Args>
@@ -43,16 +48,16 @@ public:
     }
 
 private:
-    asio::awaitable<void> RunOne(Context& context, size_t index, FinishCallback on_finish, CompletionCallback on_complete) const {
+    asio::awaitable<void> RunOne(Context& context, size_t index, const FinishCallback& on_finish, const CompletionCallback& on_complete) const {
         if (index == components_.size()) {
             co_return co_await on_complete(context);
         }
 
-        NextCallback next = [this, index, complete_cb = std::move(on_complete), on_finish](auto& ctx) mutable -> asio::awaitable<void> {
-            co_await RunOne(ctx, index + 1, on_finish, std::move(complete_cb));
+        NextCallback next = [this, index, on_complete, on_finish](auto& ctx) mutable -> asio::awaitable<void> {
+            co_await RunOne(ctx, index + 1, std::move(on_finish), std::move(on_complete));
         };
 
-        co_await components_.at(index)->Process(context, next, on_finish);
+        co_return co_await components_.at(index)->Process(context, next, on_finish);
     }
 
 private:
