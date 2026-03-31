@@ -1,6 +1,6 @@
 #include "http/routing/Route.h"
 #include "http/Exception.h"
-#include "http.h"
+#include "http/parsing/parse.h"
 
 namespace http {
 
@@ -56,7 +56,7 @@ std::string Route::GetAccessRole(Method m) const {
 
 Handler Route::GetHandler(Method m) const {
     return TryVisitProperty(m, [](const Endpoint& ep) {
-        return ep.Handler;
+        return ep.Finisher;
     });
 }
 

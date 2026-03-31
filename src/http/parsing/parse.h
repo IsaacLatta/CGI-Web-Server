@@ -1,28 +1,15 @@
-#ifndef HTTP_H
-#define HTTP_H
+#pragma once
 
 #include <string>
 #include <vector>
-#include <iostream>
-#include <chrono>
-#include <ctime>
-#include <iomanip>
-#include <memory>
-#include <cmath>
-#include <string>
 #include <utility>
 #include <unordered_map>
 #include <span>
-#include <cctype>
-#include <chrono>
 #include <random>
 
 #include <nlohmann/json.hpp>
 #include <jwt-cpp/jwt.h>
 
-#include "config.h"
-#include "http/routing/Router.h"
-#include "io/Socket.h"
 #include "io/io.h"
 
 #include "http/forward.h"
@@ -62,7 +49,7 @@ namespace http {
     std::string_view get_status_msg(Code http_code);
     std::string get_time_stamp();
 
-    bool is_success_code(http::Code status) noexcept;
+    bool is_success_code(Code status) noexcept;
 
     Method extract_method(std::span<const char> buffer);
     Code extract_token(const std::vector<char>& buffer, std::string& token);
@@ -86,7 +73,7 @@ namespace http {
 
     ArgumentType arg_str_to_enum(const std::string& args_str) noexcept;
 
-    QueryParams http::extract_query_params(std::span<const char>);
+    QueryParams extract_query_params(std::span<const char>);
 
     inline http::Code error_to_status(const asio::error_code& ec) noexcept {
         if (!ec) {
@@ -109,8 +96,4 @@ namespace http {
         Handler assign_handler(Method);
     }
 
-
-
 } //namespace http
-
-#endif

@@ -5,7 +5,7 @@
 #include <asio.hpp>
 
 #include "http/mw/Middleware.h"
-#include "config.h"
+#include "config/config.h"
 
 namespace mw {
 

@@ -31,7 +31,7 @@ file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
 )
 list(REMOVE_ITEM CORE_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc"
 )
 
 add_library(core STATIC ${CORE_SOURCES})
@@ -62,7 +62,7 @@ target_compile_definitions(core
 )
 
 add_executable(WebServer
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc"
 )
 
 target_link_libraries(WebServer

@@ -7,9 +7,9 @@
 asio::awaitable<void> PostHandler::Handle() {
     auto& request = txn_.GetRequest();
 
-    if (!txn_.Endpoint || !txn_.Endpoint->HasScript) {
+    if (!txn_.ResolvedEndpoint || !txn_.ResolvedEndpoint->HasScript) {
         throw http::Exception(http::Service_Unavailable,
-            std::format("No POST route found for endpoint={}", request.GetPath());
+            std::format("No POST route found for endpoint={}", request.GetPath()));
     }
 
     bool first_read { true };
@@ -38,9 +38,9 @@ asio::awaitable<void> PostHandler::Handle() {
             co_return;
         };
 
-    ScriptStreamer streamer(txn_.Endpoint->ResourceName, std::string(request.GetQueryString()), chunk_callback);
-    co_await streamer.stream(txn_.GetSocket());
-    txn_.addBytes(streamer.getBytesStreamed());
+    ScriptStreamer streamer(txn_.ResolvedEndpoint->ResourceName, std::string(request.GetQueryString()), chunk_callback);
+    co_await streamer.Stream(txn_.GetSocket());
+    txn_.addBytes(streamer.BytesStreamed());
     co_return; 
 }
 

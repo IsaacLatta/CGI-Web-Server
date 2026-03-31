@@ -1,10 +1,14 @@
 #ifndef LOGGER_MACROS
 #define LOGGER_MACROS
 
-#include "logger/logger.h"
+#include <memory>
+
+#include "logger/Logger.h"
+#include "logger/Entry.h"
+#include "logger/Sink.h"
 
 #ifndef CURRENT_LOG_LEVEL
-#define CURRENT_LOG_LEVEL logger::level::Trace
+#define CURRENT_LOG_LEVEL logger::Level::Trace
 #endif
 
 #define _LOG_INLINE(lvl, ctx, fmt, ...)                                  \
@@ -14,12 +18,12 @@
             entry->level = lvl;                                            \
             entry->message = logger::fmt_msg(fmt, ##__VA_ARGS__);          \
             entry->context = ctx; \
-            if(lvl != logger::level::Status && lvl != logger::level::Info) { \
+            if(lvl != logger::Level::Status && lvl != logger::Level::Info) { \
                 entry->function = __func__;  \
                 entry->line = __LINE__;  \
                 entry->file = __FILE__; \
             }  \
-            logger::Logger::getInstance()->push(std::move(entry));         \
+            logger::Logger::GetInstance().Push(std::move(entry));         \
         }                                                                \
     } while (0)
 
@@ -31,7 +35,7 @@
  * @param ...   additional arguments for the format string
  * @note includes the line, function, and file at the end of the message
  */
-#define TRACE(ctx, fmt, ...)  _LOG_INLINE(logger::level::Trace, ctx, fmt, ##__VA_ARGS__)
+#define TRACE(ctx, fmt, ...)  _LOG_INLINE(logger::Level::Trace, ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a DEBUG-level message.
@@ -41,7 +45,7 @@
  * @param ...   additional arguments for the format string
  * @note includes the line, function, and file at the end of the message
  */
-#define DEBUG(ctx, fmt, ...)  _LOG_INLINE(logger::level::Debug, ctx, fmt, ##__VA_ARGS__)
+#define DEBUG(ctx, fmt, ...)  _LOG_INLINE(logger::Level::Debug, ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a INFO-level message.
@@ -50,7 +54,7 @@
  * @param fmt   the printf-style format string.
  * @param ...   additional arguments for the format string
  */
-#define INFO(ctx, fmt, ...)   _LOG_INLINE(logger::level::Info,  ctx, fmt, ##__VA_ARGS__)
+#define INFO(ctx, fmt, ...)   _LOG_INLINE(logger::Level::Info,  ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a WARN-level message.
@@ -60,7 +64,7 @@
  * @param ...   additional arguments for the format string
  * @note includes the line, function, and file at the end of the message
  */
-#define WARN(ctx, fmt, ...)   _LOG_INLINE(logger::level::Warn,  ctx, fmt, ##__VA_ARGS__)
+#define WARN(ctx, fmt, ...)   _LOG_INLINE(logger::Level::Warn,  ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a ERROR-level message.
@@ -70,7 +74,7 @@
  * @param ...   additional arguments for the format string
  * @note includes the line, function, and file at the end of the message
  */
-#define ERROR(ctx, fmt, ...)  _LOG_INLINE(logger::level::Error, ctx, fmt, ##__VA_ARGS__)
+#define ERROR(ctx, fmt, ...)  _LOG_INLINE(logger::Level::Error, ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a STATUS-level message.
@@ -79,7 +83,7 @@
  * @param fmt   the printf-style format string.
  * @param ...   additional arguments for the format string
  */
-#define STATUS(ctx, fmt, ...)  _LOG_INLINE(logger::level::Status, ctx, fmt, ##__VA_ARGS__)
+#define STATUS(ctx, fmt, ...)  _LOG_INLINE(logger::Level::Status, ctx, fmt, ##__VA_ARGS__)
 
 /**
  * @brief Logs a FATAL-level message.
@@ -91,10 +95,10 @@
  */
 #define FATAL(ctx, fmt, ...) \
     do { \
-        _LOG_INLINE(logger::level::Fatal, ctx, \
+        _LOG_INLINE(logger::Level::Fatal, ctx, \
             fmt ", exiting pid=%d\nSTACK TRACE:\n%s", ##__VA_ARGS__, \
             getpid(), logger::get_stack_trace().c_str()); \
-        logger::Logger::getInstance()->stopAndFlush(); \
+        logger::Logger::GetInstance().StopAndFlush(); \
     } while(0)
 
 /**
@@ -106,7 +110,7 @@
 #define LOG_SESSION(entry) \
     do { \
         auto entry_ptr = std::make_unique<logger::SessionEntry>(entry); \
-        logger::Logger::getInstance()->push(std::move(entry_ptr)); \
+        logger::Logger::GetInstance().Push(std::move(entry_ptr)); \
     } while(0) 
 
 #endif

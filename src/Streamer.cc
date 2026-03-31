@@ -1,13 +1,13 @@
 #include "Streamer.h"
 #include "http/Exception.h"
 
-asio::awaitable<void> StringStreamer::stream(io::Socket* sock) {
-    std::span<const char> buffer(payload->data(), payload->length());
-    auto result = co_await http::co_write_all(sock, buffer);
-    if(!http::is_success_code(result.status)) {
-        throw http::Exception(result.status, std::move(result.message));
+asio::awaitable<void> StringStreamer::Stream(io::Socket& sock) {
+    std::span<const char> buffer(payload_);
+    const auto result = co_await io::co_write_all(sock, payload_);
+    if (result.ec) {
+        throw http::Exception(http::error_to_status(result.ec));
     }
-    bytes_streamed = result.bytes;
+    bytes_streamed_ = result.bytes;
     co_return;
 }
 
@@ -18,46 +18,45 @@ FileStreamer::~FileStreamer() {
 }
 
 void FileStreamer::openFile() {
-    filefd_ = open(file_path.c_str(), O_RDONLY);
+    filefd_ = open(file_path_.c_str(), O_RDONLY);
     if(filefd_ == -1) {
         throw http::Exception(http::Code::Not_Found, 
-                std::format("Failed to open resource: {}, errno={} ({})", file_path, errno, strerror(errno)));
+                std::format("Failed to open resource: {}, errno={} ({})", file_path_, errno, strerror(errno)));
     }
 
-    file_len = (long)lseek(filefd_, (off_t)0, SEEK_END);
-    if(file_len <= 0) {
+    file_len_ = (long)lseek(filefd_, (off_t)0, SEEK_END);
+    if(file_len_ <= 0) {
         throw http::Exception(http::Code::Not_Found, 
-                std::format("Failed to open endpoint={}, errno={} ({})", file_path, errno, strerror(errno)));
+                std::format("Failed to open endpoint={}, errno={} ({})", file_path_, errno, strerror(errno)));
     }
     lseek(filefd_, 0, SEEK_SET);
 }
 
-asio::awaitable<void> FileStreamer::stream(io::Socket* sock) {
+asio::awaitable<void> FileStreamer::Stream(io::Socket& sock) {
     if(filefd_ == -1) {
         openFile();
     }
     
-    http::WriteStatus result;
     std::size_t bytes_sent(0);
-    while (bytes_sent < file_len) {
-        std::size_t bytes_to_read = std::min(buffer.size(), static_cast<std::size_t>(file_len - bytes_sent));
-        ssize_t bytes_to_write = read(filefd_, buffer.data(), bytes_to_read);
+    while (bytes_sent < file_len_) {
+        std::size_t bytes_to_read = std::min(buffer_.size(), static_cast<std::size_t>(file_len_ - bytes_sent));
+        ssize_t bytes_to_write = read(filefd_, buffer_.data(), bytes_to_read);
         if (bytes_to_write == 0) {
-            DEBUG("File Streamer", "EOF reached prematurely while sending resource[%s]", file_path.c_str());
+            DEBUG("File Streamer", "EOF reached prematurely while sending resource[%s]", file_path_.c_str());
             break;
         }
         if(bytes_to_write < 0) {
-            throw http::Exception(http::Code::Internal_Server_Error, std::format("Failed reading file {}", file_path));
+            throw http::Exception(http::Code::Internal_Server_Error, std::format("Failed reading file {}", file_path_));
         }
 
-        std::span<const char> write_buffer(buffer.data(), bytes_to_write);
-        result = co_await http::co_write_all(sock, write_buffer);
-        if(!http::is_success_code(result.status)) {
-            throw http::Exception(result.status, std::move(result.message));
+        std::span<const char> write_buffer(buffer_.data(), bytes_to_write);
+        const io::Socket::Result result = co_await io::co_write_all(sock, write_buffer);
+        if (result.ec) {
+            throw http::Exception(http::error_to_status(result.ec));
         }
         bytes_sent += result.bytes;
     }
-    bytes_streamed = bytes_sent;
+    bytes_streamed_ = bytes_sent;
 }
 
 ScriptStreamer::~ScriptStreamer() {
@@ -87,7 +86,7 @@ void ScriptStreamer::SpawnProcess() {
         std::format("failed to add file action close for script={}, error={} ({})", script_path_.c_str(), status_, strerror(status_)));
     }
 
-    char* argv[] = {const_cast<char*>(script_path_.c_str()), (char*)0};
+    char* argv[] = {const_cast<char*>(script_path_.c_str()), static_cast<char *>(nullptr)};
     if((status_ = posix_spawn(&pid_, script_path_.c_str(), &actions, nullptr, argv, environ)) != 0) {
         posix_spawn_file_actions_destroy(&actions);
         throw http::Exception(http::Code::Internal_Server_Error, 
@@ -115,14 +114,14 @@ void ScriptStreamer::Spawn() {
     close(stdin_pipe_[1]); // signal eof to child
 }
 
-asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
+asio::awaitable<void> ScriptStreamer::Stream(io::Socket& sock) {
     Spawn();
     
-    asio::posix::stream_descriptor reader(sock->GetRawSocket().get_executor(), stdout_pipe_[0]);
+    asio::posix::stream_descriptor reader(sock.GetRawSocket().get_executor(), stdout_pipe_[0]);
     asio::error_code read_ec;
-    std::size_t bytes_read(0), bytes_sent(0);
+    size_t bytes_read { 0u };
+    size_t bytes_sent { 0u };
     std::vector<char> buffer(io::BUFFER_SIZE);
-    http::WriteStatus result;
 
     while(true) {
         std::tie(read_ec, bytes_read) = co_await reader.async_read_some(asio::buffer(buffer.data(), buffer.size()), asio::as_tuple(asio::use_awaitable));
@@ -132,8 +131,8 @@ asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
         } 
         if(read_ec && read_ec != asio::error::eof) {
             throw http::Exception(http::Code::Internal_Server_Error, 
-            std::format("Failed to read response from subprocess={}, pid={}, asio::error={}, ({})", 
-            script_path_, pid_, read_ec.value(), read_ec.message()));
+                std::format("Failed to read response from subprocess={}, pid={}, asio::error={}, ({})", 
+                script_path_, pid_, read_ec.value(), read_ec.message()));
         }
         if(chunk_callback_) {
             co_await chunk_callback_(buffer.data(), bytes_read);
@@ -141,15 +140,16 @@ asio::awaitable<void> ScriptStreamer::stream(io::Socket* sock) {
             continue;
         }
 
-        std::span<const char> write_buffer(buffer.data(), bytes_read);
-        result = co_await io::co_write_all(*sock, write_buffer);
-        if(!http::is_success_code(result.status)) {
-            throw http::Exception(result.status, std::move(result.message));
+        const std::span<const char> write_buffer(buffer.data(), bytes_read);
+        const io::Socket::Result result = co_await io::co_write_all(sock, write_buffer);
+        if (result.ec) {
+            throw http::Exception(http::error_to_status(result.ec));
         }
         bytes_sent += result.bytes;
     }
+    
     waitpid(pid_, &status_, 0);
-    bytes_streamed = bytes_sent;
+    bytes_streamed_ = bytes_sent;
     co_return;
 }
 

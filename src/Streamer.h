@@ -7,8 +7,8 @@
 #include <spawn.h>
 #include <sys/wait.h>
 
-#include "http.h"
-#include "logger_macros.h"
+#include "http/parsing/parse.h"
+#include "logger/macros.h"
 #include "http/Transaction.h"
 #include "io/Socket.h"
 
@@ -74,7 +74,11 @@ public:
 
     ~ScriptStreamer() override;
 
-    asio::awaitable<void> Stream(io::Socket* sock) override;
+    asio::awaitable<void> Stream(io::Socket& sock) override;
+
+    size_t BytesStreamed() const override {
+        return bytes_streamed_;
+    }
 
 private:
     void Spawn();
@@ -84,10 +88,11 @@ private:
     const std::string& script_path_;
     const std::string& stdin_data_;
     ChunkCallback chunk_callback_;
-    int stdin_pipe_[2];
-    int stdout_pipe_[2];
+    int stdin_pipe_[2] {};
+    int stdout_pipe_[2] {};
     int status_ { -1 };
     pid_t pid_ { -1 };
+    size_t bytes_streamed_ { 0u };
 };
 
 #endif

@@ -22,8 +22,8 @@ namespace mw {
         return client_raw;
     }
 
-    asio::awaitable<void> mw::FixedWindowLimiter::Process(Transaction& txn, Next next) {
-        std::string key = setting.make_key(&txn);
+    asio::awaitable<void> mw::FixedWindowLimiter::Process(http::Transaction& txn, Next next) {
+        std::string key = setting.make_key(txn);
         auto client_info = findClient(key);
 
         auto now = std::chrono::steady_clock::now();
@@ -89,8 +89,8 @@ namespace mw {
         return raw;
     }
 
-    asio::awaitable<void> mw::TokenBucketLimiter::Process(Transaction& txn, Next next) {
-        std::string key = setting.make_key(&txn);
+    asio::awaitable<void> mw::TokenBucketLimiter::Process(http::Transaction& txn, Next next) {
+        std::string key = setting.make_key(txn);
         auto bucket = findBucket(key);
 
         auto now = std::chrono::steady_clock::now();
@@ -116,8 +116,8 @@ namespace mw {
                 headers["Retry-After"] = std::to_string(retry_after);
                 throw http::Exception(http::Too_Many_Requests,
                     std::format("client={} has exceeded rate limit on [{} {}] ({} tokens/s cap={} tokens)",
-                    txn.GetSocket()->IpStr(), http::method_enum_to_str(txn.GetRequest().GetMethod()),
-                    txn.GetRequest().endpoint_url, setting.refill_rate, setting.capacity), std::move(headers));
+                    txn.GetSocket().IpStr(), http::method_enum_to_str(txn.GetRequest().GetMethod()),
+                    txn.GetRequest().GetPath(), setting.refill_rate, setting.capacity), std::move(headers));
             }
 
             updated_tokens = uint32_t(new_tokens - 1);
@@ -141,8 +141,12 @@ namespace mw {
         co_return;
     }
 
-    asio::awaitable<void> RateLimiter::Process(Transaction& txn, Next next) {
-        co_await txn.GetRequest().GetEndpoint().RateLimiter->Process(txn, next);
+    asio::awaitable<void> RateLimiter::Process(http::Transaction& txn, Next next) {
+        if (txn.ResolvedEndpoint) {
+            co_await txn.ResolvedEndpoint->RateLimiter->Process(txn, next);
+        } else {
+            co_await next();
+        }
         co_return;
     }
 }

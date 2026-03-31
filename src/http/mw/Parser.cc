@@ -1,12 +1,12 @@
 #include "http/mw/Parser.h"
 #include "http/Exception.h"
-#include "http.h"
+#include "http/parsing/parse.h"
+#include "http/routing/Router.h"
+#include "logger/macros.h"
 
 namespace mw {
 
 asio::awaitable<void> Parser::Process(http::Transaction& txn, Next next) {
-    txn.GetLogEntry()->Latency_end_time = std::chrono::system_clock::now();
-
     auto& buffer = txn.GetBuffer();
     auto [ec, bytes] = co_await txn.GetSocket().Read(buffer);
     if(ec) {
@@ -24,8 +24,8 @@ asio::awaitable<void> Parser::Process(http::Transaction& txn, Next next) {
 
     TRACE("MW Parser", "Hit for endpoint: %s", request.GetPath().c_str());
 
-    txn.Route = &router_.GetRoute(request.GetPath());
-    txn.Endpoint = &txn.Route->GetEndpoint(request.GetMethod());
+    txn.ResolvedRoute = &router_.GetRoute(request.GetPath());
+    txn.ResolvedEndpoint = &txn.ResolvedRoute->GetEndpoint(request.GetMethod());
 
     txn.SetRequest(std::move(request));
 

@@ -2,6 +2,8 @@
 
 #include "http/Exception.h"
 
+#include "http/Transaction.h"
+
 static std::string get_methods_str(const std::vector<http::Method>& methods) {
     std::string allow_header;
     for(const auto method : methods) {
@@ -14,18 +16,16 @@ static std::string get_methods_str(const std::vector<http::Method>& methods) {
 }
 
 asio::awaitable<void> OptionsHandler::Handle() {
-    auto& request = txn_.GetRequest();
-
-    if(!request.endpoint) {
+    if(!txn_.ResolvedRoute) {
         throw http::Exception(http::Internal_Server_Error, "OPTIONS request for unexpected missing route or endpoint");
     }
 
     std::string response_str = txn_.GetResponse()
-        .AddHeader("Allow", get_methods_str(request.endpoint->getMethods()))
+        .AddHeader("Allow", get_methods_str(txn_.ResolvedRoute->GetAvailableMethods()))
         .AddHeader("Content-Length", "0")
         .AddHeader("Connection", "close")
         .Build();
 
-    co_await txn_.GetSocket()->Write(response_str);
+    co_await txn_.GetSocket().Write(response_str);
     co_return;
 }

@@ -10,11 +10,11 @@ namespace http {
 
 struct ErrorPage {
     Code Status;
-    Handler Handler;
+    Handler Finisher;
 };
 
 struct Endpoint {
-    Method Method;
+    Method HttpMethod;
 
     std::string AccessRole;
 
@@ -30,13 +30,13 @@ struct Endpoint {
 
     ArgumentType ArgType{ArgumentType::None};
 
-    Handler Handler;
+    Handler Finisher;
 
-    std::shared_ptr<mw::Middleware> RateLimiter { std::make_shared<mw::NoOpMiddleware>() };
+    std::shared_ptr<::mw::Middleware> RateLimiter { nullptr };
 
     asio::awaitable<void> Handle(Transaction& txn) const {
-        if (Handler) {
-            co_return co_await Handler(&txn);
+        if (Finisher) {
+            co_return co_await Finisher(&txn);
         }
     }
 };

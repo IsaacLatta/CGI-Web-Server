@@ -46,11 +46,11 @@ namespace mw {
     }
 
     asio::awaitable<void> Authenticator::Process(http::Transaction& txn, Next next) {
-        if (!txn.Endpoint) {
+        if (!txn.ResolvedEndpoint) {
             throw http::Exception(http::Internal_Server_Error, "mw::Authenticator, routing failure!");
         }
 
-        Validate(txn, *txn.Endpoint);
+        Validate(txn, *txn.ResolvedEndpoint);
         co_await next();
         co_return;
     }

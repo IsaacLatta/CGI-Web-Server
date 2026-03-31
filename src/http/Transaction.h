@@ -2,19 +2,17 @@
 
 #include <vector>
 
-#include "http.h"
+#include "parsing/parse.h"
 
-#include "io/Socket.h"
-
-#include "logger/logger.h"
+#include "logger/Entry.h"
 #include "http/Response.h"
 #include "http/Request.h"
 
 namespace http {
 class Transaction {
 public:
-    const Route* Route { nullptr };
-    const Endpoint* Endpoint { nullptr };
+    const Route* ResolvedRoute { nullptr };
+    const Endpoint* ResolvedEndpoint { nullptr };
 
     Transaction(io::SocketPtr&& sock, size_t buffer_size = io::BUFFER_SIZE):
         socket_(std::move(sock)) {

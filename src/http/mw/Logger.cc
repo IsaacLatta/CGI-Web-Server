@@ -1,5 +1,5 @@
 #include "http/mw/Logger.h"
-#include "logger_macros.h"
+#include "../../logger/macros.h"
 
 namespace mw {
 
@@ -17,7 +17,7 @@ namespace mw {
         entry.RequestLine = logger::get_header_line(txn.GetBuffer());
         entry.ResponseLine = http::get_status_msg(txn.GetResponse().Status);
         entry.RttEnd = std::chrono::system_clock::now();
-        entry.level = http::is_success_code(txn.GetResponse().Status) ? logger::level::Info : logger::level::Error;
+        entry.level = http::is_success_code(txn.GetResponse().Status) ? logger::Level::Info : logger::Level::Error;
         LOG_SESSION(entry);
     }
 

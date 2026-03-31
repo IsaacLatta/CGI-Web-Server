@@ -4,10 +4,11 @@
 #include <asio/detached.hpp>
 #include <asio/use_awaitable.hpp>
 
+#include "io/io.h"
 #include "io/Acceptor.h"
 
-#include "logger/logger.h"
-#include "http.h"
+#include "logger/macros.h"
+#include "parsing/parse.h"
 
 #include "http/Session.h"
 
@@ -95,7 +96,7 @@ bool Server::ShouldExit(const asio::error_code& error) {
         return true;
     }
 
-    if(is_retryable(error)) {
+    if(io::is_retryable(error)) {
         retries_++;
         const size_t backoff_time_ms = DEFAULT_BACKOFF_MS * retries_;
         WARN("Server", "error=%d %s, backing off for %ld ms", error.value(), error.message().c_str(), backoff_time_ms);

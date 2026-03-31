@@ -5,12 +5,13 @@
 #include <string>
 
 #include "http/mw/Middleware.h"
+#include "config/config.h"
 
 namespace mw {
 
 class RateLimiter: public Middleware {
 public:
-    asio::awaitable<void> Process(Transaction& txn, Next next) override;
+    asio::awaitable<void> Process(http::Transaction& txn, Next next) override;
 };
 
 struct IpInfo {
@@ -24,7 +25,7 @@ public:
 
     FixedWindowLimiter() { clients.reserve(2048); }
 
-    asio::awaitable<void> Process(Transaction&, Next) override;
+    asio::awaitable<void> Process(http::Transaction&, Next) override;
 
 private:
     std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
@@ -43,7 +44,7 @@ struct Bucket {
 class TokenBucketLimiter: public Middleware {
 public:
     TokenBucketLimiter(cfg::TokenBucketSetting&& setting): setting(setting) {buckets.reserve(2048);}
-    asio::awaitable<void> Process(Transaction&, Next) override;
+    asio::awaitable<void> Process(http::Transaction&, Next) override;
 
 private:
     cfg::TokenBucketSetting setting;
