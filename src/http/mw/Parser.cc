@@ -6,30 +6,27 @@
 
 namespace mw {
 
-asio::awaitable<void> Parser::Process(http::Transaction& txn, Next next) {
-    auto& buffer = txn.GetBuffer();
-    auto [ec, bytes] = co_await txn.GetSocket().Read(buffer);
+asio::awaitable<void> Parser::Process(http::PreRouteContext& context, NextCallback next, FinishCallback finish) {
+    auto [ec, bytes] = co_await context.Socket.Read(context.Buffer);
     if(ec) {
-        throw (ec.value() == asio::error::connection_reset || ec.value() == asio::error::broken_pipe || ec.value() == asio::error::eof) ?
-                http::Exception(http::Client_Closed_Request) : http::Exception(http::Internal_Server_Error);
+        co_return co_await finish(context, http::Response(http::Client_Closed_Request));
     }
-    buffer.resize(bytes);
+    context.Buffer.resize(bytes);
 
     http::Request request;
-    request.SetPath(http::extract_endpoint(buffer))
-        .SetMethod(http::extract_method(buffer))
-        .SetHeaders(http::extract_headers(buffer))
-        .SetQueryParams(http::extract_query_params(buffer))
-        .SetBody(http::extract_body(buffer));
+    request.SetPath(http::extract_endpoint(context.Buffer))
+        .SetMethod(http::extract_method(context.Buffer))
+        .SetHeaders(http::extract_headers(context.Buffer))
+        .SetQueryParams(http::extract_query_params(context.Buffer))
+        .SetBody(http::extract_body(context.Buffer));
 
     TRACE("MW Parser", "Hit for endpoint: %s", request.GetPath().c_str());
 
-    txn.ResolvedRoute = &router_.GetRoute(request.GetPath());
-    txn.ResolvedEndpoint = &txn.ResolvedRoute->GetEndpoint(request.GetMethod());
+    context.MatchedRoute = &router_.GetRoute(request.GetPath());
+    context.MatchedEndpoint = &context.MatchedRoute->GetEndpoint(request.GetMethod());
+    context.ParsedRequest = std::move(request);
 
-    txn.SetRequest(std::move(request));
-
-    co_await next();
+    co_return co_await next(context);
 }
 
 }

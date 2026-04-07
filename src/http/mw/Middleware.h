@@ -64,4 +64,10 @@ private:
     std::vector<std::unique_ptr<MiddlewareType>> components_;
 };
 
+template<typename Context>
+using FinishCallback = typename Middleware<Context>::FinishCallback;
+
+template<typename Context>
+using NextCallback = typename Middleware<Context>::Next;
+
 } // namespace mw

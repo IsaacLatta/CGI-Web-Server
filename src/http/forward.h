@@ -68,6 +68,10 @@ namespace http {
 
     class Request;
 
+    struct PreRouteContext;
+
+    struct PostRouteContext;
+
     class Exception;
 
     using Headers = std::unordered_map<std::string, std::string>;

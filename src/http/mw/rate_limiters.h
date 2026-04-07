@@ -4,14 +4,15 @@
 #include <mutex>
 #include <string>
 
+#include "Context.h"
 #include "http/mw/Middleware.h"
 #include "config/config.h"
 
 namespace mw {
 
-class RateLimiter: public Middleware {
+class RateLimiter: public Middleware<http::PostRouteContext> {
 public:
-    asio::awaitable<void> Process(http::Transaction& txn, Next next) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
 };
 
 struct IpInfo {
@@ -19,13 +20,13 @@ struct IpInfo {
     std::atomic<std::uint64_t> window_and_count;
 };
 
-class FixedWindowLimiter: public Middleware {
+class FixedWindowLimiter: public Middleware<http::PostRouteContext> {
 public:
     FixedWindowLimiter(cfg::FixedWindowSetting setting): setting(setting) { clients.reserve(2048); }
 
     FixedWindowLimiter() { clients.reserve(2048); }
 
-    asio::awaitable<void> Process(http::Transaction&, Next) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
 
 private:
     std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
@@ -41,10 +42,10 @@ struct Bucket {
     std::atomic<uint64_t> tokens_and_refill;
 };
 
-class TokenBucketLimiter: public Middleware {
+class TokenBucketLimiter: public Middleware<http::PostRouteContext> {
 public:
     TokenBucketLimiter(cfg::TokenBucketSetting&& setting): setting(setting) {buckets.reserve(2048);}
-    asio::awaitable<void> Process(http::Transaction&, Next) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
 
 private:
     cfg::TokenBucketSetting setting;
