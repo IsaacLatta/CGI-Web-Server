@@ -94,8 +94,7 @@ namespace http {
 
     using ErrorPageFactory = std::function<ErrorPage(Code)>;
 
-    using Handler = std::function<asio::awaitable<void>(Transaction*)>;
-    using Limiter = std::function<asio::awaitable<void>(Transaction*)>;
+    using Handler = std::function<asio::awaitable<void>(const Response&)>;
 
     using HandlerFactory = std::function<Handler(Method)>;
 }

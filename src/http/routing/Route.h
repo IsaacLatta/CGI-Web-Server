@@ -5,6 +5,7 @@
 #include "http/forward.h"
 #include "http/mw/Middleware.h"
 #include "http/Exception.h"
+#include "http/mw/Context.h"
 
 namespace http {
 
@@ -29,6 +30,8 @@ struct Endpoint {
     bool HasScript { false };
 
     ArgumentType ArgType{ArgumentType::None};
+
+    mw::Pipeline<PostEndpointContext> Pipeline;
 
     Handler Finisher;
 
@@ -67,6 +70,8 @@ public:
 
     std::vector<Method> GetAvailableMethods() const;
 
+    const mw::Pipeline<PostRouteContext>& Pipeline() const;
+
 private:
     template<typename Callable>
     requires core::InvocableWith<Callable, const Endpoint&>
@@ -80,5 +85,6 @@ private:
 
 private:
     std::unordered_map<Method, Endpoint> endpoints_;
+    mw::Pipeline<PostRouteContext> pipeline_;
 };
 }

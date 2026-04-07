@@ -9,6 +9,9 @@
 namespace http {
     class Response {
     public:
+        using Handler = std::function<asio::awaitable<void>(const Response&)>;
+
+    public:
         Code Status { OK };
 
     public:
@@ -67,5 +70,6 @@ namespace http {
         std::string built_response_;
         std::string body_;
         Headers headers_;
+        Handler handler_;
     };
 }

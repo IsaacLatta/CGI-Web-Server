@@ -12,33 +12,40 @@ namespace http {
 
     struct PreRouteContext {
         io::Socket& Socket;
-        std::vector<char> Buffer;
+        std::vector<char>& Buffer;
 
         // Fields that need to be constructed in this FaZe.
         std::optional<Request> ParsedRequest;
         const Route* MatchedRoute { nullptr };
         const Endpoint* MatchedEndpoint { nullptr };
 
-        PreRouteContext(io::Socket& sock) : Socket(sock) {
-            Buffer.reserve(io::BUFFER_SIZE);
-            Buffer.resize(io::BUFFER_SIZE);
-        }
+        PreRouteContext(io::Socket& sock, std::vector<char>& buffer)
+            : Socket(sock), Buffer(buffer) {}
     };
 
     struct PostRouteContext {
         PostRouteContext(
-            const Route&,
-            const Endpoint&,
-            io::Socket&,
-            Request&,
-            std::vector<char>&&);
+            const Route& route,
+            const Endpoint& endpoint,
+            io::Socket& sock,
+            Request& request,
+            std::vector<char>& buffer) :
+        MatchedRoute(route),
+        MatchedEndpoint(endpoint),
+        Socket(sock),
+        MatchedRequest(request),
+        Buffer(buffer) {}
+
+        Handler FinalHandler { nullptr };
 
         const Route& MatchedRoute;
         const Endpoint& MatchedEndpoint;
         io::Socket& Socket;
         Response WorkingResponse;
         Request& MatchedRequest;
-        std::vector<char> Buffer;
+        std::vector<char>& Buffer;
     };
+
+    using PostEndpointContext = PostRouteContext;
 
 }

@@ -68,4 +68,9 @@ std::vector<Method> Route::GetAvailableMethods() const {
     return results;
 }
 
+const mw::Pipeline<PostRouteContext>& Route::Pipeline() const {
+    return pipeline_;
+}
+
+
 }
