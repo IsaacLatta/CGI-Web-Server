@@ -20,6 +20,11 @@ Init and bootstrap vcpkg:
 git submodule update --init --recursive && ./vcpkg/bootstrap-vcpkg.sh
 ```
 
+Install vcpkg dependencies:
+```bash
+./vcplg/vcpkg install
+```
+
 Configure and build:
 ```bash
 cmake -S . -B build && cmake --build build
