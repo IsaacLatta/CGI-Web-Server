@@ -1,23 +1,11 @@
 #include "Server.h"
 
-/* TO DO
-*
-* [1] POST Request
-*   - Add support for resource uploads, as well as task submission, e.g.) streaming
-* [2] PUT Request
-*   - Allow upload of resource
-* [3] OPTIONS Request
-*   - Allow preflight for resoruce creation (use with POST)
-* [4] CONNECT Support
-*   - For tunneling (HTTPS)
-* [5] Default endpoints
-*   - Endpoints for health or status metrics, e.g.) /health, /status
-* [6] Add rate limiting, especially for POST
-*
-*/
+#include <openssl/conf.h>
 
 int main(int argc, char** argv)
 {
+    OPENSSL_no_config();
+
     if(argc < 2 && argv[1] == nullptr) {
         std::cerr << "ERROR no configuration path, must provide a path to load configuration from\n";
         return 0;
@@ -33,7 +21,7 @@ int main(int argc, char** argv)
         server.start();
     }
     catch(const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        std::cerr << "[ERROR] " << e.what() << std::endl;
     }
    
     return 0;

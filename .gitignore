@@ -16,3 +16,4 @@ cmake_install.cmake
 Docs/*
 /Docs
 vcpkg_installed/
+Testing/

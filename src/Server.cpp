@@ -4,18 +4,17 @@
 #include <iostream>
 #include <string>
 
-Server::Server(const cfg::Config* server_config) 
+Server::Server(const cfg::Config* server_config)
     : _config(server_config),
       _io_context(),
-      _ssl_context(asio::ssl::context::tlsv12),
+      _ssl_context(asio::ssl::context::tlsv12_server),
       _acceptor(),
       _endpoint(asio::ip::tcp::v4(), server_config->getPort()),
       _ssl(_config->getSSL()->active),
-      _retries(0)
-{
+      _retries(0) {
     this->_acceptor = std::make_shared<asio::ip::tcp::acceptor>(this->_io_context, this->_endpoint);
 
-    if(_ssl) {
+    if (_ssl) {
         loadCertificate();
     }
 }
@@ -40,7 +39,9 @@ asio::awaitable<void> Server::run() {
             co_return;
         }
 
-        co_await session->start();
+        asio::co_spawn(_io_context,
+            [session]() -> asio::awaitable<void> { co_return co_await session->start(); },
+            asio::detached);
     }
 }
 
