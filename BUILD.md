@@ -22,7 +22,7 @@ git submodule update --init --recursive && ./vcpkg/bootstrap-vcpkg.sh
 
 Install vcpkg dependencies:
 ```bash
-./vcplg/vcpkg install
+./vcpkg/vcpkg install
 ```
 
 Configure and build:
