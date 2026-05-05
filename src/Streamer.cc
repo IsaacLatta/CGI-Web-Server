@@ -1,5 +1,6 @@
 #include "Streamer.h"
 #include "http/Exception.h"
+#include "io/Acceptor.h"
 
 asio::awaitable<void> StringStreamer::Stream(io::Socket& sock) {
     std::span<const char> buffer(payload_);
@@ -114,7 +115,7 @@ void ScriptStreamer::Spawn() {
     close(stdin_pipe_[1]); // signal eof to child
 }
 
-asio::awaitable<void> ScriptStreamer::Stream(io::Socket& sock) {
+asio::awaitable<io::Result> ScriptStreamer::Stream(io::Socket& sock) {
     Spawn();
     
     asio::posix::stream_descriptor reader(sock.GetRawSocket().get_executor(), stdout_pipe_[0]);
@@ -141,7 +142,7 @@ asio::awaitable<void> ScriptStreamer::Stream(io::Socket& sock) {
         }
 
         const std::span<const char> write_buffer(buffer.data(), bytes_read);
-        const io::Socket::Result result = co_await io::co_write_all(sock, write_buffer);
+        const io::Result result = co_await io::co_write_all(sock, write_buffer);
         if (result.ec) {
             throw http::Exception(http::error_to_status(result.ec));
         }

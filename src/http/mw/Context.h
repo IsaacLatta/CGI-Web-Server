@@ -117,17 +117,8 @@ namespace http {
             return state_;
         }
 
-        bool HasHandler() const noexcept {
-            return static_cast<bool>(handler_);
-        }
-
-        Handler GetHandler() const noexcept {
-            return handler_;
-        }
-
     private:
         TransactionState& state_;
-        Handler handler_;
     };
 
     class FinalContext {

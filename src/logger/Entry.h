@@ -30,6 +30,7 @@ namespace logger {
     };
 
     struct SessionEntry : public Entry {
+        std::error_code error_code;
         std::string UserAgent;
         std::string RequestLine;
         std::string ResponseLine;

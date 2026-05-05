@@ -10,12 +10,12 @@
 
 namespace io {
 
+struct Result {
+    asio::error_code ec;
+    size_t bytes { 0u };
+};
+
 class Socket {
-public:
-    struct Result {
-        asio::error_code ec;
-        size_t bytes { 0u };
-    };
 
 public:
     virtual ~Socket() = default;

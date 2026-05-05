@@ -34,7 +34,7 @@ core::Ms select_backoff(const asio::error_code& ec, uint32_t attempt) noexcept {
 
 namespace io {
 
-asio::awaitable<Socket::Result> co_write_all(Socket& sock, std::span<const char> buffer) {
+asio::awaitable<Result> co_write_all(Socket& sock, std::span<const char> buffer) {
     TransferState state;
     state.BytesSent = 0;
     state.TotalBytes = buffer.size();
@@ -42,7 +42,7 @@ asio::awaitable<Socket::Result> co_write_all(Socket& sock, std::span<const char>
         auto [ec, bytes_written] = co_await sock.Write(buffer.subspan(state.BytesSent));
 
         if(is_permanent_failure(ec) || state.RetryCount > TransferState::MAX_RETRIES) {
-            co_return Socket::Result{ ec, state.BytesSent };
+            co_return Result{ ec, state.BytesSent };
         }
 
         if(is_retryable(ec)) {
@@ -53,7 +53,7 @@ asio::awaitable<Socket::Result> co_write_all(Socket& sock, std::span<const char>
         state.BytesSent += bytes_written;
     }
 
-    co_return Socket::Result{ {}, state.BytesSent };
+    co_return Result{ {}, state.BytesSent };
 }
 
 asio::awaitable<void> do_backoff(const asio::error_code& ec, uint32_t attempt) {
