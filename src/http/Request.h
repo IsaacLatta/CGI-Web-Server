@@ -4,10 +4,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "parsing/parse.h"
-
 #include "http/forward.h"
-#include "routing/Route.h"
 
 namespace http {
 
@@ -82,6 +79,7 @@ public:
     }
 
 private:
+    std::string_view user_agent_;
     std::string_view body_;
     QueryParams params_;
     std::string_view query_string_;

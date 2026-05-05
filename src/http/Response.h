@@ -9,9 +9,6 @@
 namespace http {
     class Response {
     public:
-        using Handler = std::function<asio::awaitable<void>(const Response&)>;
-
-    public:
         Code Status { OK };
 
     public:
@@ -19,6 +16,10 @@ namespace http {
 
         explicit Response(Code new_status) {
             SetStatus(new_status);
+        }
+
+        bool IsSuccess() const noexcept {
+            return is_success_code(Status);
         }
 
         Response& SetBody(std::string body) {

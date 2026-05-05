@@ -22,8 +22,8 @@ namespace mw {
         return client_raw;
     }
 
-    asio::awaitable<void> mw::FixedWindowLimiter::Process(http::PostRouteContext& context, NextCallback next, FinishCallback finish) {
-        std::string key = context.Socket.IpStr();
+    asio::awaitable<void> mw::FixedWindowLimiter::Process(http::PostRouteContext& context, Next next, Finish finish) {
+        std::string key = context.GetSocket().GetIpStr();
         auto client_info = findClient(key);
 
         auto now = std::chrono::steady_clock::now();
@@ -40,7 +40,7 @@ namespace mw {
                     uint32_t window_start = this_window_id * setting.window_seconds;
                     uint32_t reset_time   = window_start + setting.window_seconds;
                     uint32_t retry_after  = (reset_time > secs) ? (reset_time - secs) : 0;
-                    co_await finish(context, http::Response(http::Too_Many_Requests).AddHeader("Retry-After", std::to_string(retry_after)));
+                    co_await finish(context, http::Response(http::Too_Many_Requests).AddHeader("Retry-After", std::to_string(retry_after)), std::nullopt);
                     co_return;
                 }
                 desired = (uint64_t(this_window_id) << 32) | (old_count + 1); // increment by 1
@@ -52,7 +52,7 @@ namespace mw {
         uint32_t new_count = uint32_t(desired);
         uint32_t window_start = this_window_id * setting.window_seconds;
         uint32_t reset_time   = window_start + setting.window_seconds;
-        context.WorkingResponse
+        context.GetResponse()
             .AddHeader("X-RateLimit-Limit", std::to_string(setting.max_requests))
             .AddHeader("X-RateLimit-Remaining", std::to_string(setting.max_requests - new_count))
             .AddHeader("X-RateLimit-Reset",     std::to_string(reset_time));
@@ -87,8 +87,8 @@ namespace mw {
         return raw;
     }
 
-    asio::awaitable<void> mw::TokenBucketLimiter::Process(http::PostRouteContext& context, NextCallback next, FinishCallback finish) {
-        std::string key = context.Socket.IpStr();
+    asio::awaitable<void> mw::TokenBucketLimiter::Process(http::PostRouteContext& context, Next next, Finish finish) {
+        std::string key = context.GetSocket().GetIpStr();
         const auto bucket = findBucket(key);
 
         const auto now = std::chrono::steady_clock::now();
@@ -110,7 +110,7 @@ namespace mw {
 
             if(new_tokens < 1) {
                 uint32_t retry_after = new_refill + 1 > secs ? (new_refill + 1 - secs) : 0;
-                co_await finish(context, http::Response(http::Too_Many_Requests).AddHeader("Retry-After", std::to_string(retry_after)));
+                co_await finish(context, http::Response(http::Too_Many_Requests).AddHeader("Retry-After", std::to_string(retry_after)), std::nullopt);
                 co_return;
             }
 
@@ -122,7 +122,7 @@ namespace mw {
         auto system_now = std::chrono::system_clock::now();
         auto reset_tp   = system_now + std::chrono::seconds(delay);
         auto reset_epoch = std::chrono::duration_cast<std::chrono::seconds>(reset_tp.time_since_epoch()).count();
-        context.WorkingResponse.AddHeader("X-RateLimit-Limit", std::to_string(setting.capacity))
+        context.GetResponse().AddHeader("X-RateLimit-Limit", std::to_string(setting.capacity))
             .AddHeader("X-RateLimit-Remaining", std::to_string(updated_tokens))
             .AddHeader("X-RateLimit-Reset", std::to_string(reset_epoch))
             .AddHeader("Retry-After", std::to_string(delay));
@@ -133,7 +133,7 @@ namespace mw {
         co_return;
     }
 
-    asio::awaitable<void> RateLimiter::Process(http::PostRouteContext& context, NextCallback next, FinishCallback) {
+    asio::awaitable<void> RateLimiter::Process(http::PostRouteContext& context, Next next, Finish) {
         co_return co_await next(context);
     }
 }

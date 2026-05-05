@@ -9,15 +9,15 @@
 
 namespace mw {
 
-class Authenticator: public Middleware {
+class Authenticator: public Middleware<http::PostRouteContext> {
 public:
     Authenticator(const cfg::AccessControl& config)
         : config_(config) {}
 
-    asio::awaitable<void> Process(http::Transaction&, Next) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, Next, Finish) override;
 
 private:
-    void Validate(http::Transaction&, const http::Endpoint&) const;
+    void Validate(http::PostRouteContext&, const http::Endpoint&) const;
 
 private:
     const cfg::AccessControl& config_;

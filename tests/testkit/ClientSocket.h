@@ -77,7 +77,7 @@ public:
         return socket_;
     }
 
-    std::string IpStr() const override {
+    std::string GetIpStr() const override {
         asio::error_code ec;
         const auto remote = socket_.remote_endpoint(ec);
         if (ec) {

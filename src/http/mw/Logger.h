@@ -1,12 +1,18 @@
 #pragma once
 
-#include "Middleware.h"
+#include "http/forward.h"
+#include "http/mw/Context.h"
 
 namespace mw {
 
-class Logger: public Middleware {
+class SessionBeginLogger: public Middleware<http::PreRouteContext> {
 public:
-    asio::awaitable<void> Process(http::Transaction& txn, Next next) override;
+    asio::awaitable<void> Process(http::PreRouteContext&, Next, Finish) override;
+};
+
+class SessionEndLogger: public Middleware<http::FinalContext> {
+public:
+    asio::awaitable<void> Process(http::FinalContext&, Next, Finish) override;
 };
 
 }

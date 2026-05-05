@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <span>
 
 #include "logger/forward.h"
 
@@ -29,11 +30,11 @@ namespace logger {
     };
 
     struct SessionEntry : public Entry {
-        size_t BytesServed { 0u };
         std::string UserAgent;
         std::string RequestLine;
         std::string ResponseLine;
         std::string RemoteIpPortString;
+        size_t BytesServed { 0u };
         core::WallTimePoint RttStart { core::WallClock::now() };
         core::WallTimePoint RttEnd;
 

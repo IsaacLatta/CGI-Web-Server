@@ -68,9 +68,11 @@ namespace http {
 
     class Request;
 
-    struct PreRouteContext;
+    class PreRouteContext;
 
-    struct PostRouteContext;
+    class PostRouteContext;
+
+    class FinalContext;
 
     class Exception;
 

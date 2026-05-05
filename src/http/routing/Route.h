@@ -31,17 +31,10 @@ struct Endpoint {
 
     ArgumentType ArgType{ArgumentType::None};
 
-    mw::Pipeline<PostEndpointContext> Pipeline;
+    mw::Pipeline<PostRouteContext> Pipeline;
 
     Handler Finisher;
 
-    std::shared_ptr<::mw::Middleware> RateLimiter { nullptr };
-
-    asio::awaitable<void> Handle(Transaction& txn) const {
-        if (Finisher) {
-            co_return co_await Finisher(&txn);
-        }
-    }
 };
 
 class Route {

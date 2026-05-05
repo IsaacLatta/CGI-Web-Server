@@ -10,7 +10,7 @@ class Parser: public Middleware<http::PreRouteContext> {
 public:
     Parser(const http::Router& router) : router_(router) {}
 
-    asio::awaitable<void> Process(http::PreRouteContext&, NextCallback, FinishCallback) override;
+    asio::awaitable<void> Process(http::PreRouteContext&, Next, Finish) override;
 
 private:
     const http::Router& router_;

@@ -1,22 +1,26 @@
 #include "http/mw/Authenticator.h"
 
 #include <cassert>
+#include <format>
 
 #include <jwt-cpp/jwt.h>
 #include <jwt-cpp/traits/nlohmann-json/defaults.h>
 
+#include "logger/macros.h"
+
 #include "core/time.h"
 
 #include "http/Exception.h"
-#include "http/Transaction.h"
+#include "http/mw/Context.h"
+#include "http/routing/Route.h"
 
 namespace mw {
 
-    void Authenticator::Validate(http::Transaction& txn, const http::Endpoint& endpoint) const {
-        const auto& request = txn.GetRequest();
+    asio::awaitable<void> Authenticator::Process(http::PostRouteContext& ctx, Next next, Finish finish) {
+        const auto& request = ctx.GetRequest();
 
-        if(!endpoint.IsProtected) {
-            return;
+        if(!ctx.GetEndpoint().IsProtected) {
+            co_return;
         }
 
         const auto token = http::extract_jwt_from_cookie(request.GetHeader("Cookie"));
@@ -26,8 +30,7 @@ namespace mw {
 
         try {
             const auto decoded_token = jwt::decode(*token);
-            const auto verifier = jwt::verify().allow_algorithm(
-                jwt::algorithm::hs256{config_.Secret}).with_issuer(config_.Issuer);
+            const auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{config_.Secret}).with_issuer(config_.Issuer);
 
             verifier.verify(decoded_token);
 
@@ -36,23 +39,15 @@ namespace mw {
             }
 
             auto role_claim = decoded_token.get_payload_claim("role");
-            if (!config_.IncludesRole(endpoint.AccessRole, role_claim.as_string())) {
+            if (!config_.IncludesRole(ctx.GetEndpoint().AccessRole, role_claim.as_string())) {
                 throw http::Exception(http::Unauthorized, "insufficient permissions");
             }
 
+            co_return co_await next(ctx);
         } catch (const std::exception& e) {
-            throw http::Exception(http::Unauthorized, std::format("authorization failed: {}", e.what()));
+            ERROR("MW Authenticator", "client failed to authenticate %s", e.what());
         }
-    }
-
-    asio::awaitable<void> Authenticator::Process(http::Transaction& txn, Next next) {
-        if (!txn.ResolvedEndpoint) {
-            throw http::Exception(http::Internal_Server_Error, "mw::Authenticator, routing failure!");
-        }
-
-        Validate(txn, *txn.ResolvedEndpoint);
-        co_await next();
-        co_return;
+        co_return co_await finish(ctx, http::Response{http::Unauthorized}, std::nullopt);
     }
 
 }

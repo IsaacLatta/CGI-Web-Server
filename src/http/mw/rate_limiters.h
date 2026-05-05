@@ -12,7 +12,7 @@ namespace mw {
 
 class RateLimiter: public Middleware<http::PostRouteContext> {
 public:
-    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, Next, Finish) override;
 };
 
 struct IpInfo {
@@ -26,7 +26,7 @@ public:
 
     FixedWindowLimiter() { clients.reserve(2048); }
 
-    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, Next, Finish) override;
 
 private:
     std::unordered_map<std::string, std::unique_ptr<IpInfo>> clients;
@@ -45,7 +45,7 @@ struct Bucket {
 class TokenBucketLimiter: public Middleware<http::PostRouteContext> {
 public:
     TokenBucketLimiter(cfg::TokenBucketSetting&& setting): setting(setting) {buckets.reserve(2048);}
-    asio::awaitable<void> Process(http::PostRouteContext&, NextCallback, FinishCallback) override;
+    asio::awaitable<void> Process(http::PostRouteContext&, Next, Finish) override;
 
 private:
     cfg::TokenBucketSetting setting;

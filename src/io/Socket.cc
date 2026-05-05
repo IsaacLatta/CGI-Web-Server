@@ -10,7 +10,7 @@ namespace io {
         return socket_;
     }
 
-    std::string PlainSocket::IpStr() const {
+    std::string PlainSocket::GetIpStr() const {
         if (!client_address_.empty()) {
             return client_address_;
         }
@@ -23,7 +23,7 @@ namespace io {
     }
 
     void PlainSocket::TryCacheIp() {
-        client_address_ = IpStr();
+        client_address_ = GetIpStr();
     }
 
     asio::awaitable<Socket::Result> PlainSocket::Read(std::span<char> buffer) {
