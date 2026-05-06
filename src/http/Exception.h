@@ -2,6 +2,7 @@
 
 #include <exception>
 
+#include "http/forward.h"
 #include "parsing/parse.h"
 #include "http/Response.h"
 

@@ -54,9 +54,9 @@ std::string Route::GetAccessRole(Method m) const {
     });
 }
 
-Handler Route::GetHandler(Method m) const {
+EndpointHandler Route::GetHandler(Method m) const {
     return TryVisitProperty(m, [](const Endpoint& ep) {
-        return ep.Finisher;
+        return ep.Handler;
     });
 }
 

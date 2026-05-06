@@ -3,8 +3,6 @@
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
 
-#include "io/Socket.h"
-
 #include "http/forward.h"
 #include "http/mw/Context.h"
 
@@ -20,9 +18,9 @@ class DefaultSession : public Session {
 public:
     explicit DefaultSession(
         const Router& router,
-        const mw::Pipeline<PreRouteContext>& pipeline,
+        const mw::Pipeline<PreRouteContext>& preroute_pipeline,
         const mw::Pipeline<FinalContext>& final_pipeline,
-        io::SocketPtr&& sock) : router_(router), final_pipeline_(final_pipeline), pipeline_(pipeline) {
+        io::SocketPtr&& sock) : router_(router), final_pipeline_(final_pipeline), preroute_pipeline_(preroute_pipeline) {
 
         state_.Socket = std::move(sock);
         state_.Buffer.reserve(io::BUFFER_SIZE);
@@ -34,13 +32,13 @@ public:
 private:
     asio::awaitable<void> DoPeRoute();
     asio::awaitable<void> DoPostRoute();
-    asio::awaitable<void> OnFinish(Response, std::optional<Handler> = std::nullopt);
+    asio::awaitable<void> OnFinish(Response, std::optional<ResponseHandler> = std::nullopt);
 
 private:
     TransactionState state_{};
     const Router& router_;
     const mw::Pipeline<FinalContext>& final_pipeline_;
-    const mw::Pipeline<PreRouteContext>& pipeline_;
+    const mw::Pipeline<PreRouteContext>& preroute_pipeline_;
     bool done_ { false };
 };
 

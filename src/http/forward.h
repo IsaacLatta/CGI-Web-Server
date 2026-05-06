@@ -96,9 +96,9 @@ namespace http {
 
     using ErrorPageFactory = std::function<ErrorPage(Code)>;
 
-    using Handler = std::function<asio::awaitable<void>(const Response&)>;
+    using ResponseHandler = std::function<asio::awaitable<void>(const Response&)>;
 
-    using HandlerFactory = std::function<Handler(Method)>;
+    using EndpointHandler = std::function<asio::awaitable<void>(PostRouteContext&)>;
 }
 
 namespace mw {

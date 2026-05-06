@@ -4,6 +4,8 @@
 
 namespace io {
 
+    struct Result;
+
     class Socket;
 
     using SocketPtr = std::unique_ptr<Socket>;
@@ -11,6 +13,12 @@ namespace io {
     class Acceptor;
 
     using AcceptorPtr = std::unique_ptr<Acceptor>;
+
+    class ScriptStreamer;
+
+    class FileStreamer;
+
+    class StringStreamer;
 
     /* Estimated BDP for typical network conditions, e.g.) RTT=20 ms, BW=100-200 Mbps*/
     constexpr size_t BUFFER_SIZE { 262144u };

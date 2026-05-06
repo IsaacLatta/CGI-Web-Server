@@ -1,4 +1,5 @@
 #include "MethodHandler.h"
+#include "io/Streamer.h"
 #include "logger/macros.h"
 
 #include "http/mw/Context.h"
@@ -21,8 +22,9 @@ asio::awaitable<void> OptionsHandler::Handle(http::PostRouteContext& ctx) {
         .AddHeader("Connection", "close")
         .Build();
 
-    auto [ec, bytes] = co_await ctx.GetState().Socket->Write(response_str);
-    ctx.GetLogEntry().error_code = ec;
+    io::StringStreamer streamer(response_str);
+    auto [ec, bytes] = co_await streamer.Stream(ctx.GetSocket());
+    ctx.GetLogEntry().ErrorCode = ec;
     ctx.GetLogEntry().BytesServed += bytes;
     co_return;
 }

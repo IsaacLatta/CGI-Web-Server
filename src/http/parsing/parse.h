@@ -92,8 +92,4 @@ namespace http {
         return Service_Unavailable;
     }
 
-    namespace detail {
-        Handler assign_handler(Method);
-    }
-
 } //namespace http

@@ -24,7 +24,7 @@ asio::awaitable<void> Parser::Process(http::PreRouteContext& context, Next next,
 
     auto& route = router_.GetRoute(request.GetPath());
     context.SetRoute(route);
-    context.SetEndpoint(route.GetEndpoint(request.GetMethod());
+    context.SetEndpoint(route.GetEndpoint(request.GetMethod()));
     context.SetRequest(std::move(request));
 
     co_return co_await next(context);

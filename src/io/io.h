@@ -23,7 +23,9 @@ namespace io {
 
     asio::awaitable<void> do_backoff(const asio::error_code& ec, uint32_t retry_idx);
 
-    asio::awaitable<Socket::Result> co_write_all(Socket&, std::span<const char>);
+    Result get_file_size(const std::string& file_path);
+
+    asio::awaitable<Result> co_write_all(Socket&, std::span<const char>);
 
     inline bool is_client_disconnect(const asio::error_code& ec) noexcept {
         return ec == asio::error::connection_reset || ec == asio::error::broken_pipe || ec == asio::error::eof;
@@ -37,5 +39,11 @@ namespace io {
         return ec == asio::error::would_block || ec == asio::error::try_again || ec == asio::error::network_unreachable
             || ec == asio::error::host_unreachable || ec == asio::error::connection_refused || ec == asio::error::timed_out
             || ec == asio::error::no_buffer_space;
+    }
+
+    inline bool is_fatal(asio::error_code ec) {
+        return ec.value() == asio::error::bad_descriptor ||
+            ec.value() == asio::error::access_denied ||
+            ec.value() == asio::error::address_in_use;
     }
 }

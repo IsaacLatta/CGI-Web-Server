@@ -12,21 +12,10 @@
 
 #include "http/Session.h"
 
-
-namespace {
-
-    bool is_fatal(asio::error_code ec) {
-        return ec.value() == asio::error::bad_descriptor ||
-            ec.value() == asio::error::access_denied ||
-            ec.value() == asio::error::address_in_use;
-    }
-
-}
-
 namespace http {
 
 Server::Server(asio::io_context& io_context, io::AcceptorPtr acceptor, SessionFactory session_factory)
-    :   io_context_(io_context), acceptor_(std::move(acceptor)), session_factory_(std::move(session_factory)) {}
+    :  io_context_(io_context), acceptor_(std::move(acceptor)), session_factory_(std::move(session_factory)) {}
 
 asio::awaitable<void> Server::AcceptLoop() {
     while(true) {
@@ -40,7 +29,9 @@ asio::awaitable<void> Server::AcceptLoop() {
         }
 
         const auto session = session_factory_(std::move(socket));
-        asio::co_spawn(io_context_, session->Start(), asio::detached);
+        asio::co_spawn(io_context_,
+            [session] () -> asio::awaitable<void> { co_return co_await session->Start(); },
+            asio::detached);
     }
 }
 
@@ -91,7 +82,7 @@ bool Server::ShouldExit(const asio::error_code& error) {
 
     DEBUG("Server", "async accept: error=%d %s", error.value(), error.message().c_str());
 
-    if(retries_ > MAX_RETRIES || is_fatal(error)) {
+    if(retries_ > MAX_RETRIES || io::is_fatal(error)) {
         FATAL("Server", "error=%d %s", error.value(), error.message().c_str());
         return true;
     }

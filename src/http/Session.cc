@@ -1,4 +1,5 @@
 #include "http/Session.h"
+#include "http/Response.h"
 #include "http/Exception.h"
 #include "http/mw/Middleware.h"
 #include "http/mw/Context.h"
@@ -25,14 +26,10 @@ asio::awaitable<void> DefaultSession::Start() {
 asio::awaitable<void> DefaultSession::DoPeRoute() {
     PreRouteContext ctx(state_);
 
-    const auto outcome = co_await pipeline_.Run(
+    const auto outcome = co_await preroute_pipeline_.Run(
         ctx,
-        [this](auto&, Response response, std::optional<Handler> handler)
-            -> asio::awaitable<void> {
-            co_return co_await OnFinish(
-                std::move(response),
-                std::move(handler)
-            );
+        [this](auto&, Response response, std::optional<ResponseHandler> handler) -> asio::awaitable<void> {
+            co_return co_await OnFinish(std::move(response), std::move(handler));
         }
     );
 
@@ -52,7 +49,7 @@ asio::awaitable<void> DefaultSession::DoPostRoute() {
 
     const auto route_outcome = co_await ctx.GetRoute().Pipeline().Run(
         ctx,
-        [this](auto&, Response response, std::optional<Handler> handler) -> asio::awaitable<void> {
+        [this](auto&, Response response, std::optional<ResponseHandler> handler) -> asio::awaitable<void> {
             co_return co_await OnFinish(std::move(response), std::move(handler));
         }
     );
@@ -63,7 +60,7 @@ asio::awaitable<void> DefaultSession::DoPostRoute() {
 
     const auto endpoint_outcome = co_await ctx.GetEndpoint().Pipeline.Run(
         ctx,
-        [this](auto&, Response response, std::optional<Handler> handler) -> asio::awaitable<void> {
+        [this](auto&, Response response, std::optional<ResponseHandler> handler) -> asio::awaitable<void> {
             co_return co_await OnFinish(std::move(response), std::move(handler));
         }
     );
@@ -72,10 +69,11 @@ asio::awaitable<void> DefaultSession::DoPostRoute() {
         co_return;
     }
 
-    co_return co_await OnFinish(std::move(ctx.GetResponse()), ctx.GetEndpoint().Finisher);
+    co_await ctx.GetEndpoint().Handler(ctx);
+    co_return;
 }
 
-asio::awaitable<void> DefaultSession::OnFinish(Response response, std::optional<Handler> handler) {
+asio::awaitable<void> DefaultSession::OnFinish(Response response, std::optional<ResponseHandler> handler) {
     try {
         if (handler) {
             co_await (*handler)(response);
@@ -84,12 +82,12 @@ asio::awaitable<void> DefaultSession::OnFinish(Response response, std::optional<
                 response = Response { Internal_Server_Error };
             }
 
-            co_await router_.GetErrorPage(response.Status).Finisher(response);
+            co_await router_.GetErrorPage(response.Status).Handler(response);
         }
 
         FinalContext context(state_, response);
 
-        auto do_nothing = [](auto&, Response, std::optional<Handler>) -> asio::awaitable<void> { co_return; };
+        auto do_nothing = [](auto&, Response, std::optional<ResponseHandler>) -> asio::awaitable<void> { co_return; };
         co_await final_pipeline_.Run(context, do_nothing);
         co_return;
     } catch (const Exception& e) {

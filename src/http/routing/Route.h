@@ -5,13 +5,12 @@
 #include "http/forward.h"
 #include "http/mw/Middleware.h"
 #include "http/Exception.h"
-#include "http/mw/Context.h"
 
 namespace http {
 
 struct ErrorPage {
     Code Status;
-    Handler Finisher;
+    ResponseHandler Handler;
 };
 
 struct Endpoint {
@@ -29,12 +28,11 @@ struct Endpoint {
 
     bool HasScript { false };
 
-    ArgumentType ArgType{ArgumentType::None};
+    ArgumentType ArgType { ArgumentType::None };
 
     mw::Pipeline<PostRouteContext> Pipeline;
 
-    Handler Finisher;
-
+    EndpointHandler Handler;
 };
 
 class Route {
@@ -59,7 +57,7 @@ public:
 
     ArgumentType GetArgType(Method) const;
 
-    Handler GetHandler(Method) const;
+    EndpointHandler GetHandler(Method) const;
 
     std::vector<Method> GetAvailableMethods() const;
 

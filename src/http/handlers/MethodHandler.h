@@ -14,30 +14,24 @@ public:
     virtual asio::awaitable<void> Handle(http::PostRouteContext&) = 0;
 };
 
-class GetHandler: public MethodHandler {
+class GetFileHandler: public MethodHandler {
 public:
     asio::awaitable<void> Handle(http::PostRouteContext&) override;
+};
 
-private:
-    asio::awaitable<void> handleScript();
-    asio::awaitable<void> handleFile();
+class GetScriptHandler: public MethodHandler {
+public:
+    asio::awaitable<void> Handle(http::PostRouteContext&) override;
 };
 
 class HeadHandler: public MethodHandler {
 public:
     asio::awaitable<void> Handle(http::PostRouteContext&) override;
-
-private:
-    void buildResponse();
 };
 
 class PostHandler: public MethodHandler  {
 public:
     asio::awaitable<void> Handle(http::PostRouteContext&) override;
-
-private:
-    size_t total_bytes { 0u };
-    std::string response_header;
 };
 
 class OptionsHandler: public MethodHandler {

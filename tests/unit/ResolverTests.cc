@@ -7,8 +7,8 @@
 
 namespace {
 
-    using IntFactory = std::function<int()>;
-    using ResolverAwareFactory = std::function<std::string(const core::Resolver&, int)>;
+using IntFactory = std::function<int()>;
+using ResolverAwareFactory = std::function<std::string(const core::Resolver&, int)>;
 
 TEST(Resolver, GetOrReturnsBoundFactoryInsteadOfFallback) {
     core::Resolver resolver;

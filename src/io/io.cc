@@ -68,5 +68,26 @@ asio::awaitable<void> do_backoff(const asio::error_code& ec, uint32_t attempt) {
     co_return;
 }
 
+Result get_file_size(const std::string& file_path) {
+    if (file_path.empty()) {
+        return Result { std::make_error_code(std::errc::invalid_argument), 0u };
+    }
+
+    const int filefd =  open(file_path.c_str(), O_RDONLY);
+    if(filefd == -1) {
+        return Result { std::error_code(errno, std::generic_category()), 0u };
+    }
+
+    const auto file_len = lseek(filefd, static_cast<off_t>(0), SEEK_END);
+    if(file_len <= 0) {
+        return Result { std::error_code(errno, std::generic_category()), 0u };
+    }
+
+    lseek(filefd, 0, SEEK_SET);
+    close(filefd);
+    return Result{ {}, static_cast<size_t>(file_len) };
+}
+
+
 
 }

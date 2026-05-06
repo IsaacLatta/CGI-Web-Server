@@ -20,13 +20,11 @@ namespace http {
         std::vector<char> Buffer{};
         logger::SessionEntry LogEntry{};
 
-        std::optional<Request> Request;
-        std::optional<Response> Response;
+        std::optional<Request> WorkingRequest;
+        std::optional<Response> WorkingResponse;
 
-        std::optional<Route> Route;
-        std::optional<Endpoint> Endpoint;
-
-        Handler FinalHandler { nullptr };
+        std::optional<Route> ResolvedRoute;
+        std::optional<Endpoint> ResolvedEndpoint;
     };
 
     class PreRouteContext {
@@ -47,21 +45,21 @@ namespace http {
         }
 
         void SetRequest(Request request) {
-            state_.Request = std::move(request);
+            state_.WorkingRequest = std::move(request);
         }
 
         void SetRoute(const Route& route) {
-            state_.Route = route;
+            state_.ResolvedRoute = route;
         }
 
         void SetEndpoint(const Endpoint& endpoint) {
-            state_.Endpoint = endpoint;
+            state_.ResolvedEndpoint = endpoint;
         }
 
         bool IsRouted() const {
-            return state_.Request.has_value()
-                && state_.Route.has_value()
-                && state_.Endpoint.has_value();
+            return state_.WorkingRequest.has_value()
+                && state_.ResolvedRoute.has_value()
+                && state_.ResolvedEndpoint.has_value();
         }
 
         TransactionState& GetState() {
@@ -76,7 +74,7 @@ namespace http {
     public:
 
         explicit PostRouteContext(TransactionState& state): state_(state) {
-            if (!state_.Request || !state_.Route || !state_.Endpoint) {
+            if (!state_.WorkingRequest || !state_.ResolvedRoute || !state_.ResolvedEndpoint) {
                 throw Exception(Internal_Server_Error);
             }
         }
@@ -94,23 +92,27 @@ namespace http {
         }
 
         Request& GetRequest() {
-            return *state_.Request;
+            return *state_.WorkingRequest;
         }
 
         const Route& GetRoute() {
-            return *state_.Route;
+            return *state_.ResolvedRoute;
         }
 
         const Endpoint& GetEndpoint() {
-            return *state_.Endpoint;
+            return *state_.ResolvedEndpoint;
         }
 
         Response& GetResponse() {
-            if (!state_.Response) {
-                state_.Response.emplace();
+            if (!state_.WorkingResponse) {
+                state_.WorkingResponse.emplace();
             }
 
-            return *state_.Response;
+            return *state_.WorkingResponse;
+        }
+
+        void SetResponse(Response response) {
+            state_.WorkingResponse = std::move(response);
         }
 
         TransactionState& GetState() {
@@ -142,21 +144,21 @@ namespace http {
         }
 
         Request* GetRequest() {
-            return state_.Request ? &*state_.Request : nullptr;
+            return state_.WorkingRequest ? &*state_.WorkingRequest : nullptr;
         }
 
-        bool IsRouted() const {
-            return state_.Request.has_value()
-                && state_.Route.has_value()
-                && state_.Endpoint.has_value();
+        [[nodiscard]] bool IsRouted() const {
+            return state_.WorkingRequest.has_value()
+                && state_.ResolvedRoute.has_value()
+                && state_.ResolvedEndpoint.has_value();
         }
 
         const Route& GetRoute() const {
-            return state_.Route.value();
+            return state_.ResolvedRoute.value();
         }
 
         const Endpoint& GetEndpoint() const {
-            return state_.Endpoint.value();
+            return state_.ResolvedEndpoint.value();
         }
 
     private:

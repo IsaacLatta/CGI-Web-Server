@@ -546,7 +546,6 @@ std::string_view http::extract_args(std::span<const char> buffer, http::Argument
     }
 }
 
-
 http::ArgumentType arg_str_to_enum(const std::string& args_str) noexcept {
     std::string_view args = args_str;
     std::string args_upper = http::trim_to_upper(args);
@@ -562,35 +561,4 @@ http::ArgumentType arg_str_to_enum(const std::string& args_str) noexcept {
         return http::ArgumentType::Body_Any;
     }
     return http::ArgumentType::None;
-}
-
-namespace http::detail {
-
-Handler assign_handler(Method m) {
-    switch (m) {
-        case http::Method::Get: return [](Transaction* txn) -> asio::awaitable<void> {
-            GetHandler handler(*txn);
-            co_await handler.Handle();
-            co_return;
-        };
-        case http::Method::Post: return [](Transaction* txn) -> asio::awaitable<void> {
-            PostHandler handler(*txn);
-            co_await handler.Handle();
-            co_return;
-        };
-        case http::Method::Head: return [](Transaction* txn) -> asio::awaitable<void> {
-            HeadHandler handler(*txn);
-            co_await handler.Handle();
-            co_return;
-        };
-        case http::Method::Options: return [](Transaction* txn) -> asio::awaitable<void> {
-            OptionsHandler handler(*txn);
-            co_await handler.Handle();
-            co_return;
-        };
-        default:
-            throw http::Exception(http::Not_Implemented, "request Method not supported");
-    }
-}
-
 }

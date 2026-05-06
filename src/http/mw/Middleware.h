@@ -10,6 +10,7 @@
 #include <asio/awaitable.hpp>
 
 #include "http/forward.h"
+#include "http/Response.h"
 
 namespace mw {
 
@@ -22,13 +23,7 @@ template<typename Context>
 using NextCallback = std::function<asio::awaitable<void>(Context&)>;
 
 template<typename Context>
-using FinishCallback = std::function<
-    asio::awaitable<void>(
-        Context&,
-        http::Response,
-        std::optional<http::Handler>
-    )
->;
+using FinishCallback = std::function<asio::awaitable<void>(Context&, http::Response, std::optional<http::ResponseHandler>)>;
 
 template<typename Context>
 class Middleware {
@@ -39,33 +34,23 @@ public:
 public:
     virtual ~Middleware() = default;
 
-    virtual asio::awaitable<void> Process(
-        Context&,
-        Next,
-        Finish
-    ) = 0;
+    virtual asio::awaitable<void> Process(Context&, Next, Finish) = 0;
 };
 
 template<typename Context>
 class Pipeline {
 public:
     using MiddlewareType = Middleware<Context>;
+    using MiddlewarePtr = std::shared_ptr<MiddlewareType>;
     using FinishCallback = mw::FinishCallback<Context>;
     using NextCallback = mw::NextCallback<Context>;
 
 public:
-    asio::awaitable<PipelineOutcome> Run(
-        Context& ctx,
-        const FinishCallback& on_finish
-    ) const {
-        bool finished = false;
+    asio::awaitable<PipelineOutcome> Run(Context& ctx, const FinishCallback& on_finish) const {
+        bool finished { false };
 
         FinishCallback wrapped_finish =
-            [&finished, on_finish](
-                Context& ctx,
-                http::Response response,
-                std::optional<http::Handler> handler
-            ) -> asio::awaitable<void> {
+            [&finished, on_finish](Context& ctx, http::Response response, std::optional<http::ResponseHandler> handler) -> asio::awaitable<void> {
                 finished = true;
 
                 co_return co_await on_finish(
@@ -76,50 +61,38 @@ public:
             };
 
         co_await RunOne(ctx, 0u, wrapped_finish);
-
-        co_return finished
-            ? PipelineOutcome::Finished
-            : PipelineOutcome::Continued;
+        co_return finished ? Finished : Continued;
     }
 
     template<typename Component, typename... Args>
     Pipeline& AddComponent(Args&&... args) {
         components_.emplace_back(
-            std::make_unique<Component>(std::forward<Args>(args)...)
+            std::make_shared<Component>(std::forward<Args>(args)...)
         );
 
         return *this;
     }
 
-    Pipeline& AddComponent(std::unique_ptr<MiddlewareType> middleware) {
+    Pipeline& AddComponent(MiddlewarePtr middleware) {
         components_.emplace_back(std::move(middleware));
         return *this;
     }
 
 private:
-    asio::awaitable<void> RunOne(
-        Context& context,
-        size_t index,
-        const FinishCallback& on_finish
-    ) const {
+    asio::awaitable<void> RunOne(Context& context, size_t index, const FinishCallback& on_finish) const {
         if (index == components_.size()) {
             co_return;
         }
 
-        NextCallback next =
-            [this, index, on_finish](Context& ctx) -> asio::awaitable<void> {
-                co_return co_await RunOne(ctx, index + 1, on_finish);
-            };
+        NextCallback next = [this, index, on_finish](Context& ctx) -> asio::awaitable<void> {
+            co_return co_await RunOne(ctx, index + 1, on_finish);
+        };
 
-        co_return co_await components_.at(index)->Process(
-            context,
-            std::move(next),
-            on_finish
-        );
+        co_return co_await components_.at(index)->Process(context, std::move(next), on_finish);
     }
 
 private:
-    std::vector<std::unique_ptr<MiddlewareType>> components_;
+    std::vector<MiddlewarePtr> components_;
 };
 
 } // namespace mw

@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "forward.h"
+#include "http/forward.h"
 #include "parsing/parse.h"
 
 namespace http {
@@ -71,6 +71,5 @@ namespace http {
         std::string built_response_;
         std::string body_;
         Headers headers_;
-        Handler handler_;
     };
 }
