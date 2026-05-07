@@ -25,7 +25,7 @@ public:
     // TODO: Remove these from the interface.
 public:
     virtual asio::ip::tcp::socket& GetRawSocket() = 0;
-    virtual std::string GetIpStr() const { return ""; }
+    [[nodiscard]] virtual std::string GetIpStr() const { return ""; }
 };
 
 class PlainSocket: public Socket {
@@ -37,7 +37,7 @@ public:
     asio::awaitable<Result> Write(std::span<const char>) override;
 
 
-    std::string GetIpStr() const override;
+    [[nodiscard]] std::string GetIpStr() const override;
     asio::ip::tcp::socket& GetRawSocket() override;
 
 private:

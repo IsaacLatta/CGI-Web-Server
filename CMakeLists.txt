@@ -53,13 +53,18 @@ target_link_libraries(core
         core_warnings
 )
 
+option(DEBUG_MODE "Enable project debug assertions/traps" ON)
+
+if(DEBUG_MODE)
+    target_compile_definitions(core PUBLIC DEBUG_MODE=1)
+else()
+    target_compile_definitions(core PUBLIC DEBUG_MODE=0)
+endif()
+
 target_compile_definitions(core
         PUBLIC
         PROJECT_NAME="${PROJECT_NAME}"
         PROJECT_VERSION="${PROJECT_VERSION}"
-        PROJECT_NAME_AND_VERSION="${PROJECT_NAME}_${PROJECT_VERSION}"
-        $<$<CONFIG:Debug>:DBG_ENABLED=1>
-        $<$<NOT:$<CONFIG:Debug>>:DBG_ENABLED=0>
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<CONFIG:Debug>>:_GLIBCXX_ASSERTIONS>
 )
 

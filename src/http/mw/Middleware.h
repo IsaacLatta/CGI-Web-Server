@@ -5,10 +5,12 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include <cassert>
 
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
 
+#include "core/dbg.h"
 #include "http/forward.h"
 #include "http/Response.h"
 
@@ -55,7 +57,7 @@ public:
                 co_return co_await on_finish(ctx, std::move(response), std::move(handler));
             };
 
-        co_await RunOne(ctx, 0u, wrapped_finish);
+        co_await RunOne(ctx, 0u, wrapped_finish, finished);
         co_return finished ? Finished : Continued;
     }
 
@@ -71,13 +73,19 @@ public:
     }
 
 private:
-    asio::awaitable<void> RunOne(Context& context, size_t index, const FinishCallback& on_finish) const {
-        if (index == components_.size()) {
+    asio::awaitable<void> RunOne(Context& context, size_t index, const FinishCallback& on_finish, bool& finished) const {
+        if (finished || index == components_.size()) {
             co_return;
         }
 
-        NextCallback next = [this, index, on_finish](Context& ctx) -> asio::awaitable<void> {
-            co_return co_await RunOne(ctx, index + 1, on_finish);
+        NextCallback next = [this, index, on_finish, &finished](Context& ctx) -> asio::awaitable<void> {
+            DBG_ASSERT(!finished, "next called after finish callback");
+
+            if (finished) {
+                co_return;
+            }
+
+            co_return co_await RunOne(ctx, index + 1, on_finish, finished);
         };
 
         co_return co_await components_.at(index)->Process(context, std::move(next), on_finish);

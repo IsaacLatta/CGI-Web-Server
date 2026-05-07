@@ -6,6 +6,14 @@
 
 namespace testkit {
 
+    template<typename Awaitable>
+    inline auto run_awaitable(Awaitable&& awaitable) {
+        asio::io_context io;
+        auto fut = asio::co_spawn(io, std::forward<Awaitable>(awaitable), asio::use_future);
+        io.run();
+        return fut.get();
+    }
+
     inline uint16_t get_free_loopback_port() {
         asio::io_context io;
         asio::ip::tcp::acceptor acceptor(io, asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0));
