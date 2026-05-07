@@ -18,6 +18,7 @@ find_package(tinyxml2 CONFIG REQUIRED)
 find_package(jwt-cpp CONFIG REQUIRED)
 find_package(asio CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 add_library(core_warnings INTERFACE)
 
@@ -48,6 +49,7 @@ target_link_libraries(core
         tinyxml2::tinyxml2
         nlohmann_json::nlohmann_json
         jwt-cpp::jwt-cpp
+        fmt::fmt
         core_warnings
 )
 

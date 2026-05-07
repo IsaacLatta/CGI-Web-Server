@@ -5,7 +5,8 @@
 #include <functional>
 #include <stdexcept>
 #include <typeindex>
-#include <format>
+
+#include <fmt/format.h>
 
 #include "concepts.h"
 #include "core/concepts.h"
@@ -61,12 +62,12 @@ private:
             const auto it = _factories.find(std::type_index(typeid(FactoryAlias)));
             if (it == _factories.end()) {
                 throw std::runtime_error(
-                    std::format("factory for type={} not found", typeid(FactoryAlias).name()));
+                    fmt::format("factory for type={} not found", typeid(FactoryAlias).name()));
             }
             return std::any_cast<FactoryAlias>(it->second);
         } catch (const std::bad_any_cast& e) {
             throw std::runtime_error(
-                    std::format("factory for type={} stored under wrong type: {}",
+                    fmt::format("factory for type={} stored under wrong type: {}",
                         typeid(FactoryAlias).name(), e.what()));
         }
     }

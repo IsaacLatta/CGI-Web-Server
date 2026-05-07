@@ -8,12 +8,12 @@ namespace testkit::fakes {
 
 class NoOpSocket final : public io::Socket {
 public:
-    asio::awaitable<Result> Read(std::span<char>) override {
-        co_return Result{};
+    asio::awaitable<io::Result> Read(std::span<char>) override {
+        co_return io::Result{};
     }
 
-    asio::awaitable<Result> Write(std::span<const char>) override {
-        co_return Result{};
+    asio::awaitable<io::Result> Write(std::span<const char>) override {
+        co_return io::Result{};
     }
 
     asio::ip::tcp::socket& GetRawSocket() override {

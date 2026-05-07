@@ -52,12 +52,7 @@ public:
         FinishCallback wrapped_finish =
             [&finished, on_finish](Context& ctx, http::Response response, std::optional<http::ResponseHandler> handler) -> asio::awaitable<void> {
                 finished = true;
-
-                co_return co_await on_finish(
-                    ctx,
-                    std::move(response),
-                    std::move(handler)
-                );
+                co_return co_await on_finish(ctx, std::move(response), std::move(handler));
             };
 
         co_await RunOne(ctx, 0u, wrapped_finish);
@@ -66,10 +61,7 @@ public:
 
     template<typename Component, typename... Args>
     Pipeline& AddComponent(Args&&... args) {
-        components_.emplace_back(
-            std::make_shared<Component>(std::forward<Args>(args)...)
-        );
-
+        components_.emplace_back(std::make_shared<Component>(std::forward<Args>(args)...));
         return *this;
     }
 

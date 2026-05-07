@@ -30,8 +30,8 @@ public:
         auto acceptor = std::make_unique<io::PlainAcceptor>(io_context_, endpoint_);
 
         http::SessionFactory factory =[this](io::SocketPtr&&) -> std::shared_ptr<http::Session> {
-                return std::make_shared<testkit::fakes::CountingSession>(session_starts_);
-            };
+            return std::make_shared<testkit::fakes::CountingSession>(session_starts_);
+        };
 
         server_ = std::make_unique<http::Server>(io_context_, std::move(acceptor), std::move(factory));
 

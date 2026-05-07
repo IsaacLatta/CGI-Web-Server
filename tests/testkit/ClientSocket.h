@@ -59,18 +59,18 @@ public:
         }
     }
 
-    asio::awaitable<Result> Read(std::span<char> buffer) override {
+    asio::awaitable<io::Result> Read(std::span<char> buffer) override {
         asio::error_code ec;
         const size_t bytes = co_await socket_.async_read_some(asio::buffer(buffer.data(), buffer.size()),
                 asio::redirect_error(asio::use_awaitable, ec));
-        co_return Result{ ec, bytes };
+        co_return io::Result{ ec, bytes };
     }
 
-    asio::awaitable<Result> Write(std::span<const char> buffer) override {
+    asio::awaitable<io::Result> Write(std::span<const char> buffer) override {
         asio::error_code ec;
         const size_t bytes = co_await socket_.async_write_some(asio::buffer(buffer.data(), buffer.size()),
             asio::redirect_error(asio::use_awaitable, ec));
-        co_return Result{ ec, bytes };
+        co_return io::Result{ ec, bytes };
     }
 
     asio::ip::tcp::socket& GetRawSocket() override {

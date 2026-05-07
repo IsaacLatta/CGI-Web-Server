@@ -2,6 +2,7 @@
   "name": "cgi-web-server",
   "version": "0.1.0",
   "dependencies": [
+    "fmt",
     "tinyxml2",
     "jwt-cpp",
     "nlohmann-json",

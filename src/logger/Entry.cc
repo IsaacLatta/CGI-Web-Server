@@ -1,6 +1,9 @@
 #include "logger/Entry.h"
 #include <cstdarg>
 #include <execinfo.h>
+#include <vector>
+#include <iomanip>
+#include <sstream>
 
 namespace {
     int duration_ms(const core::WallTimePoint& start_time, const core::WallTimePoint& end_time) {

@@ -498,13 +498,13 @@ static std::string_view get_args(std::span<const char> buffer, const std::string
     std::string content_type;
     std::string_view body = http::extract_body(buffer);
     if (!get_content_type(buffer, content_type)) {
-        throw http::Exception(http::Unsupported_Media_Type, std::format("expected={}, none provided", desired));
+        throw http::Exception(http::Unsupported_Media_Type);
     }
     if (content_type != desired) {
-        throw http::Exception(http::Unsupported_Media_Type, std::format("expected={}, client claimed={}", desired, content_type));
+        throw http::Exception(http::Unsupported_Media_Type);
     }
     if (!filter(body)) {
-        throw http::Exception(http::Bad_Request, std::format("invalid `{}` body", desired));
+        throw http::Exception(http::Bad_Request);
     }
     return body;
 }
@@ -519,7 +519,7 @@ static std::string_view body_any(std::span<const char> buffer) {
     } else if(content_type == "application/x-www-form-urlencoded" && is_valid_url_form(body)) {
         return body;
     } else if (content_type == "application/json" || content_type == "application/x-www-form-urlencoded") { // supported content type, but body was invalid
-        throw http::Exception(http::Bad_Request, std::format("invalid argument format in request body, client claimed={}", content_type));
+        throw http::Exception(http::Bad_Request, "invalid argument format in request body, client claimed={}");
     } else { // cannot validate this content-type, simply pass through
         return body;
     }

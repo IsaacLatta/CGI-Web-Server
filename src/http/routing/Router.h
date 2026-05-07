@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "http/forward.h"
+#include "http/routing/Route.h"
 
 namespace http {
 

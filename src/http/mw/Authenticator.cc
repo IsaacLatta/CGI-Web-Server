@@ -1,7 +1,6 @@
 #include "http/mw/Authenticator.h"
 
 #include <cassert>
-#include <format>
 
 #include <jwt-cpp/jwt.h>
 #include <jwt-cpp/traits/nlohmann-json/defaults.h>
@@ -25,7 +24,7 @@ namespace mw {
 
         const auto token = http::extract_jwt_from_cookie(request.GetHeader("Cookie"));
         if (!token) {
-            throw http::Exception(http::Unauthorized, "missing or invalid authentication token");
+            co_return co_await finish(ctx, http::Response { http::Unauthorized }, std::nullopt);
         }
 
         try {
@@ -35,12 +34,12 @@ namespace mw {
             verifier.verify(decoded_token);
 
             if(decoded_token.has_expires_at() && core::WallClock::now() > decoded_token.get_expires_at()) {
-                throw http::Exception(http::Unauthorized, "expired token");
+                co_return co_await finish(ctx, http::Response { http::Unauthorized }, std::nullopt);
             }
 
             auto role_claim = decoded_token.get_payload_claim("role");
             if (!config_.IncludesRole(ctx.GetEndpoint().AccessRole, role_claim.as_string())) {
-                throw http::Exception(http::Unauthorized, "insufficient permissions");
+                co_return co_await finish(ctx, http::Response { http::Unauthorized }, std::nullopt);
             }
 
             co_return co_await next(ctx);

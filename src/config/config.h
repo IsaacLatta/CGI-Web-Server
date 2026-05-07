@@ -2,7 +2,6 @@
 
 #include <asio.hpp>
 #include <string>
-#include <format>
 #include <functional>
 #include <algorithm>
 
@@ -12,11 +11,6 @@ constexpr int DEFAULT_WINDOW_SECONDS = 60;
 constexpr int DEFAULT_MAX_REQUESTS = 3000;
 constexpr int DEFAULT_TOKEN_CAPACITY = 60;
 constexpr int DEFAULT_REFILL_RATE = 2; /* in tokens/s, i.e. 1 token/s */
-
-/* Returns the sockets ip address */
-inline std::string default_make_key(http::Transaction& txn) {
-    return txn.GetSocket().IpStr();
-}
 
 struct Role {
     std::string Title;
@@ -54,7 +48,7 @@ struct AccessControl {
 struct RateSetting {
     enum class KeyType { IP, Header };
     KeyType key_type{KeyType::IP};
-    std::function<std::string(http::Transaction&)> make_key{default_make_key};
+    std::function<std::string(http::Transaction&)> make_key;
 };
 
 struct TokenBucketSetting: public RateSetting {

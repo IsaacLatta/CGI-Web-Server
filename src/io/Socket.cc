@@ -26,12 +26,12 @@ namespace io {
         client_address_ = GetIpStr();
     }
 
-    asio::awaitable<Socket::Result> PlainSocket::Read(std::span<char> buffer) {
+    asio::awaitable<Result> PlainSocket::Read(std::span<char> buffer) {
         auto [ec, bytes_read] = co_await socket_.async_read_some(asio::buffer(buffer), asio::as_tuple(asio::use_awaitable));
         co_return Result { ec, bytes_read };
     }
 
-    asio::awaitable<Socket::Result> PlainSocket::Write(std::span<const char> buffer) {
+    asio::awaitable<Result> PlainSocket::Write(std::span<const char> buffer) {
         auto [ec, bytes_written] = co_await asio::async_write(socket_, asio::buffer(buffer), asio::as_tuple(asio::use_awaitable));
         co_return Result{ ec, bytes_written };
     }
